@@ -106,7 +106,3 @@ skills/rpd/
 ```bash
 python scripts/run-eval.py
 ```
-
-## License
-
-MIT
