@@ -16,6 +16,38 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# --- Version migration ---
+
+CURRENT_VERSION = 1
+
+MIGRATIONS = {
+    1: None,  # Current version, no migration needed
+    # 2: lambda data: add_new_field(data, "new_field", "default"),
+}
+
+
+def migrate_state_file(frontmatter):
+    """Auto-migrate old version state files to current version."""
+    file_version = int(frontmatter.get("version", CURRENT_VERSION))
+
+    if file_version == CURRENT_VERSION:
+        return frontmatter, []
+
+    if file_version > CURRENT_VERSION:
+        raise ValueError(f"State file version {file_version} is higher than supported version {CURRENT_VERSION}")
+
+    migrated = frontmatter.copy()
+    migrations_applied = []
+
+    for v in range(file_version, CURRENT_VERSION):
+        if v in MIGRATIONS and MIGRATIONS[v]:
+            migrated = MIGRATIONS[v](migrated)
+            migrations_applied.append(f"v{v} -> v{v+1}")
+
+    migrated["version"] = CURRENT_VERSION
+    return migrated, migrations_applied
+
+
 # --- Schema validation (stdlib-only, no jsonschema dependency) ---
 
 def validate_type(value, schema_type):
@@ -163,6 +195,9 @@ def extract_frontmatter(content):
                 value = value[1:-1]
             elif value.startswith("'") and value.endswith("'"):
                 value = value[1:-1]
+            # Convert integer values
+            if value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
+                value = int(value)
             frontmatter[key] = value
 
     return frontmatter
@@ -206,6 +241,16 @@ def main():
     except Exception as e:
         print(f"Error: Cannot parse schema: {e}", file=sys.stderr)
         return 1
+
+    # Run migration if needed
+    try:
+        migrated, migrations = migrate_state_file(frontmatter)
+        if migrations:
+            print(f"Migration applied: {', '.join(migrations)}", file=sys.stderr)
+            frontmatter = migrated
+    except ValueError as e:
+        print(f"Migration error: {e}", file=sys.stderr)
+        return 3
 
     # Validate
     errors = validate_schema(frontmatter, schema)

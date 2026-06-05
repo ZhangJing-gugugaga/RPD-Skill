@@ -1,7 +1,9 @@
 ---
+version: 1
 name: my-cool-app
 created: 2026-06-05
 last-synced: 2026-06-05T14:30:00
+last-modified-by: rpd-agent
 status: in-development
 entry-type: new-idea
 ---

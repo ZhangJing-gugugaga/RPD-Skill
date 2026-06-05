@@ -5,6 +5,11 @@
   "type": "object",
   "required": ["name", "created", "last-synced", "status", "entry-type"],
   "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "State file schema version, used for migration"
+    },
     "name": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
@@ -21,6 +26,10 @@
       "type": "string",
       "format": "date-time",
       "description": "Last sync timestamp in ISO 8601 format"
+    },
+    "last-modified-by": {
+      "type": "string",
+      "description": "Agent identifier who last modified this file"
     },
     "status": {
       "type": "string",

@@ -10,6 +10,7 @@ Exit codes:
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -36,6 +37,20 @@ SECRET_PATTERNS = [
     (r'(?:secret|key|token|password|credential)\s*=\s*["\'][A-Za-z0-9+/=_\-]{32,}["\']', "Possible hardcoded secret"),
 ]
 
+# Sensitive files that shouldn't be in version control
+SENSITIVE_FILES = {
+    ".env": "Environment file with potential secrets",
+    ".env.local": "Local environment overrides",
+    ".env.production": "Production environment config",
+    ".env.development": "Development environment config",
+    ".git/config": "Git config (may contain credentials)",
+    ".npmrc": "npm config (may contain auth tokens)",
+    ".pypirc": "PyPI config (may contain upload tokens)",
+    ".htpasswd": "Apache password file",
+    "id_rsa": "SSH private key",
+    "id_ed25519": "SSH private key",
+}
+
 # Files to skip (binary, generated, dependencies)
 SKIP_EXTENSIONS = {
     '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2',
@@ -49,6 +64,8 @@ SKIP_DIRS = {
     'node_modules', '.git', '__pycache__', '.venv', 'venv', 'env',
     'dist', 'build', '.next', '.nuxt', 'vendor', 'target',
 }
+
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB - skip files larger than this
 
 # --- Prompt injection detection ---
 
@@ -77,6 +94,50 @@ def should_skip_dir(dirname):
     return dirname in SKIP_DIRS
 
 
+def safe_read_file(path, max_size=MAX_FILE_SIZE):
+    """Read file with size limit to prevent OOM."""
+    try:
+        if os.path.getsize(path) > max_size:
+            return None
+        return Path(path).read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return None
+
+
+def scan_sensitive_files(project_dir):
+    """Check for sensitive files that shouldn't be committed."""
+    findings = []
+    p = Path(project_dir)
+
+    for filename, description in SENSITIVE_FILES.items():
+        filepath = p / filename
+        if filepath.exists():
+            findings.append({
+                "type": "sensitive_file",
+                "file": str(filepath),
+                "line": 0,
+                "description": f"{description} — consider adding to .gitignore",
+                "evidence": f"File exists: {filename}",
+            })
+
+    # Check .gitignore for missing entries
+    gitignore = p / ".gitignore"
+    if gitignore.exists():
+        content = safe_read_file(gitignore)
+        if content:
+            for filename in SENSITIVE_FILES:
+                if filename not in content:
+                    findings.append({
+                        "type": "missing_gitignore",
+                        "file": ".gitignore",
+                        "line": 0,
+                        "description": f"{filename} not in .gitignore",
+                        "evidence": f"Missing entry for {filename}",
+                    })
+
+    return findings
+
+
 def scan_for_secrets(project_dir):
     """Scan project files for hardcoded secrets. Returns list of findings."""
     findings = []
@@ -95,10 +156,9 @@ def scan_for_secrets(project_dir):
         if should_skip_file(path):
             continue
 
-        # Read file content
-        try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        # Read file content with size limit
+        content = safe_read_file(path)
+        if content is None:
             continue
 
         # Scan each line
@@ -124,9 +184,8 @@ def scan_for_injection(state_file_path):
     if not path.exists():
         return findings
 
-    try:
-        content = path.read_text(encoding="utf-8")
-    except Exception:
+    content = safe_read_file(path)
+    if content is None:
         return findings
 
     for line_num, line in enumerate(content.split("\n"), 1):
@@ -163,6 +222,10 @@ def main():
         return 1
 
     all_findings = []
+
+    # Scan for sensitive files
+    sensitive_findings = scan_sensitive_files(project_dir)
+    all_findings.extend(sensitive_findings)
 
     # Scan project code for secrets
     secret_findings = scan_for_secrets(project_dir)
