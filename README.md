@@ -1,496 +1,327 @@
 # RPD — Rapid Product Document
 
-> 一个覆盖项目全生命周期的 Claude Code Skill
+> A Claude Code skill covering the full project lifecycle. Supports Chinese (中文) and English.
+> 覆盖项目全生命周期的 Claude Code Skill，支持中英文。
 
-**灵感来源：** [FlowUs RPD Skill](https://flowus.cn/panix/share/9258e8aa-7a06-4b8d-9817-b7c6d1a0724d)
+**Inspiration / 灵感来源：** [FlowUs RPD Skill](https://flowus.cn/panix/share/9258e8aa-7a06-4b8d-9817-b7c6d1a0724d)
 
-## 解决什么问题？
+---
 
-Vibecoding 时代，项目失败的三大断裂点：
+## What Problem Does This Solve? / 解决什么问题？
 
-| 死法 | 症状 | RPD 的解药 |
-|------|------|-----------|
-| **需求断裂** | "我想做一个 App" → 写了三天发现方向歪了 | 三视角诊断 → 概念版 PRD → 范围冻结 |
-| **上下文断裂** | 换个 AI 对话，它完全不知道你的项目在干嘛 | `.project-state.md` 状态文件，跨会话记忆 |
-| **时间断裂** | 搁置两周回来，忘了当初为什么选 SQLite | 关键决策记录 + 差距分析 |
+Three fatal breakpoints in the Vibecoding era / Vibecoding 时代的三大死法：
 
+| Breakpoint / 死法 | Symptom / 症状 | RPD's Solution / 解药 |
+|-------------------|----------------|----------------------|
+| **Requirement Fracture / 需求断裂** | "I want to build an App" → 3 days later, direction is wrong | Three-perspective diagnosis → Concept PRD → Scope freeze |
+| **Context Fracture / 上下文断裂** | Switch AI conversation, it knows nothing about your project | `.project-state.md` state file, cross-session memory |
+| **Time Fracture / 时间断裂** | Come back after 2 weeks, forgot why chose SQLite | Key decision records + gap analysis |
+
+**In one sentence: RPD gives your project "memory" so it doesn't get amnesia every new conversation.**
 **一句话：RPD 让你的项目有"记忆"，不会每次开新对话就失忆。**
 
 ---
 
-## 安装（2 分钟搞定）
+## Installation / 安装（2 minutes / 2 分钟搞定）
 
-### 找到你的 skills 目录
-
-Claude Code 的 skills 有两个放法：
+### Find Your Skills Directory / 找到 skills 目录
 
 ```
-# 方式 A：项目级（只对当前项目生效）
-你的项目目录/.claude/skills/rpd/
+# Option A: Project-level (only for current project / 项目级)
+your-project/.claude/skills/rpd/
 
-# 方式 B：全局级（所有项目都能用）
+# Option B: Global (available for all projects / 全局级)
 ~/.claude/skills/rpd/
 ```
 
-### 复制文件
+### Copy Files / 复制文件
 
 ```bash
-# 项目级安装：
-cp -r skills/rpd /你的项目路径/.claude/skills/rpd
+# Project-level / 项目级安装：
+cp -r skills/rpd /your/project/path/.claude/skills/rpd
 
-# 全局安装：
+# Global / 全局安装：
 cp -r skills/rpd ~/.claude/skills/rpd
 ```
 
-### 验证安装
+### Verify / 验证安装
 
-在 Claude Code 中说一句话触发 Skill：
+Say this in Claude Code / 在 Claude Code 中说：
 
 ```
+> I want to build a personal finance tracker
 > 我想做一个记账 App
 ```
 
-如果 Claude 开始问你"目标用户是谁？"——恭喜，Skill 已激活。
-如果 Claude 直接开始写代码——说明 Skill 没装对，检查路径。
+If Claude asks "Who is the target user?" → Skill is active.
+If Claude starts writing code immediately → Skill not installed correctly, check path.
 
 ---
 
-## 三个入口，覆盖项目全生命周期
-
-RPD 只有三个入口，对应项目的三个阶段：
+## Three Entry Points / 三个入口
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  项目生命周期                      │
+│              Project Lifecycle / 项目生命周期      │
 │                                                   │
-│   💡 有想法         🔧 做到一半       ⏸️ 搁置后回来   │
+│   💡 New Idea       🔧 Half-done      ⏸️ Paused   │
 │      │                 │                 │        │
 │      ▼                 ▼                 ▼        │
 │  ┌────────┐      ┌──────────┐      ┌──────────┐  │
-│  │ 新项目  │      │ 接手半成品 │      │ 继续开发  │  │
-│  │ 流程 A  │      │  流程 B   │      │  流程 C   │  │
+│  │ New    │      │ Takeover │      │ Continue │  │
+│  │ Project│      │          │      │ Dev      │  │
+│  │ Flow A │      │ Flow B   │      │ Flow C   │  │
 │  └────────┘      └──────────┘      └──────────┘  │
 │      │                 │                 │        │
 │      ▼                 ▼                 ▼        │
-│   PRD + 状态文件    PRD + 状态文件    行动建议      │
+│  PRD + State       PRD + State       Action Plan  │
+│   File              File                           │
 └─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 流程 A：新项目（从零开始）
+## Flow A: New Project / 新项目
 
-> **触发词：** "我想做一个……"、"有个点子……"、"做一个……"
+> **Trigger / 触发词:** "I want to build..." / "我想做一个……"
 
-### 完整对话示例
+### Example Conversation / 完整对话示例
 
-**你（第 1 句话）：**
+**You:** `I want to build a personal finance tracker to track daily expenses`
+**你：** `我想做一个记账 App，帮我追踪每天的花销`
+
+**Claude:**
 ```
-我想做一个记账 App，帮我追踪每天的花销
-```
+I understand you want to build a personal finance tool to track daily expenses.
+I'll ask a few rounds of questions to align requirements. This will take about 2 minutes.
 
-**Claude（复述 + 预告）：**
-```
-我理解你想做一个个人记账工具，帮你追踪日常支出。
-接下来我会通过几轮提问对齐需求，总共大约需要 2 分钟。
-```
+Round 1 (User Perspective):
+1. Who is the target user? (yourself? or a group?)
+2. How do you currently track expenses? (Excel? memory? another app?)
+3. What's the ONE core thing this app needs to solve?
 
-**Claude（第 1 轮 - 用户视角）：**
-```
-1. 目标用户是谁？（你自己？还是给一群人用？）
-2. 你现在用什么方式记账？（Excel？脑子记？还是别的 App？）
-3. 这个 App 最核心要帮你解决的是哪一件具体的事？
-
-「第 1 轮，还剩 2 轮」
+「Round 1, 2 rounds remaining」
 ```
 
-**你：**
-```
-1. 主要是我自己用
-2. 现在用备忘录随手记，月底对不上账
-3. 最核心就是快速记一笔，然后月底能看个报表
-```
+*(Conversation continues with 3 rounds, then concept PRD, scope freeze, full PRD, state file)*
 
-**Claude（第 2 轮 - 商业视角）：**
-```
-1. 这是免费产品，还是打算收费？
-2. 如果收费，模式是哪种：一次性买断 / 订阅 / 免费增值？
-3. 你打算把这个产品做多久？（验证一下想法 / 长期运营）
+### Key Rules / 关键规则
 
-「第 2 轮，还剩 1 轮」
-```
-
-**你：**
-```
-1. 先免费自己用
-2. 不收费
-3. 先做出来看看，验证一下
-```
-
-**Claude（第 3 轮 - 技术视角）：**
-```
-1. 你希望在手机上用还是电脑上用？
-2. 需要登录账号吗？
-3. 数据存在哪？（本地 / 云端）
-4. 需要连其他服务吗？（地图、支付、AI 等）
-5. 预计几个主要页面？
-6. 几周能做出来？
-
-「第 3 轮，最后一个问题了！」
-```
-
-**你：**
-```
-1. 手机上用，做个网页就行
-2. 不需要登录，自己用
-3. 存本地就行
-4. 不需要
-5. 3 个页面：记账、统计、设置
-6. 2 周吧
-```
-
-**Claude（输出概念版 PRD）：**
-```
-核心用户：个人开发者自己
-要解决的一件事：快速记账 + 月底自动出报表
-产品形态：手机端 Web App
-最小可用版功能（≤ 3 条）：
-  1. 快速记一笔账（金额 + 分类 + 备注）
-  2. 按月/按分类查看支出统计
-  3. 导出月度报表（CSV）
-本版本不做：多人协作、银行API对接、原生App
-商业模式：免费
-技术前提：无账号、本地存储、无第三方依赖
-
-方向是否对齐？有需要调整的地方吗？
-```
-
-**你：** `没问题，就这样`
-
-**Claude（范围冻结）：**
-```
-在开始落地版之前，请确认以下内容不会再修改：
-
-✅ 目标用户：个人开发者自己
-✅ 核心功能（≤ 3 条）：快速记账、支出统计、报表导出
-✅ 平台选择：手机端 Web App
-✅ 本版本不做：多人协作、银行API、原生App
-
-请回复"确认"后继续。
-```
-
-**你：** `确认`
-
-**Claude（生成落地版 PRD → 状态文件 → 校验）：**
-```
-PRD 落地版已完成，六大盲区均已覆盖。
-项目已初始化，状态文件已生成。对我说「继续开发」来恢复上下文。
-```
-
-> **此时你的项目目录下会多出一个 `.project-state.md` 文件。这就是项目的"记忆"。**
-
-### 流程 A 的关键规则
-
-| 规则 | 为什么 |
-|------|--------|
-| Claude 不会在第 1 句话就输出 PRD | 没对齐需求就写 PRD = 浪费 Token |
-| 每轮最多 3 个问题 | 一次性问 10 个 = 认知过载 |
-| 范围冻结后才能出落地版 | 不冻结就写 PRD = 边写边改 = 永远写不完 |
-| 概念版 ≤ 200 字 | 能用 200 字说清的东西，不需要 2000 字 |
+| EN | ZH |
+|----|-----|
+| Claude won't output PRD on the first message | 不会在第 1 句话就输出 PRD |
+| Max 3 questions per round | 每轮最多 3 个问题 |
+| Must freeze scope before full PRD | 必须冻结范围后才能出落地版 |
+| Concept PRD ≤ 200 words | 概念版 ≤ 200 字 |
 
 ---
 
-## 流程 B：接手半成品（分析已有项目）
+## Flow B: Takeover Half-Finished / 接手半成品
 
-> **触发词：** "接手这个项目"、"分析一下这个项目"、"这个项目做到一半"
+> **Trigger / 触发词:** "Take over this project" / "接手这个项目"
 
-### 使用场景
-
-- 你在 GitHub 上 clone 了一个别人的半成品项目
-- 你自己做了一半搁置了，忘了做到哪了
-- 接手同事的项目，不想一行一行读代码
-
-### 完整对话示例
-
+**You:** `Take over this project, analyze current progress`
 **你：** `接手这个项目，分析一下当前进度`
 
-**Claude（自动执行安全扫描 → 项目扫描 → 推断确认）：**
-```
-我推断这是一个 [个人记账] 产品，对吗？
+**Claude:** *(Runs security scan → project scan → confirm inference → generate PRD + state file)*
 
-核心功能我理解为这 3 个：
-1. 记账录入
-2. 支出分类统计
-3. 月度报表
-
-有遗漏吗？
-
-技术栈是 React + Vite / Node.js + Express / SQLite，对吗？
-```
-
-**你：** `对，就这样`
-
-**Claude（生成 PRD + 状态文件）：**
-```
-已接手项目，状态文件已生成。
-
-功能进度：
-| 功能 | 状态 |
-|------|------|
-| 记账录入 | ✅ 已完成 |
-| 支出分类 | 🔨 进行中 |
-| 月度报表 | ⏳ 未开始 |
-
-对我说「继续开发」开始下一步。
-```
-
-> ⚠️ **如果扫描发现硬编码密钥（API Key、密码等），流程会直接中断。** 这是硬阻断，不是建议。先处理安全问题再继续。
+> ⚠️ **If hardcoded secrets are found, the flow will hard-block.** This is not a suggestion—it's a hard stop. Fix security issues first.
+> ⚠️ **如果发现硬编码密钥，流程会直接硬阻断。** 这不是建议，是强制停止。先处理安全问题。
 
 ---
 
-## 流程 C：继续开发（恢复上下文）
+## Flow C: Continue Development / 继续开发
 
-> **触发词：** "继续开发"、"下一步做什么"、"接着做"、"下一步"
+> **Trigger / 触发词:** "Continue development" / "继续开发"
 
-### 使用场景
-
-- 你昨天做了一半，今天想继续
-- 你换了个 AI 工具（比如从 Claude Code 切到 Cursor），需要恢复上下文
-- 你搁置了两周，忘了该做什么了
-
-### 完整对话示例
-
+**You:** `Continue development`
 **你：** `继续开发`
 
-**Claude（检查状态文件 → 安全扫描 → 校验 → 差距分析）：**
+**Claude:**
 ```
-当前进度：1/3 功能已完成（33%）
+Current progress: 1/3 features completed (33%)
 
-下一步建议：建议先完成「支出分类」功能的分页逻辑，
-因为它是月度报表的前置依赖。
+Next step: Complete the pagination logic for "expense categories",
+as it's a prerequisite for the monthly report.
 
-阻塞项：报表导出格式确认（CSV vs Excel）尚未解决，
-建议先确认格式再开发报表功能。
+Blocker: Report export format (CSV vs Excel) not yet confirmed.
+Suggest confirming format before building the report feature.
 
-预估工作量：完成支出分类预计需要 2-3 小时。
+Estimate: ~2-3 hours to complete expense categories.
 
-确认后开始开发？
+Shall we start?
 ```
-
-**你：** `好的，先做支出分类`
-
-**Claude（开发完成后提醒）：**
-```
-功能已完成。要更新项目状态文件吗？
-（更新后可以更准确地追踪进度）
-```
-
-**你：** `更新`
-
-> **此时 `.project-state.md` 会自动更新，支出分类的状态从 🔨 变成 ✅。**
 
 ---
 
-## 状态文件：项目的"大脑"
+## State File: The Project's Brain / 状态文件：项目的"大脑"
 
-`.project-state.md` 是整个 RPD 的心脏。它长这样：
+`.project-state.md` is the heart of RPD. It records:
+- PRD summary (core features, exclusions, business model)
+- Feature progress checklist (completion status of each feature)
+- Key decision records (avoid re-discussing decided topics)
+- Current blockers (unresolved issues)
 
-```yaml
----
-version: 1
-name: my-cool-app
-created: 2026-06-05
-last-synced: 2026-06-05T14:30:00
-status: in-development
-entry-type: new-idea
----
-```
+When switching agents, the new agent reads this file to restore context in 30 seconds.
 
-```markdown
-# 项目状态：my-cool-app
-
-## 一句话定义
-个人记账工具，快速记账 + 月底自动出报表。
-
-## PRD 摘要
-- 核心功能：1. 快速记账 2. 支出分类统计 3. 月度报表导出
-- 本版本不做：多人协作、银行API对接、原生App
-- 商业模式：免费
-
-## 功能进度清单
-| 功能 | 优先级 | 状态 | 备注 |
-|------|--------|------|------|
-| 快速记账 | P0 | ✅ 已完成 | 2026-06-03 |
-| 支出分类 | P0 | 🔨 进行中 | 分页逻辑待完善 |
-| 月度报表 | P1 | ⏳ 未开始 | |
-
-## 关键决策记录
-| 日期 | 决策 | 原因 |
-|------|------|------|
-| 06-03 | 用 SQLite 而非 PostgreSQL | 单机部署，数据量小 |
-
-## 当前阻塞项
-- [ ] 报表导出格式确认（CSV vs Excel）
-```
-
-### 为什么这个文件很重要？
-
-| 场景 | 没有状态文件 | 有状态文件 |
-|------|-------------|-----------|
-| 换个 AI 对话 | "你是谁？项目是什么？从头来吧" | 读取状态文件，30 秒恢复上下文 |
-| 搁置两周回来 | "我做到哪了？" | 直接看功能进度清单 |
-| 接手别人项目 | 读 1000 行代码 | 扫描 → 生成状态文件 → 一目了然 |
+| Scenario / 场景 | Without State File / 没有 | With State File / 有 |
+|-----------------|--------------------------|---------------------|
+| Switch AI conversation | "Who are you? Start from scratch" | Read state file, 30s context recovery |
+| Come back after 2 weeks | "Where was I?" | Check feature progress checklist |
+| Take over someone's project | Read 1000 lines of code | Scan → generate state file → clear overview |
 
 ---
 
-## 脚本工具箱
+## Scripts / 脚本工具箱
 
-RPD 附带 4 个 Python 脚本，**零依赖，纯标准库**：
+4 Python scripts, **zero dependencies, stdlib only** / 4 个 Python 脚本，**零依赖，纯标准库**：
 
-| 脚本 | 干什么 | 什么时候用 |
-|------|--------|-----------|
-| `project-scanner.py` | 扫描项目结构、技术栈、组件、API | 接手半成品时自动运行 |
-| `gap-analyzer.py` | 对比 PRD 与实际代码的差距 | 继续开发时自动运行 |
-| `state-validator.py` | 校验状态文件格式是否正确 | 每次状态文件变更后自动运行 |
-| `security-scanner.py` | 检测硬编码密钥和注入风险 | 接手项目和继续开发前自动运行 |
+| Script / 脚本 | Purpose / 用途 | When Used / 何时用 |
+|---------------|----------------|-------------------|
+| `project-scanner.py` | Scan project structure, tech stack, components, API | Auto-run on takeover / 接手半成品时自动运行 |
+| `gap-analyzer.py` | Compare PRD vs actual code | Auto-run on continue dev / 继续开发时自动运行 |
+| `state-validator.py` | Validate state file format | Auto-run after state changes / 状态变更后自动运行 |
+| `security-scanner.py` | Detect hardcoded secrets and injection | Auto-run before takeover/continue / 接手和继续前自动运行 |
 
-> **你不需要手动运行这些脚本。** Claude 会在对应流程中自动调用。但如果你好奇，可以手动试试：
+> **You don't need to run these manually.** Claude calls them automatically in the corresponding flows.
+> **你不需要手动运行。** Claude 会在对应流程中自动调用。
 
 ```bash
-# 校验状态文件
+# Validate state file / 校验状态文件
 python scripts/state-validator.py .project-state.md
 
-# 扫描项目
-python scripts/project-scanner.py /你的项目路径
+# Scan project / 扫描项目
+python scripts/project-scanner.py /your/project/path
 
-# 安全扫描
-python scripts/security-scanner.py /你的项目路径
+# Security scan / 安全扫描
+python scripts/security-scanner.py /your/project/path
 
-# 运行评估测试
+# Run eval tests / 运行评估测试
 python scripts/run-eval.py
 ```
 
 ---
 
-## 常见问题（FAQ）
+## FAQ / 常见问题
 
-### 我需要记住所有触发词吗？
+### Do I need to memorize all trigger words? / 需要记住所有触发词吗？
 
-不需要。你只要说人话就行：
+No. Just speak naturally / 不需要，说人话就行：
 
-| 你说的话 | RPD 会理解为 |
-|---------|-------------|
-| "我想做一个……" | 新项目 |
-| "有个点子……" | 新项目 |
-| "接手这个项目" | 半成品 |
-| "分析一下这个项目" | 半成品 |
-| "继续开发" | 继续开发 |
-| "下一步做什么" | 继续开发 |
-| "接着做" | 继续开发 |
+| You Say / 你说的 | RPD Understands / RPD 理解为 |
+|------------------|------------------------------|
+| "I want to build..." / "我想做一个……" | New project / 新项目 |
+| "I have an idea..." / "有个点子……" | New project / 新项目 |
+| "Take over this project" / "接手这个项目" | Takeover / 半成品 |
+| "Analyze this project" / "分析一下这个项目" | Takeover / 半成品 |
+| "Continue development" / "继续开发" | Continue / 继续开发 |
+| "What's next?" / "下一步做什么" | Continue / 继续开发 |
 
-如果你说的模糊到 Claude 也拿不准，它会问你："你想做的是哪种？A) 从零开始 B) 接手已有项目 C) 继续之前的开发"
+### Concept PRD vs Full PRD? / 概念版和落地版的区别？
 
-### 概念版 PRD 和落地版 PRD 有什么区别？
+| | Concept PRD / 概念版 | Full PRD / 落地版 |
+|--|---------------------|-------------------|
+| Length / 字数 | ≤ 200 words | Thousands of words / 数千字 |
+| Content / 内容 | Core definition + feature list | Full specs + state machines + field validation |
+| Purpose / 用途 | Quick alignment / 快速对齐 | Guide development / 指导开发 |
+| Token cost | Very low / 极低 | Higher / 较高 |
 
-| | 概念版 PRD | 落地版 PRD |
-|--|-----------|-----------|
-| 字数 | ≤ 200 字 | 数千字 |
-| 内容 | 核心定义 + 功能清单 | 完整的功能说明 + 状态机 + 字段规范 + 文案 |
-| 用途 | 快速对齐方向 | 指导开发 |
-| Token 成本 | 极低 | 较高 |
+### What if state file conflicts? / 状态文件冲突了怎么办？
 
-### 状态文件冲突了怎么办？
+1. Before updating: `git diff .project-state.md` to check conflicts
+2. If unmerged changes exist, merge first then update
+3. Never blindly overwrite another agent's progress
 
-如果你在多个 agent 或多个分支上同时开发，状态文件可能产生冲突。RPD 的处理方式：
+### What if I run out of tokens? / Token 不够了怎么办？
 
-1. 更新前先 `git diff .project-state.md` 检查冲突
-2. 如果有未合并的修改，先合并再更新
-3. 不会盲目覆盖其他 agent 的进度记录
+| When Token Tight / Token 紧张时 | Degrade To / 降级方案 |
+|-------------------------------|---------------------|
+| Concept PRD | Always output (low cost) / 始终输出 |
+| Full PRD | Only feature list + page structure / 只输出功能列表 + 页面结构 |
+| Continue Dev | Only progress summary + next step / 只输出进度摘要 + 下一步 |
+| Security Scan | Always execute (no LLM tokens) / 始终执行（不消耗 token） |
 
-### Token 不够了怎么办？
+### Can I modify PRD mid-project? / 可以中途修改 PRD 吗？
 
-RPD 内置了降级策略：
-
-| Token 紧张时 | 降级方案 |
-|-------------|---------|
-| 概念版 PRD | 始终输出（成本低） |
-| 落地版 PRD | 只输出功能列表 + 页面结构 |
-| 继续开发 | 只输出进度摘要 + 下一步建议 |
-| 安全扫描 | 始终执行（确定性脚本，不消耗 LLM token） |
-
-### 我可以在项目中途修改 PRD 吗？
-
-可以，但要注意：
-
-- 概念版 PRD 修改超过 3 次 → Claude 会建议你先做用户调研
-- 修改核心功能 → 需要重新冻结范围
-- 修改"本版本不做" → 需要重新评估技术可行性
+Yes, but:
+- Concept PRD revised >3 times → Claude suggests user research first
+- Changing core features → need to re-freeze scope
+- Changing "out of scope" → need to re-evaluate technical feasibility
 
 ---
 
-## 工作流速查表
+## Quick Reference / 工作流速查表
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    RPD 工作流速查                          │
+│              RPD Workflow Quick Reference                  │
 ├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  📌 新项目                                                │
-│  你说 → "我想做一个 [描述]"                                 │
-│  Claude 做 → 3轮提问 → 概念版PRD → 范围冻结 → 落地版PRD     │
-│  产出 → .project-state.md                                 │
-│                                                          │
-│  📌 接手半成品                                             │
-│  你说 → "接手这个项目"                                      │
-│  Claude 做 → 安全扫描 → 项目扫描 → 推断确认 → PRD+状态文件   │
-│  产出 → .project-state.md                                 │
-│                                                          │
-│  📌 继续开发                                               │
-│  你说 → "继续开发"                                         │
-│  Claude 做 → 安全扫描 → 状态校验 → 差距分析 → 行动建议       │
-│  产出 → 进度摘要 + 下一步建议                                │
-│                                                          │
-│  📌 开发完成                                               │
-│  Claude 提醒 → "要更新项目状态文件吗？"                      │
-│  你说 → "更新"                                             │
-│  Claude 做 → 更新 .project-state.md                       │
-│                                                          │
+│                                                            │
+│  📌 New Project / 新项目                                    │
+│  You say → "I want to build [description]"                 │
+│  Claude → 3 rounds → Concept PRD → Freeze → Full PRD       │
+│  Output → .project-state.md                                │
+│                                                            │
+│  📌 Takeover / 接手半成品                                    │
+│  You say → "Take over this project"                        │
+│  Claude → Security scan → Project scan → Confirm → PRD     │
+│  Output → .project-state.md                                │
+│                                                            │
+│  📌 Continue Dev / 继续开发                                  │
+│  You say → "Continue development"                          │
+│  Claude → Security → Validate → Gap analysis → Action plan │
+│  Output → Progress summary + next step                     │
+│                                                            │
+│  📌 Dev Complete / 开发完成                                   │
+│  Claude reminds → "Update state file?"                     │
+│  You say → "Update" / "更新"                                │
+│  Claude → Update .project-state.md                         │
+│                                                            │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 使用建议
+## Best Practices / 使用建议
 
-1. **不要跳过范围冻结。** 不冻结就写 PRD = 写完就改 = 改完再改 = 永远做不完。
-2. **不要忽略安全扫描。** 硬编码密钥是生产事故的第一杀手。
-3. **不要手动编辑 `.project-state.md`。** 让 Claude 更新，它会自动校验。你手改容易破坏格式。
-4. **概念版 PRD 是你的锚点。** 迷茫的时候回来看看"要解决的一件事"是什么。
-5. **"继续开发"是你最常用的入口。** 每次开新对话，第一句话就说"继续开发"。
+| EN | ZH |
+|----|-----|
+| Don't skip scope freeze | 不要跳过范围冻结 |
+| Don't ignore security scan | 不要忽略安全扫描 |
+| Don't manually edit `.project-state.md` | 不要手动编辑 `.project-state.md` |
+| Concept PRD is your anchor | 概念版 PRD 是你的锚点 |
+| "Continue development" is your most-used entry | "继续开发"是你最常用的入口 |
 
-> **RPD 不是万能的。它不能帮你做产品决策，不能帮你写代码，不能帮你融资。**
+> **RPD is not omnipotent. It can't make product decisions, write code, or raise funding for you.**
 >
-> **它能做的是：让你的项目有记忆，让你的方向不跑偏，让你的 Token 不浪费。**
+> **What it can do: give your project memory, keep your direction on track, save your tokens.**
+>
+> **RPD 不是万能的。它不能帮你做产品决策、写代码、融资。**
+>
+> **它能做的是：让项目有记忆、方向不跑偏、Token 不浪费。**
 
 ---
 
-## 目录结构
+## Directory Structure / 目录结构
 
 ```
 skills/rpd/
-├── SKILL.md                  # 主控指令
-├── README.md                 # 本文件
-├── scripts/                  # 确定性脚本（纯 Python 标准库）
-│   ├── project-scanner.py    # 扫描项目结构
-│   ├── gap-analyzer.py       # 差距分析
-│   ├── state-validator.py    # 状态文件校验
-│   ├── security-scanner.py   # 安全扫描
-│   └── run-eval.py           # 评估测试
-├── references/               # 知识库
-│   ├── brainstorming-flow.md # 头脑风暴流程
-│   ├── prd-template.md       # PRD 模板
-│   ├── state-file-spec.md    # 状态文件规范
+├── .claude-plugin/           # Plugin configuration
+│   ├── plugin.json           # Plugin metadata
+│   └── marketplace.json      # Marketplace listing
+├── SKILL.md                  # Main control file (bilingual)
+├── README.md                 # This file (bilingual)
+├── scripts/                  # Deterministic scripts (Python stdlib)
+│   ├── project-scanner.py    # Scan project structure
+│   ├── gap-analyzer.py       # Gap analysis
+│   ├── state-validator.py    # State file validation
+│   ├── security-scanner.py   # Security scanning
+│   └── run-eval.py           # Evaluation tests
+├── references/               # Knowledge base
+│   ├── brainstorming-flow.md # Brainstorming process
+│   ├── prd-template.md       # PRD template
+│   ├── state-file-spec.md    # State file spec
 │   └── state-schema.json     # JSON Schema
-├── eval/scenarios/           # 评估场景
-└── assets/example-state.md   # 示例状态文件
+├── eval/scenarios/           # Evaluation scenarios
+└── assets/example-state.md   # Example state file
 ```

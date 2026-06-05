@@ -1,297 +1,374 @@
 ---
 name: rpd
-description: "Use when: user describes a new product idea, asks to take over an existing project, or says 'continue development'. Covers: requirement diagnosis, PRD generation, project state management, and cross-session progress recovery."
+description: "Use when: user describes a new product idea, asks to take over an existing project, or says 'continue development'. Covers: requirement diagnosis, PRD generation, project state management, and cross-session progress recovery. Supports Chinese (中文) and English."
+description_zh: "当用户描述新产品想法、接手已有项目或说「继续开发」时使用。覆盖：需求诊断、PRD 生成、项目状态管理、跨会话进度恢复。支持中英文。"
 context: fork
+languages: ["en", "zh"]
 ---
 
 # RPD — Rapid Product Document
 
-> 覆盖项目全生命周期的结构化产品管理 Skill
-
-## When to Use
-
-**正向匹配：**
-- 用户描述了一个新的产品想法或功能需求（"我想做一个..."、"有个点子..."）
-- 用户说"接手这个项目"、"分析一下这个项目"、"这个项目做到一半"
-- 用户说"继续开发"、"下一步做什么"、"接着做"、"下一步"
-- 用户说"更新进度"、"同步状态"
-
-**反向排除（不使用本 Skill）：**
-- 用户只是在写代码、调试 bug，没有产品方向的问题
-- 用户在做纯技术讨论（架构选型、性能优化等）
-- 项目已有完善的需求文档且用户没有方向困惑
-
-## Inputs Required
-
-- 用户的自然语言描述（产品想法、接手意图、或继续开发意图）
-- 当前工作目录（用于扫描项目文件）
-
-## Procedure
-
-### Step 0: 意图路由
-
-收到用户输入后，判断意图并进入对应流程：
-
-- 包含"新想法"、"我想做一个"、"有个点子"、"做一个"等 → **进入【新项目流程】**
-- 包含"接手"、"分析项目"、"这个项目做到一半"、"分析一下"等 → **进入【半成品流程】**
-- 包含"继续开发"、"下一步"、"接着做"、"继续"等 → **进入【继续开发流程】**
-- 不确定 → 询问用户："你想做的是哪种？A) 从零开始新项目 B) 接手已有项目 C) 继续之前的开发"
+> A structured product management skill covering the full project lifecycle.
+> 覆盖项目全生命周期的结构化产品管理 Skill。
 
 ---
 
-### 流程 A：新项目
+## Language Detection / 语言检测
 
-> 从想法到 PRD 的结构化转化
+**Detect the user's language from their first message and respond in the same language throughout the entire session.**
 
-#### A1: 三视角诊断
+- If the user writes in Chinese (中文) → respond in Chinese
+- If the user writes in English → respond in English
+- If unclear → default to Chinese, but ask: "你希望用中文还是英文？ / Would you prefer Chinese or English?"
 
-用一句话复述你理解的核心需求，然后告诉用户：
+All prompts, questions, and outputs should use the detected language. The `.project-state.md` file content follows the user's language.
+
+---
+
+## When to Use / 何时使用
+
+**Positive matches / 正向匹配：**
+
+| English | 中文 |
+|---------|------|
+| User describes a new product idea or feature request | 用户描述新产品想法或功能需求 |
+| "I want to build..." / "I have an idea..." | "我想做一个..."、"有个点子..." |
+| "Take over this project" / "Analyze this project" | "接手这个项目"、"分析一下这个项目" |
+| "Continue development" / "What's next?" | "继续开发"、"下一步做什么"、"接着做" |
+| "Update progress" / "Sync status" | "更新进度"、"同步状态" |
+
+**Negative matches / 反向排除（不使用本 Skill）：**
+
+- User is just writing code or debugging, no product direction questions
+- User is doing pure technical discussion (architecture, performance, etc.)
+- Project already has complete requirements docs and user has no direction confusion
+- 用户只是在写代码或调试，没有产品方向的问题
+- 用户在做纯技术讨论（架构选型、性能优化等）
+- 项目已有完善的需求文档且用户没有方向困惑
+
+---
+
+## Inputs Required / 所需输入
+
+- User's natural language description (product idea, takeover intent, or continue development intent)
+- Current working directory (for scanning project files)
+- 用户的自然语言描述（产品想法、接手意图、或继续开发意图）
+- 当前工作目录（用于扫描项目文件）
+
+---
+
+## Procedure / 流程
+
+### Step 0: Intent Router / 意图路由
+
+Route based on user intent / 根据用户意图分发：
+
+| Intent (EN) | Intent (ZH) | Route to |
+|-------------|-------------|----------|
+| "new idea", "I want to build...", "I have an idea" | "新想法"、"我想做一个"、"有个点子" | **Flow A: New Project** |
+| "take over", "analyze project", "half-finished" | "接手"、"分析项目"、"这个项目做到一半" | **Flow B: Takeover** |
+| "continue development", "what's next", "keep going" | "继续开发"、"下一步"、"接着做" | **Flow C: Continue** |
+| Unclear / 不确定 | → Ask: "What would you like to do? A) Start a new project B) Take over an existing project C) Continue previous development" | |
+
+---
+
+### Flow A: New Project / 新项目
+
+> From idea to PRD with structured diagnosis.
+> 从想法到 PRD 的结构化转化。
+
+#### A1: Three-Perspective Diagnosis / 三视角诊断
+
+Restate your understanding of the core need, then tell the user:
+> "I'll ask a few rounds of questions to align requirements. This will take about 2 minutes."
 > "接下来我会通过几轮提问对齐需求，总共大约需要 2 分钟。"
 
-**第一轮（用户视角，选 2-3 个）：**
-1. 目标用户是谁？（年龄段、职业背景、使用场景）
-2. 他们现在用什么方式解决这个问题？
-3. 你的产品帮他解决的是哪**一件**具体的事？
-4. 这个场景下用户会多久用一次？
+**Round 1 (User Perspective / 用户视角) — pick 2-3:**
 
-提问后提示：「第 1 轮，还剩 2 轮」
+| English | 中文 |
+|---------|------|
+| Who is the target user? (age, occupation, scenario) | 目标用户是谁？（年龄段、职业背景、使用场景） |
+| How do they currently solve this problem? | 他们现在用什么方式解决这个问题？ |
+| What ONE specific thing does your product help with? | 你的产品帮他解决的是哪**一件**具体的事？ |
+| How often will they use it? (daily / weekly / occasionally) | 这个场景下用户会多久用一次？ |
 
-**第二轮（商业视角，全部询问）：**
-1. 这是免费产品，还是用户要付费使用？
-2. 如果收费，模式是哪种：一次性买断 / 订阅 / 免费增值？
-3. 预期把这个产品做多久？（验证型项目 / 长期运营）
+After questions: "Round 1, 2 rounds remaining" / 「第 1 轮，还剩 2 轮」
 
-提问后提示：「第 2 轮，还剩 1 轮」
+**Round 2 (Business Perspective / 商业视角) — ask all:**
 
-**第三轮（技术视角，全部询问）：**
+| English | 中文 |
+|---------|------|
+| Is this free or paid? | 这是免费产品，还是用户要付费使用？ |
+| If paid, what model: one-time / subscription / freemium? | 如果收费，模式是哪种：一次性买断 / 订阅 / 免费增值？ |
+| How long do you plan to work on this? (validation / long-term) | 预期把这个产品做多久？（验证型项目 / 长期运营） |
 
-**重要：对小白用户，先问"你希望用户在手机上用还是电脑上用？"，再根据回答细分平台。**
+After questions: "Round 2, 1 round remaining" / 「第 2 轮，还剩 1 轮」
 
-1. 用户主要在什么设备上用？（手机 / 电脑 / 都要）→ 细分：微信小程序 / 手机 App / 网页
-2. 是否需要用户账号和登录体系？
-3. 数据存在哪里？（存在手机/电脑本地 / 存在云端服务器）
-4. 是否需要连接其他服务？（地图、支付、AI 等，请举例说明）
-5. 产品预计有几个主要页面？
-6. 这个版本预期几周内可以做出来？
+**Round 3 (Technical Perspective / 技术视角) — ask all:**
 
-提问后提示：「第 3 轮，最后一个问题了！」
+**Important: For beginners, first ask "Will users use this on mobile or desktop?" before asking about specific platforms.**
+**重要：对小白用户，先问"用户主要在手机上用还是电脑上用？"，再细分平台。**
 
-**规则：**
-- 每次提问不超过 3 个问题，等待用户回答后再继续
-- 每轮结束后提示进度（"第 X 轮，还剩 Y 轮"）
-- 对小白用户使用通俗语言，避免技术术语
-- 禁止在此阶段输出完整 PRD
+| English | 中文 |
+|---------|------|
+| What device will users primarily use? (mobile / desktop / both) → then refine: web app / mobile app / mini-program | 用户主要在什么设备上用？（手机 / 电脑 / 都要）→ 细分 |
+| Do you need user accounts and login? | 是否需要用户账号和登录体系？ |
+| Where is data stored? (local / cloud) | 数据存在哪里？（本地 / 云端） |
+| Any third-party services? (maps, payments, AI, etc.) | 是否需要连接其他服务？（地图、支付、AI 等） |
+| How many main pages? | 产品预计有几个主要页面？ |
+| How many weeks to build this version? | 这个版本预期几周内可以做出来？ |
 
-#### A2: 概念版 PRD
+After questions: "Round 3, last question!" / 「第 3 轮，最后一个问题了！」
 
-三视角诊断完成后，输出概念版 PRD（≤ 200 字）：
+**Rules / 规则：**
+- Max 3 questions per round, wait for answers before continuing
+- Show progress after each round
+- Use simple language for beginners, avoid jargon
+- Do NOT output a full PRD at this stage
+- 每轮最多 3 个问题，等待回答后再继续
+- 每轮结束后显示进度
+- 对小白用户使用通俗语言
+- 此阶段禁止输出完整 PRD
 
+#### A2: Concept PRD / 概念版 PRD
+
+After diagnosis, output concept PRD (≤ 200 words):
+
+**English:**
 ```
-核心用户：[一句话]
+Core User: [one sentence]
+One Problem to Solve: [one specific pain point]
+Product Form: [platform]
+MVP Features (≤ 3):
+  1. [Feature 1]
+  2. [Feature 2]
+  3. [Feature 3]
+Out of Scope: [explicitly excluded features]
+Business Model: [pricing or free]
+Technical Prerequisites: [auth / data / third-party deps]
+```
+
+**中文：**
+```
+核心用户：[一句话描述目标用户]
 要解决的一件事：[一个具体痛点]
 产品形态：[平台]
 最小可用版功能（≤ 3 条）：
   1. [功能一]
   2. [功能二]
   3. [功能三]
-本版本不做：[排除项]
+本版本不做：[明确排除的功能]
 商业模式：[收费方式 或 免费]
-技术前提：[账号/数据/第三方]
+技术前提：[账号体系 / 数据方案 / 第三方依赖]
 ```
 
-输出后询问：方向是否对齐？有需要调整的地方吗？
+Then ask: "Is this direction aligned? Any adjustments needed?" / "方向是否对齐？有需要调整的地方吗？"
 
-#### A3: 范围冻结
+#### A3: Scope Freeze / 范围冻结
 
-输出冻结清单：
+Output freeze checklist:
 
+**English:**
+```
+Before we proceed to the full PRD, please confirm these won't change:
+
+✅ Target User: [...]
+✅ Core Features (≤ 3): [...]
+✅ Platform: [...]
+✅ Out of Scope: [...]
+
+Please reply "confirmed" to continue.
+```
+
+**中文：**
 ```
 在开始落地版之前，请确认以下内容不会再修改：
+
 ✅ 目标用户：[...]
 ✅ 核心功能（≤ 3 条）：[...]
 ✅ 平台选择：[...]
 ✅ 本版本不做：[...]
+
 请回复"确认"后继续。
 ```
 
-#### A4: 落地版 PRD
+#### A4: Full PRD / 落地版 PRD
 
-参见 `references/prd-template.md` 中的落地版模板，完整输出：
-1. 概述（背景、目标、范围）
-2. 功能列表（P0/P1/P2）
-3. 页面结构与导航设计
-4. 每个功能的详细说明（流程、状态机、字段、文案、异常）
+Refer to `references/prd-template.md` for the full template. Output complete PRD with all sections.
 
-完成后执行六大盲区自检（参见 `references/prd-template.md`）。
+After completion, run the Six Blind Spots checklist (see `references/prd-template.md`).
 
-#### A5: 生成状态文件
+#### A5: Generate State File / 生成状态文件
 
-读取 `references/state-file-spec.md` 中的格式规范，生成 `.project-state.md`。
+Generate `.project-state.md` following `references/state-file-spec.md`.
 
-然后运行校验：
+Run validation:
 ```bash
 python scripts/state-validator.py .project-state.md
 ```
 
-如果校验失败，修复后重新校验。
-
-最后输出："项目已初始化，状态文件已生成。对我说「继续开发」来恢复上下文。"
+Output: "Project initialized, state file generated. Say 'continue development' to resume context." / "项目已初始化，状态文件已生成。对我说「继续开发」来恢复上下文。"
 
 ---
 
-### 流程 B：接手半成品
+### Flow B: Takeover Half-Finished Project / 接手半成品
 
-> 分析已有代码，生成 PRD 和状态文件
+> Analyze existing code, generate PRD and state file.
+> 分析已有代码，生成 PRD 和状态文件。
 
-#### B1: 安全扫描
+#### B1: Security Scan / 安全扫描
 
-运行安全扫描（硬阻断，非 0 则停止）：
 ```bash
 python scripts/security-scanner.py <project-directory>
 ```
 
-如果返回 exit code 2，输出安全报告并停止流程。
+If exit code 2 → output security report and STOP. / 输出安全报告并停止流程。
 
-#### B2: 项目扫描
+#### B2: Project Scan / 项目扫描
 
-运行项目扫描：
 ```bash
 python scripts/project-scanner.py <project-directory>
 ```
 
-读取 JSON 输出，分析：
-- 技术栈（语言、框架、构建工具）
-- 已有组件和页面
-- API 路由
-- TODO/FIXME 注释
-- 项目规模
+Analyze JSON output for: tech stack, components, API routes, TODOs, stats.
 
-#### B3: 推断与确认
+#### B3: Confirm Inference / 推断确认
 
-基于扫描结果，向用户确认：
+Based on scan results, confirm with user:
 
+**English:**
+1. "I infer this is a [X] product, correct?"
+2. "Core features I understand: [list]. Anything missing?"
+3. "Out of scope: [list]. Confirmed?"
+4. "Tech stack is [X], correct?"
+
+**中文：**
 1. "我推断这是一个 [X] 产品，对吗？"
 2. "核心功能我理解为这 3 个：[列出]，有遗漏吗？"
-3. "本版本不做：[推断的排除项]，确认吗？"
+3. "本版本不做：[排除项]，确认吗？"
 4. "技术栈是 [X]，对吗？"
 
-#### B4: 生成 PRD + 状态文件
+#### B4: Generate PRD + State File / 生成 PRD + 状态文件
 
-基于确认后的信息，生成：
-1. 简化版 PRD（概念版即可，不需要完整落地版）
-2. `.project-state.md`，其中功能进度基于代码分析自动标记：
-   - 有完整实现 → ✅ 已完成
-   - 有部分代码 → 🔨 进行中
-   - 无代码但 PRD 中有 → ⏳ 未开始
-3. 关键决策从代码注释/README 提取
-4. 阻塞项从 TODO/FIXME/HACK 注释提取
+Generate simplified PRD (concept level is sufficient) and `.project-state.md`.
 
-运行校验：
+Feature progress auto-marking based on code analysis:
+- Has complete implementation → ✅ Completed / ✅ 已完成
+- Has partial code → 🔨 In Progress / 🔨 进行中
+- No code but in PRD → ⏳ Not Started / ⏳ 未开始
+
+Run validation:
 ```bash
 python scripts/state-validator.py .project-state.md
 ```
 
-输出："已接手项目，状态文件已生成。对我说「继续开发」开始下一步。"
+Output: "Project takeover complete, state file generated. Say 'continue development' to start." / "已接手项目，状态文件已生成。对我说「继续开发」开始下一步。"
 
 ---
 
-### 流程 C：继续开发
+### Flow C: Continue Development / 继续开发
 
-> 跨 agent/跨时间的上下文恢复
+> Cross-agent / cross-time context recovery.
+> 跨 agent/跨时间的上下文恢复。
 
-#### C1: 检查状态文件
+#### C1: Check State File / 检查状态文件
 
-检查 `.project-state.md` 是否存在：
-- 不存在 → 输出："没有找到项目状态文件，请先「分析项目」或「新建项目」"
-- 存在 → 继续
+Check if `.project-state.md` exists:
+- Not found → "No state file found. Please 'analyze project' or 'new project' first." / "没有找到项目状态文件，请先「分析项目」或「新建项目」"
+- Found → continue
 
-#### C2: 安全扫描
+#### C2: Security Scan / 安全扫描
 
-运行安全扫描：
 ```bash
 python scripts/security-scanner.py <project-directory> --state-file .project-state.md
 ```
 
-如果返回 exit code 2，输出安全报告并停止流程。
+If exit code 2 → output security report and STOP.
 
-#### C3: 状态校验
+#### C3: State Validation / 状态校验
 
-运行状态文件校验：
 ```bash
 python scripts/state-validator.py .project-state.md
 ```
 
-如果校验失败，尝试修复或提示用户重新生成。
+If validation fails → try to fix or prompt user to regenerate.
 
-#### C4: 差距分析
+#### C4: Gap Analysis / 差距分析
 
-运行差距分析：
 ```bash
 python scripts/gap-analyzer.py <project-directory> --state-file .project-state.md
 ```
 
-读取 JSON 输出。
+#### C5: Generate Action Plan / 生成行动建议
 
-#### C5: 生成行动建议
+Based on gap analysis:
 
-基于差距分析结果，输出：
+| English | 中文 |
+|---------|------|
+| Progress: X/Y features completed (Z%) | 当前进度：X/Y 功能已完成（Z%） |
+| Next: "Suggest completing [feature] because [reason]" | 下一步建议："建议先完成 [功能]，因为 [原因]" |
+| Blocker: "Blocker [X] unresolved, suggest [solution]" | 阻塞提醒："阻塞项 [X] 尚未解决，建议 [方案]" |
+| Deviation: "Found [X] deviates from PRD" | 偏离警告："发现 [X] 模块偏离 PRD" |
+| Estimate: "Completing next feature takes ~[time]" | 预估工作量："完成下一个功能预计需要 [时间]" |
 
-1. **进度摘要**："当前进度：X/Y 功能已完成（Z%）"
-2. **下一步建议**："建议先完成 [具体功能]，因为 [原因]"
-3. **阻塞提醒**（如有）："阻塞项 [X] 尚未解决，建议 [解决方案]"
-4. **偏离警告**（如有）："发现 [X] 模块的实现方向与 PRD 不一致"
-5. **预估工作量**："完成下一个功能预计需要 [时间]"
+#### C6: Post-Development Update / 开发完成后的状态更新
 
-用户确认后开始开发。
-
-#### C6: 开发完成后的状态更新
-
-开发完成后，提醒用户：
+After development completes, remind user:
+> "Feature complete. Update project state file? (Updates enable more accurate progress tracking)"
 > "功能已完成。要更新项目状态文件吗？（更新后可以更准确地追踪进度）"
 
-如果用户确认：
-1. 先检查是否有并发修改：`git diff .project-state.md`
-2. 如果有未合并的修改，先合并再更新，避免覆盖其他 agent 的进度记录
-3. 更新 `.project-state.md` 中的功能状态和 `last-modified-by` 字段
-4. 运行校验
+Before updating:
+1. Check for concurrent modifications: `git diff .project-state.md`
+2. If conflicts exist, merge first before updating
+3. Update `.project-state.md` with new status and `last-modified-by`
+4. Run validation
 
 ---
 
-## Verification
+## Token Budget Control / Token 预算控制
 
-每次状态文件变更后必须运行：
+When token budget is tight, degrade gracefully:
+
+| Component | EN | ZH |
+|-----------|----|----|
+| Concept PRD | Always output (low cost, ≤ 200 words) | 始终输出（成本低） |
+| Full PRD | Output only feature list + page structure | 只输出功能列表 + 页面结构 |
+| Continue Dev | Output only progress summary + next step | 只输出进度摘要 + 下一步建议 |
+| Security Scan | Always execute (deterministic script, no LLM tokens) | 始终执行（确定性脚本，不消耗 token） |
+
+---
+
+## Verification / 验证
+
+After every state file change:
 ```bash
 python scripts/state-validator.py .project-state.md
 ```
 
-每次「继续开发」和「接手半成品」前必须运行：
+Before every "continue development" and "takeover":
 ```bash
 python scripts/security-scanner.py <project-directory> [--state-file .project-state.md]
 ```
 
-## Token 预算控制
+---
 
-当 token 紧张时的降级策略：
-- **概念版 PRD**：始终输出（≤ 200 字，成本低）
-- **落地版 PRD**：如果 token 不足，只输出功能列表 + 页面结构，省略详细的状态机和字段规范
-- **继续开发**：只输出进度摘要 + 下一步建议，省略偏离警告的详细分析
-- **安全扫描**：始终执行（确定性脚本，不消耗 LLM token）
+## Failure Modes / 故障处理
 
-## Failure Modes
+| EN | ZH | Handling |
+|----|-----|----------|
+| Empty project | 空项目 | Prompt: "Use 'new project' flow" / 提示"请使用「新建项目」流程" |
+| Corrupted state file | 状态文件损坏 | Try to fix, else prompt to regenerate / 尝试修复，失败则提示重新生成 |
+| State version too high | 状态文件版本过高 | Prompt: "State file version incompatible, update RPD Skill" |
+| Scan timeout | 扫描超时 | Degrade to manual tech stack questions / 降级为手动询问技术栈 |
+| Empty feature list | 功能清单为空 | Prompt: "Complete requirement alignment first" / 提示"请先完成需求对齐" |
 
-| 故障 | 处理 |
-|------|------|
-| 空项目 | 提示"请使用「新建项目」流程" |
-| 状态文件损坏 | 尝试修复，失败则提示重新生成 |
-| 状态文件版本过高 | 提示"状态文件版本不兼容，请更新 RPD Skill" |
-| 扫描超时 | 降级为手动询问技术栈 |
-| 功能清单为空 | 提示"请先完成需求对齐" |
+---
 
-## Escalation
+## Escalation / 熔断边界
 
-| 边界 | 处理 |
-|------|------|
-| 概念版 PRD 修改 >3 次 | 建议先做用户调研 |
-| 代码含硬编码密钥 | 硬阻断，不继续 |
-| 状态文件与代码严重不一致 | 提示用户确认 |
-| 用户连续 3 次否定建议 | 重新对齐需求 |
+| EN | ZH | Handling |
+|----|-----|----------|
+| Concept PRD revised >3 times | 概念版 PRD 修改 >3 次 | Suggest user research first / 建议先做用户调研 |
+| Code contains hardcoded secrets | 代码含硬编码密钥 | Hard block, do not continue / 硬阻断，不继续 |
+| State file severely inconsistent with code | 状态文件与代码严重不一致 | Ask user which is correct / 提示用户确认 |
+| User rejects suggestions 3 times in a row | 用户连续 3 次否定建议 | Re-align requirements / 重新对齐需求 |
