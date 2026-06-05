@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RPD Project State File Frontmatter",
+  "description": "Schema for .project-state.md YAML frontmatter",
+  "type": "object",
+  "required": ["name", "created", "last-synced", "status", "entry-type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "minLength": 2,
+      "maxLength": 64,
+      "description": "Project name in lowercase-kebab-case"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date in YYYY-MM-DD format"
+    },
+    "last-synced": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last sync timestamp in ISO 8601 format"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["planning", "in-development", "paused", "completed"],
+      "description": "Current project status"
+    },
+    "entry-type": {
+      "type": "string",
+      "enum": ["new-idea", "half-finished", "continued"],
+      "description": "How the project was initialized"
+    }
+  },
+  "additionalProperties": false
+}
