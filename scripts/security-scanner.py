@@ -43,7 +43,6 @@ SENSITIVE_FILES = {
     ".env.local": "Local environment overrides",
     ".env.production": "Production environment config",
     ".env.development": "Development environment config",
-    ".git/config": "Git config (may contain credentials)",
     ".npmrc": "npm config (may contain auth tokens)",
     ".pypirc": "PyPI config (may contain upload tokens)",
     ".htpasswd": "Apache password file",
@@ -179,6 +178,7 @@ def scan_for_secrets(project_dir):
 def scan_for_injection(state_file_path):
     """Scan state file for prompt injection attempts. Returns list of findings."""
     findings = []
+    seen = set()
     path = Path(state_file_path)
 
     if not path.exists():
@@ -191,13 +191,16 @@ def scan_for_injection(state_file_path):
     for line_num, line in enumerate(content.split("\n"), 1):
         for pattern in INJECTION_PATTERNS:
             if re.search(pattern, line, re.IGNORECASE):
-                findings.append({
-                    "type": "injection",
-                    "file": str(path),
-                    "line": line_num,
-                    "description": "Possible prompt injection attempt",
-                    "evidence": line.strip()[:100],
-                })
+                key = (str(path), line_num, pattern)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append({
+                        "type": "injection",
+                        "file": str(path),
+                        "line": line_num,
+                        "description": "Possible prompt injection attempt",
+                        "evidence": line.strip()[:100],
+                    })
 
     return findings
 

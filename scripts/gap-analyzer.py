@@ -18,6 +18,11 @@ import re
 import sys
 from pathlib import Path
 
+# Fix Windows encoding for JSON output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 SKIP_DIRS = {
     'node_modules', '.git', '__pycache__', '.venv', 'venv', 'env',
     'dist', 'build', '.next', '.nuxt', 'vendor', 'target',
@@ -106,18 +111,27 @@ def detect_api_routes(project_dir):
     """Detect API routes from code (deterministic)."""
     p = Path(project_dir)
     routes = []
+    seen = set()
 
-    # Express/Flask/FastAPI route patterns
+    # Express/Go-Gin style routes (including single letter variables like r.GET)
     route_pattern = re.compile(
-        r'(?:app|router|server|api)\.(get|post|put|delete|patch|all|route)\s*\(\s*["\']([^"\']+)["\']',
-        re.IGNORECASE
-    )
-    py_route_pattern = re.compile(
-        r'@(?:app|router|api)\.(get|post|put|delete|patch|route)\s*\(\s*["\']([^"\']+)["\']',
+        r'(?:app|router|server|r)\.(get|post|put|delete|patch|all)\s*\(\s*["\']([^"\']+)["\']',
         re.IGNORECASE
     )
 
-    code_extensions = {".js", ".ts", ".py"}
+    # Flask route with methods parameter
+    flask_route_pattern = re.compile(
+        r'@(?:app|router|api)\.route\s*\(\s*["\']([^"\']+)["\'].*?methods\s*=\s*\[([^\]]+)\]',
+        re.DOTALL
+    )
+
+    # Simple Flask/FastAPI decorator routes
+    py_route_pattern = re.compile(
+        r'@(?:app|router|api)\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']',
+        re.IGNORECASE
+    )
+
+    code_extensions = {".js", ".ts", ".go", ".py"}
     for ext in code_extensions:
         for f in p.rglob(f"*{ext}"):
             parts = f.relative_to(p).parts
@@ -126,10 +140,31 @@ def detect_api_routes(project_dir):
             content = safe_read_file(f)
             if content is None:
                 continue
+            rel_path = str(f.relative_to(p)).replace("\\", "/")
+
+            # Express/Go-Gin style
             for match in route_pattern.finditer(content):
-                routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": str(f.relative_to(p))})
+                key = (match.group(1).upper(), match.group(2), rel_path)
+                if key not in seen:
+                    seen.add(key)
+                    routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
+
+            # Flask route with methods
+            for match in flask_route_pattern.finditer(content):
+                path = match.group(1)
+                methods = [m.strip().strip('"\'').upper() for m in match.group(2).split(",")]
+                for method in methods:
+                    key = (method, path, rel_path)
+                    if key not in seen:
+                        seen.add(key)
+                        routes.append({"method": method, "path": path, "file": rel_path})
+
+            # Simple decorator routes
             for match in py_route_pattern.finditer(content):
-                routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": str(f.relative_to(p))})
+                key = (match.group(1).upper(), match.group(2), rel_path)
+                if key not in seen:
+                    seen.add(key)
+                    routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
 
     return routes
 
@@ -163,17 +198,18 @@ def detect_page_routes(project_dir):
         if content is None:
             continue
 
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+
         # React Router
         for match in react_route_pattern.finditer(content):
-            page_routes.append({"path": match.group(1), "component": match.group(2), "file": str(f.relative_to(p))})
+            page_routes.append({"path": match.group(1), "component": match.group(2), "file": rel_path})
 
         # Vue Router
         for match in vue_route_pattern.finditer(content):
-            page_routes.append({"path": match.group(1), "component": match.group(2), "file": str(f.relative_to(p))})
+            page_routes.append({"path": match.group(1), "component": match.group(2), "file": rel_path})
 
         # Next.js file-based routing
-        rel = str(f.relative_to(p))
-        next_match = next_page_pattern.match(rel)
+        next_match = next_page_pattern.match(rel_path)
         if next_match:
             page_path = "/" + next_match.group(1).replace("\\", "/")
             if page_path.endswith("/index"):
@@ -206,18 +242,20 @@ def detect_data_models(project_dir):
         if content is None:
             continue
 
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+
         # Prisma
         for match in prisma_pattern.finditer(content):
-            models.append({"name": match.group(1), "type": "prisma", "file": str(f.relative_to(p))})
+            models.append({"name": match.group(1), "type": "prisma", "file": rel_path})
 
         # SQLAlchemy
         for match in sqlalchemy_pattern.finditer(content):
-            models.append({"name": match.group(1), "type": "sqlalchemy", "file": str(f.relative_to(p))})
+            models.append({"name": match.group(1), "type": "sqlalchemy", "file": rel_path})
 
         # Mongoose
         for match in mongoose_pattern.finditer(content):
             name = match.group(1) or match.group(2)
-            models.append({"name": name, "type": "mongoose", "file": str(f.relative_to(p))})
+            models.append({"name": name, "type": "mongoose", "file": rel_path})
 
     return models
 

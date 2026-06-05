@@ -16,6 +16,23 @@ import re
 import sys
 from pathlib import Path
 
+# Fix Windows encoding for JSON output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB
+
+
+def safe_read_file(path, max_size=MAX_FILE_SIZE):
+    """Read file with size limit to prevent OOM."""
+    try:
+        if os.path.getsize(path) > max_size:
+            return None
+        return Path(path).read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return None
+
 # --- Tech stack detection ---
 
 FRAMEWORK_INDICATORS = {
@@ -92,7 +109,7 @@ def detect_tech_stack(project_dir):
     elif (p / "Cargo.lock").exists():
         tech["package_manager"] = "cargo"
 
-    # Read package.json if exists
+    # Read package.json if exists (with monorepo support)
     pkg_json = p / "package.json"
     pkg_deps = ""
     if pkg_json.exists():
@@ -100,6 +117,19 @@ def detect_tech_stack(project_dir):
             pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
             all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             pkg_deps = " ".join(all_deps.keys())
+        except Exception:
+            pass
+
+    # Monorepo: also check nested package.json files
+    for nested_pkg in p.rglob("package.json"):
+        if nested_pkg == pkg_json:
+            continue
+        if any(skip in nested_pkg.parts for skip in SKIP_DIRS):
+            continue
+        try:
+            nested = json.loads(nested_pkg.read_text(encoding="utf-8"))
+            nested_deps = {**nested.get("dependencies", {}), **nested.get("devDependencies", {})}
+            pkg_deps += " " + " ".join(nested_deps.keys())
         except Exception:
             pass
 
@@ -164,7 +194,7 @@ def detect_structure(project_dir):
     ]
     for pattern in config_patterns:
         matches = list(p.glob(pattern))
-        structure["config_files"].extend([str(m.relative_to(p)) for m in matches])
+        structure["config_files"].extend([str(m.relative_to(p)).replace("\\", "/") for m in matches])
 
     # Test detection
     test_indicators = ["test", "tests", "__tests__", "spec", "specs", "pytest.ini", "jest.config.*"]
@@ -195,7 +225,7 @@ def detect_components(project_dir):
             comp_type = "component"
             if any(kw in str(rel).lower() for kw in ["page", "pages", "view", "views", "route"]):
                 comp_type = "page"
-            components.append({"name": name, "path": str(rel), "type": comp_type})
+            components.append({"name": name, "path": str(rel).replace("\\", "/"), "type": comp_type})
 
     return components
 
@@ -204,41 +234,60 @@ def detect_api_routes(project_dir):
     """Detect API routes from code."""
     p = Path(project_dir)
     routes = []
+    seen = set()
 
-    # Express-style routes
+    # Express/Go-Gin style routes (including single letter variables like r.GET)
     route_pattern = re.compile(
-        r'(?:app|router|server)\.(get|post|put|delete|patch|all)\s*\(\s*["\']([^"\']+)["\']',
+        r'(?:app|router|server|r)\.(get|post|put|delete|patch|all)\s*\(\s*["\']([^"\']+)["\']',
         re.IGNORECASE
     )
 
-    code_extensions = {".js", ".ts", ".py"}
+    # Flask route with methods parameter
+    flask_route_pattern = re.compile(
+        r'@(?:app|router|api)\.route\s*\(\s*["\']([^"\']+)["\'].*?methods\s*=\s*\[([^\]]+)\]',
+        re.DOTALL
+    )
+
+    # Simple Flask/FastAPI decorator routes
+    py_route_pattern = re.compile(
+        r'@(?:app|router|api)\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']',
+        re.IGNORECASE
+    )
+
+    code_extensions = {".js", ".ts", ".go", ".py"}
     for ext in code_extensions:
         for f in p.rglob(f"*{ext}"):
             parts = f.relative_to(p).parts
             if any(skip in parts for skip in SKIP_DIRS):
                 continue
-            try:
-                content = f.read_text(encoding="utf-8", errors="ignore")
-                for match in route_pattern.finditer(content):
-                    routes.append({"method": match.group(1).upper(), "path": match.group(2)})
-            except Exception:
+            content = safe_read_file(f)
+            if content is None:
                 continue
+            rel_path = str(f.relative_to(p)).replace("\\", "/")
 
-    # Python Flask/FastAPI routes
-    py_route_pattern = re.compile(
-        r'@(?:app|router|api)\.(get|post|put|delete|patch|route)\s*\(\s*["\']([^"\']+)["\']',
-        re.IGNORECASE
-    )
-    for f in p.rglob("*.py"):
-        parts = f.relative_to(p).parts
-        if any(skip in parts for skip in SKIP_DIRS):
-            continue
-        try:
-            content = f.read_text(encoding="utf-8", errors="ignore")
+            # Express/Go-Gin style
+            for match in route_pattern.finditer(content):
+                key = (match.group(1).upper(), match.group(2), rel_path)
+                if key not in seen:
+                    seen.add(key)
+                    routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
+
+            # Flask route with methods
+            for match in flask_route_pattern.finditer(content):
+                path = match.group(1)
+                methods = [m.strip().strip('"\'').upper() for m in match.group(2).split(",")]
+                for method in methods:
+                    key = (method, path, rel_path)
+                    if key not in seen:
+                        seen.add(key)
+                        routes.append({"method": method, "path": path, "file": rel_path})
+
+            # Simple decorator routes
             for match in py_route_pattern.finditer(content):
-                routes.append({"method": match.group(1).upper(), "path": match.group(2)})
-        except Exception:
-            continue
+                key = (match.group(1).upper(), match.group(2), rel_path)
+                if key not in seen:
+                    seen.add(key)
+                    routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
 
     return routes
 
@@ -259,16 +308,17 @@ def detect_todos(project_dir):
         parts = f.relative_to(p).parts
         if any(skip in parts for skip in SKIP_DIRS):
             continue
-        try:
-            for line_num, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").split("\n"), 1):
-                match = todo_pattern.search(line)
-                if match:
-                    todos.append({
-                        "file": f"{f.relative_to(p)}:{line_num}",
-                        "text": f"{match.group(1)}: {match.group(2).strip()}",
-                    })
-        except Exception:
+        content = safe_read_file(f)
+        if content is None:
             continue
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+        for line_num, line in enumerate(content.split("\n"), 1):
+            match = todo_pattern.search(line)
+            if match:
+                todos.append({
+                    "file": f"{rel_path}:{line_num}",
+                    "text": f"{match.group(1)}: {match.group(2).strip()}",
+                })
 
     return todos
 
