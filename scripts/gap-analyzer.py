@@ -166,6 +166,31 @@ def detect_api_routes(project_dir):
                     seen.add(key)
                     routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
 
+    # Java Spring routes
+    spring_route_pattern = re.compile(
+        r'@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)\s*\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']',
+        re.IGNORECASE
+    )
+    METHOD_MAP = {
+        "GetMapping": "GET", "PostMapping": "POST",
+        "PutMapping": "PUT", "DeleteMapping": "DELETE",
+        "PatchMapping": "PATCH", "RequestMapping": "ALL",
+    }
+    for f in p.rglob("*.java"):
+        parts = f.relative_to(p).parts
+        if any(skip in parts for skip in SKIP_DIRS):
+            continue
+        content = safe_read_file(f)
+        if content is None:
+            continue
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+        for match in spring_route_pattern.finditer(content):
+            method = METHOD_MAP.get(match.group(1), "ALL")
+            key = (method, match.group(2), rel_path)
+            if key not in seen:
+                seen.add(key)
+                routes.append({"method": method, "path": match.group(2), "file": rel_path})
+
     return routes
 
 
@@ -214,7 +239,7 @@ def detect_page_routes(project_dir):
             page_path = "/" + next_match.group(1).replace("\\", "/")
             if page_path.endswith("/index"):
                 page_path = page_path[:-6] or "/"
-            page_routes.append({"path": page_path, "component": f.stem, "file": rel})
+            page_routes.append({"path": page_path, "component": f.stem, "file": rel_path})
 
     return page_routes
 
@@ -271,26 +296,69 @@ def feature_name_keyword_match(feature_name, target):
 
     # Chinese to English keyword mapping for common terms
     keyword_map = {
+        # Auth & User
         "登录": ["login", "signin", "auth"],
         "注册": ["register", "signup"],
-        "列表": ["list", "index", "table"],
-        "详情": ["detail", "show", "view"],
-        "搜索": ["search", "filter"],
-        "导出": ["export", "download"],
-        "导入": ["import", "upload"],
+        "用户": ["user", "profile"],
+        "权限": ["permission", "role", "access"],
+        "密码": ["password", "pwd"],
+        # CRUD
+        "添加": ["add", "create", "new"],
+        "创建": ["create", "new", "add"],
         "编辑": ["edit", "update", "modify"],
         "删除": ["delete", "remove", "destroy"],
-        "创建": ["create", "new", "add"],
-        "用户": ["user", "profile"],
-        "设置": ["setting", "config", "preference"],
-        "报表": ["report", "chart", "analytics"],
+        "修改": ["update", "modify", "edit"],
+        # Data display
+        "列表": ["list", "index", "table"],
+        "详情": ["detail", "show", "view"],
+        "信息": ["info", "detail", "profile"],
+        # Search & Filter
+        "搜索": ["search", "filter", "find"],
+        "查询": ["query", "search", "find"],
+        "筛选": ["filter", "筛选"],
+        # Import & Export
+        "导出": ["export", "download"],
+        "导入": ["import", "upload"],
+        "上传": ["upload", "import"],
+        "下载": ["download", "export"],
+        # Todo & Task
+        "待办": ["todo", "task"],
+        "任务": ["task", "todo", "job"],
+        "标记": ["mark", "flag", "tag"],
+        "完成": ["complete", "done", "finish"],
+        # Communication
         "通知": ["notification", "alert", "message"],
+        "消息": ["message", "notification", "msg"],
+        "评论": ["comment", "review"],
+        "回复": ["reply", "respond", "comment"],
+        # Social
+        "收藏": ["favorite", "bookmark"],
+        "分享": ["share"],
+        "点赞": ["like", "favorite"],
+        "关注": ["follow", "subscribe"],
+        # Commerce
         "支付": ["payment", "pay", "checkout"],
         "订单": ["order"],
-        "分页": ["pagination", "paginate", "pager"],
-        "记账": ["accounting", "ledger", "transaction"],
-        "分类": ["category", "classify"],
+        "购物": ["cart", "shopping"],
+        "商品": ["product", "goods", "item"],
+        # Settings & Config
+        "设置": ["setting", "config", "preference"],
+        "配置": ["config", "setting", "configuration"],
+        # Analytics & Reports
+        "报表": ["report", "chart", "analytics"],
         "统计": ["statistics", "stats", "summary"],
+        "分析": ["analytics", "analysis"],
+        # Pagination
+        "分页": ["pagination", "paginate", "pager"],
+        # Accounting
+        "记账": ["accounting", "ledger", "transaction"],
+        "账单": ["bill", "invoice", "statement"],
+        # Category
+        "分类": ["category", "classify"],
+        # Submit & Review
+        "提交": ["submit", "post"],
+        "审核": ["review", "audit", "approve"],
+        "审批": ["approve", "review"],
     }
 
     for cn, en_terms in keyword_map.items():

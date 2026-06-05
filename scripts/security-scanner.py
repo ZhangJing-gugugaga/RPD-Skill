@@ -162,6 +162,10 @@ def scan_for_secrets(project_dir):
 
         # Scan each line
         for line_num, line in enumerate(content.split("\n"), 1):
+            stripped = line.strip()
+            # Skip comments
+            if stripped.startswith("#") or stripped.startswith("//") or stripped.startswith("*"):
+                continue
             for pattern, description in SECRET_PATTERNS:
                 if re.search(pattern, line, re.IGNORECASE):
                     findings.append({

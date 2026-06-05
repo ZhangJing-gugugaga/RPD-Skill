@@ -157,6 +157,13 @@ def validate_schema(data, schema):
             if not validate_format_datetime(value):
                 errors.append(f"Field '{key}': invalid datetime format, expected ISO 8601")
 
+        # Minimum/maximum checks
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if "minimum" in prop_schema and value < prop_schema["minimum"]:
+                errors.append(f"Field '{key}': value {value} is below minimum {prop_schema['minimum']}")
+            if "maximum" in prop_schema and value > prop_schema["maximum"]:
+                errors.append(f"Field '{key}': value {value} is above maximum {prop_schema['maximum']}")
+
     return errors
 
 

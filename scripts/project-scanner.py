@@ -155,6 +155,10 @@ def detect_tech_stack(project_dir):
                         break
                 if found:
                     break
+            elif (p / indicator).is_file():
+                # Check if it's a file (like pom.xml, manage.py, etc.)
+                tech["framework"] = fw
+                break
             else:
                 if indicator in pkg_deps:
                     tech["framework"] = fw
@@ -288,6 +292,31 @@ def detect_api_routes(project_dir):
                 if key not in seen:
                     seen.add(key)
                     routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
+
+    # Java Spring routes
+    spring_route_pattern = re.compile(
+        r'@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)\s*\(\s*(?:value\s*=\s*)?["\']([^"\']+)["\']',
+        re.IGNORECASE
+    )
+    METHOD_MAP = {
+        "GetMapping": "GET", "PostMapping": "POST",
+        "PutMapping": "PUT", "DeleteMapping": "DELETE",
+        "PatchMapping": "PATCH", "RequestMapping": "ALL",
+    }
+    for f in p.rglob("*.java"):
+        parts = f.relative_to(p).parts
+        if any(skip in parts for skip in SKIP_DIRS):
+            continue
+        content = safe_read_file(f)
+        if content is None:
+            continue
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+        for match in spring_route_pattern.finditer(content):
+            method = METHOD_MAP.get(match.group(1), "ALL")
+            key = (method, match.group(2), rel_path)
+            if key not in seen:
+                seen.add(key)
+                routes.append({"method": method, "path": match.group(2), "file": rel_path})
 
     return routes
 
