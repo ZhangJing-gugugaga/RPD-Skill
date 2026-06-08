@@ -470,12 +470,13 @@ def main():
         status = "✅ PASS" if passed else "❌ FAIL"
         print(f"  {status} - {name}")
 
-    all_passed = all(results.values())
+    failed = [name for name, passed in results.items() if not passed]
+    all_passed = len(failed) == 0
     if all_passed:
         print("\n🎉 All scenarios passed!")
         return 0
     else:
-        print("\n💥 Some scenarios failed!")
+        print(f"\n💥 {len(failed)} scenario(s) failed: {', '.join(failed)}")
         return 1
 
 
@@ -485,5 +486,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n💥 FATAL ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
