@@ -19,6 +19,10 @@
   <a href="#english">English</a> | <a href="#中文版">中文版</a>
 </p>
 
+<p align="center">
+  <img src="images/hero.png" alt="RPD — Rapid Product Document" width="800" />
+</p>
+
 ---
 
 # English
@@ -55,6 +59,10 @@ You're Vibe Coding with AI. Three things kill your project:
 ---
 
 ## How It Works
+
+<p align="center">
+  <img src="images/workflow.png" alt="RPD Workflow" width="800" />
+</p>
 
 ### Flow A: New Project
 
@@ -166,6 +174,10 @@ Action plan + next steps
 ---
 
 ## Scripts
+
+<p align="center">
+  <img src="images/architecture.png" alt="RPD Architecture" width="600" />
+</p>
 
 8 Python scripts, **zero dependencies, stdlib only**:
 
@@ -297,11 +309,12 @@ rpd/
 │   └── state-schema.json       # State file JSON Schema
 ├── eval/
 │   └── scenarios/              # 11 evaluation scenarios
+├── images/
+│   ├── hero.png                # Hero image
+│   ├── workflow.png            # Workflow diagram
+│   └── architecture.png        # Architecture diagram
 └── assets/
-    └── prompt/
-        ├── hero.txt            # Hero image prompt
-        ├── workflow.txt        # Workflow diagram prompt
-        └── architecture.txt    # Architecture diagram prompt
+    └── example-state.md        # Example state file
 ```
 
 ---
@@ -315,6 +328,10 @@ rpd/
 ---
 
 # 中文版
+
+<p align="center">
+  <img src="images/hero.png" alt="RPD — Rapid Product Document" width="800" />
+</p>
 
 ## RPD 解决什么问题？
 
@@ -348,6 +365,10 @@ rpd/
 ---
 
 ## 工作流程
+
+<p align="center">
+  <img src="images/workflow.png" alt="RPD 工作流程" width="800" />
+</p>
 
 ### 流程 A：新项目
 
@@ -459,6 +480,10 @@ gap-analyzer.py（PRD vs 代码 + 决策漂移）
 ---
 
 ## 脚本工具箱
+
+<p align="center">
+  <img src="images/architecture.png" alt="RPD 架构" width="600" />
+</p>
 
 8 个 Python 脚本，**零依赖，纯标准库**：
 
@@ -590,11 +615,12 @@ rpd/
 │   └── state-schema.json       # 状态文件 JSON Schema
 ├── eval/
 │   └── scenarios/              # 11 个评估场景
+├── images/
+│   ├── hero.png                # 主视觉图
+│   ├── workflow.png            # 工作流程图
+│   └── architecture.png        # 架构图
 └── assets/
-    └── prompt/
-        ├── hero.txt            # 主图提示词
-        ├── workflow.txt        # 工作流程图提示词
-        └── architecture.txt    # 架构图提示词
+    └── example-state.md        # 示例状态文件
 ```
 
 ---
