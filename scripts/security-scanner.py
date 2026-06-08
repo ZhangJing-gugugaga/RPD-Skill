@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan project code for hardcoded secrets and prompt injection attempts.
+"""Scan project code for hardcoded secrets, prompt injection, and business-level security issues.
 
 Usage: python security-scanner.py <project-directory> [--state-file <path>]
 
@@ -14,6 +14,11 @@ import os
 import re
 import sys
 from pathlib import Path
+
+# Fix Windows encoding for JSON output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # --- Secret detection patterns ---
 
@@ -35,6 +40,102 @@ SECRET_PATTERNS = [
     (r'-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----', "Private key in code"),
     # Generic high-entropy strings assigned to sensitive-looking variables
     (r'(?:secret|key|token|password|credential)\s*=\s*["\'][A-Za-z0-9+/=_\-]{32,}["\']', "Possible hardcoded secret"),
+]
+
+# --- Code-level security rules (business logic) ---
+
+CODE_SECURITY_RULES = [
+    # SEC-001: SMS/Email API without rate limiting
+    {
+        "id": "SEC-001",
+        "name": "SMS/Email API without rate limiting",
+        "name_zh": "短信/邮件发送接口缺少频率限制",
+        "pattern": r'(?:sendSMS|sendEmail|sendCode|sendVerification|sendVerify)\s*\(',
+        "check": lambda content, match: "rateLimit" not in content and "rate-limit" not in content and "rateLimiter" not in content,
+        "severity": "CRITICAL",
+        "message": "SMS/Email sending API lacks rate limiting, vulnerable to bombing attacks",
+        "message_zh": "短信/邮件发送接口缺少频率限制，易被短信轰炸攻击",
+        "recommendation": "Add rate-limit middleware, set daily limit per phone/IP",
+        "recommendation_zh": "添加 rate-limit middleware，设置单手机号/IP 每日上限",
+    },
+    # SEC-002: UGC write without content moderation
+    {
+        "id": "SEC-002",
+        "name": "UGC write without content moderation",
+        "name_zh": "用户生成内容(UGC)写入无审核机制",
+        "pattern": r'(?:Comment|Post|Wish|Message|Review|Article|Reply)\.create\s*\(',
+        "check": lambda content, match: "moderat" not in content.lower() and "audit" not in content.lower() and "审核" not in content and "contentSafe" not in content,
+        "severity": "CRITICAL",
+        "message": "User-generated content written without moderation, risk of illegal content",
+        "message_zh": "用户生成内容写入无审核机制，存在违法违规内容传播风险",
+        "recommendation": "Integrate content safety API (e.g., Aliyun Green/NetEase Yidun), implement review-before-publish",
+        "recommendation_zh": "接入内容安全API（网易易盾/阿里云内容安全），实现先审后发",
+    },
+    # SEC-003: File upload without type validation
+    {
+        "id": "SEC-003",
+        "name": "File upload without type validation",
+        "name_zh": "文件上传缺少文件类型校验",
+        "pattern": r'multer\s*\(\s*\{[^}]*storage',
+        "check": lambda content, match: "fileFilter" not in content,
+        "severity": "HIGH",
+        "message": "File upload lacks file type validation, malicious files may be uploaded",
+        "message_zh": "文件上传缺少文件类型校验，可能被上传恶意文件",
+        "recommendation": "Add fileFilter to restrict allowed types (jpg/png/gif), limit file size",
+        "recommendation_zh": "添加 fileFilter 限制允许的文件类型（jpg/png/gif），限制文件大小",
+    },
+    # SEC-004: File storage on local disk
+    {
+        "id": "SEC-004",
+        "name": "File storage on local disk",
+        "name_zh": "文件存储在服务器本地磁盘",
+        "pattern": r'diskStorage\s*\(',
+        "check": lambda content, match: True,
+        "severity": "MEDIUM",
+        "message": "Files stored on local disk, risk of link theft and disk exhaustion",
+        "message_zh": "文件存储在服务器本地磁盘，存在被盗链和磁盘占满风险",
+        "recommendation": "Migrate to cloud object storage (Aliyun OSS/AWS S3), enable anti-leech",
+        "recommendation_zh": "迁移至云对象存储（阿里云OSS/AWS S3），设置防盗链",
+    },
+    # SEC-005: Hardcoded System Prompt
+    {
+        "id": "SEC-005",
+        "name": "Hardcoded System Prompt",
+        "name_zh": "AI System Prompt 硬编码在代码中",
+        "pattern": r'(?:SYSTEM_PROMPT|system_prompt|systemPrompt|SYSTEM_MESSAGE)\s*=\s*[`"\']',
+        "check": lambda content, match: True,
+        "severity": "HIGH",
+        "message": "AI System Prompt hardcoded in code, risk of leakage",
+        "message_zh": "AI System Prompt 硬编码在代码中，存在泄露风险",
+        "recommendation": "Separate System Prompt from code, store in env vars or encrypted config",
+        "recommendation_zh": "将 System Prompt 从代码中分离，存储在环境变量或加密配置文件中",
+    },
+    # SEC-006: Direct file URL without access control
+    {
+        "id": "SEC-006",
+        "name": "Direct file URL without access control",
+        "name_zh": "文件URL直接可访问，无防盗链保护",
+        "pattern": r'res\.json\s*\(\s*\{[^}]*url.*(?:uploads|files|static)',
+        "check": lambda content, match: "signed" not in content.lower() and "token" not in content.lower() and "referer" not in content.lower(),
+        "severity": "MEDIUM",
+        "message": "File URLs directly accessible without anti-leech protection",
+        "message_zh": "文件URL直接可访问，无防盗链保护",
+        "recommendation": "Use signed URLs or Referer validation for anti-leech",
+        "recommendation_zh": "使用签名URL或Referer校验实现防盗链",
+    },
+    # SEC-007: API route without authentication middleware
+    {
+        "id": "SEC-007",
+        "name": "API route without authentication middleware",
+        "name_zh": "API 路由缺少认证中间件",
+        "pattern": r'router\.(get|post|put|delete)\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*async',
+        "check": lambda content, match: "auth" not in content.lower() and "authenticate" not in content.lower() and "verify" not in content.lower() and "protect" not in content.lower(),
+        "severity": "HIGH",
+        "message": "API route lacks authentication middleware, accessible without login",
+        "message_zh": "API 路由缺少认证中间件，未登录用户可直接访问",
+        "recommendation": "Add auth middleware to verify JWT/Session",
+        "recommendation_zh": "添加 auth middleware 验证 JWT/Session",
+    },
 ]
 
 # Sensitive files that shouldn't be in version control
@@ -179,6 +280,55 @@ def scan_for_secrets(project_dir):
     return findings
 
 
+def scan_code_security(project_dir):
+    """Scan code for logic-level security issues (business security)."""
+    findings = []
+    p = Path(project_dir)
+    seen = set()
+
+    code_extensions = {".js", ".ts", ".py", ".jsx", ".tsx", ".go", ".java"}
+
+    for f in p.rglob("*"):
+        if not f.is_file():
+            continue
+        if f.suffix not in code_extensions:
+            continue
+
+        parts = f.relative_to(p).parts
+        if any(skip in parts for skip in SKIP_DIRS):
+            continue
+
+        content = safe_read_file(f)
+        if content is None:
+            continue
+
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+
+        for rule in CODE_SECURITY_RULES:
+            for match in re.finditer(rule["pattern"], content, re.IGNORECASE):
+                if rule["check"](content, match):
+                    key = (rule["id"], rel_path, match.start())
+                    if key not in seen:
+                        seen.add(key)
+                        line_num = content[:match.start()].count("\n") + 1
+                        findings.append({
+                            "type": "code_security",
+                            "rule_id": rule["id"],
+                            "severity": rule["severity"],
+                            "file": rel_path,
+                            "line": line_num,
+                            "description": rule["name"],
+                            "description_zh": rule["name_zh"],
+                            "message": rule["message"],
+                            "message_zh": rule["message_zh"],
+                            "recommendation": rule["recommendation"],
+                            "recommendation_zh": rule["recommendation_zh"],
+                            "evidence": content.split("\n")[line_num - 1].strip()[:100] if line_num <= len(content.split("\n")) else "",
+                        })
+
+    return findings
+
+
 def scan_for_injection(state_file_path):
     """Scan state file for prompt injection attempts. Returns list of findings."""
     findings = []
@@ -238,6 +388,10 @@ def main():
     secret_findings = scan_for_secrets(project_dir)
     all_findings.extend(secret_findings)
 
+    # Scan for code-level security issues (business logic)
+    code_security_findings = scan_code_security(project_dir)
+    all_findings.extend(code_security_findings)
+
     # Scan state file for injection (if provided)
     if state_file:
         injection_findings = scan_for_injection(state_file)
@@ -245,9 +399,21 @@ def main():
 
     # Report
     if all_findings:
+        # Categorize findings
+        critical = [f for f in all_findings if f.get("severity") == "CRITICAL"]
+        high = [f for f in all_findings if f.get("severity") == "HIGH"]
+        medium = [f for f in all_findings if f.get("severity") == "MEDIUM"]
+        other = [f for f in all_findings if f.get("severity") not in ("CRITICAL", "HIGH", "MEDIUM")]
+
         print(json.dumps({
             "status": "BLOCKED",
             "total_findings": len(all_findings),
+            "summary": {
+                "critical": len(critical),
+                "high": len(high),
+                "medium": len(medium),
+                "other": len(other),
+            },
             "findings": all_findings,
         }, indent=2, ensure_ascii=False))
         return 2

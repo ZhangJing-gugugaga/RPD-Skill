@@ -526,6 +526,88 @@ def detect_deviations(project_dir, features, prd_summary):
     return deviations
 
 
+def detect_security_gaps(project_dir):
+    """Detect missing security measures in the codebase.
+
+    Checks for common security gaps in Vibe Coding projects:
+    1. SMS/Email service without rate limiting
+    2. File upload without cloud storage
+    3. AI features without content moderation
+    4. Missing authentication dependencies
+    """
+    gaps = []
+    p = Path(project_dir)
+    pkg_json = p / "package.json"
+
+    if not pkg_json.exists():
+        return gaps
+
+    try:
+        pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+        all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+
+        # SMS/Email without rate limiting
+        has_sms = any(k in all_deps for k in ["twilio", "aliyun-sms", "nodemailer", "sendgrid", "aliyun-dysms"])
+        has_rate_limit = any(k in all_deps for k in ["express-rate-limit", "rate-limiter", "bottleneck", "rate-limit-flexible"])
+        if has_sms and not has_rate_limit:
+            gaps.append({
+                "type": "missing_security",
+                "feature": "频率限制",
+                "feature_en": "Rate Limiting",
+                "severity": "CRITICAL",
+                "message": "项目使用了短信/邮件服务但未安装频率限制库",
+                "message_en": "Project uses SMS/Email service but has no rate limiting library",
+                "recommendation": "npm install express-rate-limit",
+            })
+
+        # File upload without cloud storage
+        has_upload = any(k in all_deps for k in ["multer", "formidable", "busboy", "express-fileupload"])
+        has_cloud = any(k in all_deps for k in ["aliyun-oss", "aws-sdk", "@aws-sdk/client-s3", "qiniu", "cos-nodejs-sdk-v5"])
+        if has_upload and not has_cloud:
+            gaps.append({
+                "type": "missing_security",
+                "feature": "云存储",
+                "feature_en": "Cloud Storage",
+                "severity": "MEDIUM",
+                "message": "项目使用了文件上传但未集成云对象存储",
+                "message_en": "Project uses file upload but has no cloud object storage integration",
+                "recommendation": "集成阿里云OSS或AWS S3，避免本地磁盘存储",
+            })
+
+        # AI without content moderation
+        has_ai = any(k in all_deps for k in ["openai", "anthropic", "langchain", "@anthropic-ai/sdk", "zhipu-ai", "baidu-ai"])
+        has_moderation = any(k in all_deps for k in ["aliyun-green", "nsfwjs", "content-moderation", "tencent-ai"])
+        if has_ai and not has_moderation:
+            gaps.append({
+                "type": "missing_security",
+                "feature": "内容审核",
+                "feature_en": "Content Moderation",
+                "severity": "HIGH",
+                "message": "项目使用了AI功能但未集成内容安全审核",
+                "message_en": "Project uses AI features but has no content safety/moderation integration",
+                "recommendation": "接入内容安全API，对AI输出进行合规审核",
+            })
+
+        # Web framework without security headers
+        has_web = any(k in all_deps for k in ["express", "koa", "fastify", "hapi"])
+        has_helmet = any(k in all_deps for k in ["helmet", "lusca", "express-csp"])
+        if has_web and not has_helmet:
+            gaps.append({
+                "type": "missing_security",
+                "feature": "安全头",
+                "feature_en": "Security Headers",
+                "severity": "LOW",
+                "message": "Web 框架未配置安全响应头",
+                "message_en": "Web framework has no security headers configured",
+                "recommendation": "npm install helmet，添加安全响应头",
+            })
+
+    except Exception:
+        pass
+
+    return gaps
+
+
 def main():
     args = sys.argv[1:]
 
@@ -575,6 +657,7 @@ def main():
     feature_analysis = scan_code_for_features(project_dir, features)
     resolved, open_blockers = check_blockers_resolved(project_dir, state_data["blockers"])
     deviations = detect_deviations(project_dir, features, state_data["prd_summary"])
+    security_gaps = detect_security_gaps(project_dir)
 
     # Build summary
     completed = sum(1 for f in feature_analysis if f["detected_status"] == "completed")
@@ -593,6 +676,7 @@ def main():
         "blockers_resolved": resolved,
         "blockers_open": open_blockers,
         "deviations": deviations,
+        "security_gaps": security_gaps,
     }
 
     print(json.dumps(result, indent=2, ensure_ascii=False))

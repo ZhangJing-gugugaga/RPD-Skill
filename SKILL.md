@@ -80,8 +80,8 @@ Route based on user intent / 根据用户意图分发：
 #### A1: Three-Perspective Diagnosis / 三视角诊断
 
 Restate your understanding of the core need, then tell the user:
-> "I'll ask a few rounds of questions to align requirements. This will take about 2 minutes."
-> "接下来我会通过几轮提问对齐需求，总共大约需要 2 分钟。"
+> "I'll ask a few rounds of questions to align requirements. This will take about 3 minutes."
+> "接下来我会通过几轮提问对齐需求，总共大约需要 3 分钟。"
 
 **Round 1 (User Perspective / 用户视角) — pick 2-3:**
 
@@ -118,7 +118,20 @@ After questions: "Round 2, 1 round remaining" / 「第 2 轮，还剩 1 轮」
 | How many main pages? | 产品预计有几个主要页面？ |
 | How many weeks to build this version? | 这个版本预期几周内可以做出来？ |
 
-After questions: "Round 3, last question!" / 「第 3 轮，最后一个问题了！」
+After questions: "Round 3, 1 round remaining" / 「第 3 轮，还剩 1 轮」
+
+**Round 4 (Security Perspective / 安全视角) — ask all:**
+
+| English | 中文 |
+|---------|------|
+| Does it involve user registration and login? → Account security needed | 是否涉及用户注册和登录？→ 需要考虑账户安全 |
+| Does it have user-generated content (comments, posts, avatars)? → Content moderation needed | 是否有用户发布内容的功能（评论、帖子、头像等）？→ 需要内容审核 |
+| Does it have file upload? → File security measures needed | 是否有文件上传功能？→ 需要文件安全措施 |
+| Does it use AI/LLM features? → Prompt protection needed | 是否使用 AI/大模型功能？→ 需要 Prompt 保护 |
+| Does it involve payments or sensitive data? → Encryption and compliance needed | 是否涉及支付或敏感数据？→ 需要数据加密和合规 |
+| Expected user scale? → Affects security investment priority | 预期用户规模？→ 影响安全投入的优先级 |
+
+After questions: "Round 4 (Security), last question!" / 「第 4 轮（安全），最后一个问题了！」
 
 **Rules / 规则：**
 - Max 3 questions per round, wait for answers before continuing
