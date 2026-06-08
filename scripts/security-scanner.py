@@ -64,7 +64,10 @@ CODE_SECURITY_RULES = [
         "name": "UGC write without content moderation",
         "name_zh": "用户生成内容(UGC)写入无审核机制",
         "pattern": r'(?:Comment|Post|Wish|Message|Review|Article|Reply)\.create\s*\(',
-        "check": lambda content, match: "moderat" not in content.lower() and "audit" not in content.lower() and "审核" not in content and "contentSafe" not in content,
+        "check": lambda context, match: not re.search(
+            r'(?:contentModerat|moderat(?:e|ion)|audit|contentSafe)\s*\(|审核\s*\(',
+            context, re.IGNORECASE
+        ),
         "severity": "CRITICAL",
         "message": "User-generated content written without moderation, risk of illegal content",
         "message_zh": "用户生成内容写入无审核机制，存在违法违规内容传播风险",
@@ -136,6 +139,19 @@ CODE_SECURITY_RULES = [
         "recommendation": "Add auth middleware to verify JWT/Session",
         "recommendation_zh": "添加 auth middleware 验证 JWT/Session",
     },
+    # SEC-008: System Prompt constructed via string concatenation
+    {
+        "id": "SEC-008",
+        "name": "System Prompt constructed via string concatenation",
+        "name_zh": "AI System Prompt 通过字符串拼接构造",
+        "pattern": r'(?:SYSTEM_PROMPT|system_prompt|systemPrompt|SYSTEM_MESSAGE)\s*=\s*\w+\s*\+',
+        "check": lambda context, match: True,
+        "severity": "LOW",
+        "message": "System Prompt assembled via variable concatenation, may hide injection or leakage vectors",
+        "message_zh": "System Prompt 通过变量拼接构造，可能存在注入或泄露风险",
+        "recommendation": "Use a single literal string or encrypted config for System Prompt",
+        "recommendation_zh": "使用单一字符串字面量或加密配置存储 System Prompt",
+    },
 ]
 
 # Sensitive files that shouldn't be in version control
@@ -202,6 +218,19 @@ def safe_read_file(path, max_size=MAX_FILE_SIZE):
         return Path(path).read_text(encoding="utf-8", errors="ignore")
     except Exception:
         return None
+
+
+def get_context_window(content, match_pos, window_lines=20):
+    """Extract context window around a match position for function-level detection.
+
+    Instead of checking the entire file for security measures, this extracts
+    lines around the match to enable per-function (per-route) detection.
+    """
+    lines = content.split("\n")
+    match_line = content[:match_pos].count("\n")
+    start = max(0, match_line - window_lines)
+    end = min(len(lines), match_line + window_lines + 1)
+    return "\n".join(lines[start:end])
 
 
 def scan_sensitive_files(project_dir):
@@ -306,7 +335,8 @@ def scan_code_security(project_dir):
 
         for rule in CODE_SECURITY_RULES:
             for match in re.finditer(rule["pattern"], content, re.IGNORECASE):
-                if rule["check"](content, match):
+                context_window = get_context_window(content, match.start())
+                if rule["check"](context_window, match):
                     key = (rule["id"], rel_path, match.start())
                     if key not in seen:
                         seen.add(key)

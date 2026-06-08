@@ -359,12 +359,28 @@ def feature_name_keyword_match(feature_name, target):
         "提交": ["submit", "post"],
         "审核": ["review", "audit", "approve"],
         "审批": ["approve", "review"],
+        # AI & Social features
+        "许愿树": ["wish", "wish_tree", "wish-tree", "tree"],
+        "陪聊": ["chat", "chatbot", "ai_chat", "companion"],
+        "私信": ["message", "chat", "inbox", "dm", "private"],
+        "个人主页": ["profile", "user_profile", "user-profile"],
+        "站内信": ["inbox", "message", "notification"],
+        "朋友圈": ["feed", "timeline", "moments"],
+        "打卡": ["checkin", "check-in", "punch", "attendance"],
+        "抽奖": ["lottery", "draw", "raffle", "lucky"],
+        "签到": ["checkin", "check-in", "signin", "sign-in"],
     }
 
-    for cn, en_terms in keyword_map.items():
-        if cn in feature_lower:
-            for term in en_terms:
+    for key, terms in keyword_map.items():
+        # Direction 1: key (Chinese) in feature name, term (English) in target
+        if key in feature_lower:
+            for term in terms:
                 if term in target_lower:
+                    return True
+        # Direction 2: term in feature name, key in target (bidirectional)
+        for term in terms:
+            if term in feature_lower:
+                if key in target_lower:
                     return True
 
     return False

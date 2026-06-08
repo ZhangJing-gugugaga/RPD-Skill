@@ -61,6 +61,37 @@ All prompts, questions, and outputs should use the detected language. The `.proj
 
 ### Step 0: Intent Router / 意图路由
 
+#### Warm Start Layer / 暖启动层
+
+**Trigger Word Expansion / 触发词扩展表**
+
+| User says (EN) | User says (ZH) | RPD understands as |
+|----------------|----------------|---------------------|
+| "Help me make something" | "帮我做个东西" | New project (warm start) |
+| "I have an idea" | "我有个想法" | New project (warm start) |
+| "Um... just..." | "那个...就是..." | New project (warm start, proactively guide) |
+| "Help me sort through this" | "帮我理一下" | Take over half-finished |
+| "Halfway done" | "做到一半了" | Take over half-finished |
+| "Continue from here" | "接着来" | Continue development |
+
+**Warm Start Flow / 暖启动流程**
+
+1. **Confirm with a friendly question / 用一句通俗话确认**:
+   - EN: "You want to start something from scratch, right?"
+   - ZH: "你是想从零开始做一个新东西，对吧？"
+
+2. **First round: only ask 1 core question / 第一轮只问 1 个最核心的问题**:
+   - EN: "Who is this for? Yourself or others?"
+   - ZH: "你这个东西是给谁用的？自己用还是给别人用？"
+
+3. **Assess user maturity based on answer / 根据回答判断用户成熟度**:
+   - **Vague answer (e.g., "just... tracking expenses") / 回答模糊（"就是...记个账"）→ 降级为"场景探索模式"**, use everyday language to guide / 用生活化语言引导
+   - **Clear answer (e.g., "A budgeting tool for indie developers") / 回答清晰（"给独立开发者用的记账工具"）→ 进入标准三轮诊断**
+
+**Core Principle / 核心原则**: Talk about scenarios first, then people, then tech. Don't start with jargon like "target user" or "business model". / 先聊场景，再聊人，最后聊技术。不要一上来就甩"目标用户"、"商业模式"这些术语。
+
+#### Intent Routing / 意图分发
+
 Route based on user intent / 根据用户意图分发：
 
 | Intent (EN) | Intent (ZH) | Route to |
@@ -69,6 +100,16 @@ Route based on user intent / 根据用户意图分发：
 | "take over", "analyze project", "half-finished" | "接手"、"分析项目"、"这个项目做到一半" | **Flow B: Takeover** |
 | "continue development", "what's next", "keep going" | "继续开发"、"下一步"、"接着做" | **Flow C: Continue** |
 | Unclear / 不确定 | → Ask: "What would you like to do? A) Start a new project B) Take over an existing project C) Continue previous development" | |
+
+**Shortcut Commands / 快捷命令**
+
+| Command | Action |
+|---------|--------|
+| `/rpd new` | New project flow |
+| `/rpd take` | Take over half-finished project flow |
+| `/rpd cont` | Continue development |
+| `/rpd status` | Show current project status summary |
+| `/rpd scan` | Run security scan + project scan only, don't enter flow |
 
 ---
 
@@ -349,6 +390,27 @@ When token budget is tight, degrade gracefully:
 | Continue Dev | Output only progress summary + next step | 只输出进度摘要 + 下一步建议 |
 | Security Scan | Always execute (deterministic script, no LLM tokens) | 始终执行（确定性脚本，不消耗 token） |
 
+### Turbo Mode / 极速模式
+
+**Trigger conditions / 触发条件**:
+- User explicitly says "hurry up", "simpler", "don't ask so much" / 用户明确说"快一点"、"简单点"、"别问那么多"
+- OR token remaining < 2000 / 或 Token 剩余 < 2000
+
+**Turbo mode behavior / 极速模式行为**:
+1. Skip concept PRD, output minimal landing version directly (only feature list + page structure) / 跳过概念版 PRD，直接出精简落地版（只含功能列表 + 页面结构）
+2. Skip scope freeze confirmation (assume user has verbally confirmed) / 跳过范围冻结确认（假设用户已口头确认）
+3. Continue development only outputs: "Progress X%, next: [specific task], estimate [time]" / 继续开发只输出："进度 X%，下一步：[具体任务]，预估 [时间]"
+4. Security scan always executes (no token consumption) / 安全扫描始终执行（不消耗 Token）
+
+**Turbo mode output format / 极速模式输出格式**:
+```
+📋 [Project Name] Status / [项目名] 状态
+- Progress: X/Y (Z%) / 进度：X/Y（Z%）
+- Next: [one sentence] / 下一步：[一句话]
+- Blocker: [one sentence or None] / 阻塞：[一句话 或 无]
+- Estimate: [time] / 预估：[时间]
+```
+
 ---
 
 ## Verification / 验证
@@ -374,6 +436,20 @@ python scripts/security-scanner.py <project-directory> [--state-file .project-st
 | State version too high | 状态文件版本过高 | Prompt: "State file version incompatible, update RPD Skill" |
 | Scan timeout | 扫描超时 | Degrade to manual tech stack questions / 降级为手动询问技术栈 |
 | Empty feature list | 功能清单为空 | Prompt: "Complete requirement alignment first" / 提示"请先完成需求对齐" |
+
+### Warm Resume Phrases / 温暖续传话术
+
+When resuming development, use warm, natural language instead of mechanical prompts:
+
+恢复开发时，使用温暖自然的语言，而不是机械的提示：
+
+**EN examples:**
+- "Last time we were working on [project name], and we've completed [X] features. Want to continue? You can say 'continue' or tell me what you'd like to do next."
+- "We've made good progress on [project name] — [X] features done. Ready to pick up where we left off?"
+
+**ZH examples:**
+- "上次我们在做 [项目名]，已经完成了 [X] 个功能。要不要继续？你可以说「接着来」或者告诉我下一步想做什么。"
+- "[项目名] 进展不错——已完成 [X] 个功能。准备从上次停下的地方继续吗？"
 
 ---
 
