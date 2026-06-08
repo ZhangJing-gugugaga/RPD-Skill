@@ -206,17 +206,11 @@ After questions: "Round 2, 1 round remaining" / 「第 2 轮，还剩 1 轮」
 
 **Round 3 (Technical Perspective / 技术视角) — ask all:**
 
-**Important: For beginners, first ask "Will users use this on mobile or desktop?" before asking about specific platforms.**
-**重要：对小白用户，先问"用户主要在手机上用还是电脑上用？"，再细分平台。**
-
 | English | 中文 |
 |---------|------|
-| What device will users primarily use? (mobile / desktop / both) → then refine: web app / mobile app / mini-program | 用户主要在什么设备上用？（手机 / 电脑 / 都要）→ 细分 |
-| Do you need user accounts and login? | 是否需要用户账号和登录体系？ |
-| Where is data stored? (local / cloud) | 数据存在哪里？（本地 / 云端） |
-| Any third-party services? (maps, payments, AI, etc.) | 是否需要连接其他服务？（地图、支付、AI 等） |
-| How many main pages? | 产品预计有几个主要页面？ |
-| How many weeks to build this version? | 这个版本预期几周内可以做出来？ |
+| Where is data stored? (on user's phone / server / cloud) | 数据存在哪里？（自己手机 / 服务器 / 云端） |
+| Do you need user registration and login? (yes / no) | 需要用户注册登录吗？（是 / 否） |
+| How long do you plan to build this version? (days / weeks / months) | 这个版本大概要做多久？（几天 / 几周 / 几个月） |
 
 After questions: "Round 3, 1 round remaining" / 「第 3 轮，还剩 1 轮」
 
@@ -266,30 +260,30 @@ After diagnosis, output concept PRD (≤ 200 words):
 
 **English:**
 ```
-Core User: [one sentence]
-One Problem to Solve: [one specific pain point]
-Product Form: [platform]
+Who it's for: [one sentence]
+Problem to solve: [one specific pain point]
+How it works: [Web / App / Mini-program / CLI]
+Tech requirements: [auth / data / third-party deps]
 MVP Features (≤ 3):
   1. [Feature 1]
   2. [Feature 2]
   3. [Feature 3]
 Out of Scope: [explicitly excluded features]
 Business Model: [pricing or free]
-Technical Prerequisites: [auth / data / third-party deps]
 ```
 
 **中文：**
 ```
-核心用户：[一句话描述目标用户]
-要解决的一件事：[一个具体痛点]
-产品形态：[平台]
+给谁用的：[一句话描述目标用户]
+解决什么问题：[一个具体痛点]
+怎么用的：[Web / App / 小程序 / 命令行]
+技术上需要什么：[账号体系 / 数据方案 / 第三方依赖]
 最小可用版功能（≤ 3 条）：
   1. [功能一]
   2. [功能二]
   3. [功能三]
 本版本不做：[明确排除的功能]
 商业模式：[收费方式 或 免费]
-技术前提：[账号体系 / 数据方案 / 第三方依赖]
 ```
 
 #### Beginner Concept PRD / 小白版概念 PRD
@@ -457,6 +451,17 @@ Output: "Project takeover complete, state file generated. Say 'continue developm
 Check if `.project-state.md` exists:
 - Not found → "No state file found. Please 'analyze project' or 'new project' first." / "没有找到项目状态文件，请先「分析项目」或「新建项目」"
 - Found → continue
+
+**Review Mode / 回顾模式**
+
+When user has been inactive for >3 days, or explicitly says "回顾"/"之前做了什么"/"what did we do"/"review":
+当用户超过 3 天未操作，或明确说"回顾"/"之前做了什么"时：
+
+1. Output PRD summary in plain language / 输出 PRD 摘要（用人话）
+2. Output feature list with current status / 输出功能清单和当前状态
+3. Ask / 问："要继续开发，还是想改改之前的方案？"/ "Continue development, or revise the plan?"
+4. If revise → re-enter diagnosis (Flow A1) / 如果改方案 → 重新进入诊断流程（Flow A1）
+5. If continue → proceed to C2 / 如果继续 → 进入 C2
 
 #### C2: Security Scan / 安全扫描
 

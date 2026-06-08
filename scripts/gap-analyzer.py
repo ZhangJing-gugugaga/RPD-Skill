@@ -191,23 +191,34 @@ def parse_state_file(state_path):
             if "|" not in row or "---" in row:
                 continue
             cols = [c.strip() for c in row.split("|") if c.strip()]
-            if len(cols) >= 3:
+            if len(cols) >= 5:
+                # 5-column format: 功能 | 子任务 | 优先级 | 状态 | 备注
                 name = cols[0]
+                subtask = cols[1]
+                priority = cols[2]
+                status_text = cols[3]
+            elif len(cols) >= 3:
+                # 4-column format: 功能 | 优先级 | 状态 | 备注
+                name = cols[0]
+                subtask = None
                 priority = cols[1]
                 status_text = cols[2]
-                # Determine status
-                if "已完成" in status_text or "✅" in status_text:
-                    status = "completed"
-                elif "进行中" in status_text or "🔨" in status_text:
-                    status = "in_progress"
-                else:
-                    status = "not_started"
-                features.append({
-                    "name": name,
-                    "priority": priority,
-                    "status": status,
-                    "status_text": status_text,
-                })
+            else:
+                continue
+            # Determine status
+            if "已完成" in status_text or "✅" in status_text:
+                status = "completed"
+            elif "进行中" in status_text or "🔨" in status_text:
+                status = "in_progress"
+            else:
+                status = "not_started"
+            features.append({
+                "name": name,
+                "subtask": subtask,
+                "priority": priority,
+                "status": status,
+                "status_text": status_text,
+            })
 
     # Extract blockers
     blockers = []

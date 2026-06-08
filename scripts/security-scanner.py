@@ -140,7 +140,7 @@ CODE_SECURITY_RULES = [
         # Match Express/Go-Gin style routes: app/router/server/r.get/post/put/delete
         "pattern": r'(?:app|router|server|r)\.(get|post|put|delete|patch)\s*\(\s*[\'"][^\'"]+[\'"]',
         "check": lambda content, match: not re.search(
-            r'(?:auth|authenticate|verify|protect|guard|checkLogin|isLoggedIn|requireAuth|ensureAuth)\s*\(',
+            r'(?:auth|authenticate|verify|protect|guard|checkLogin|isLoggedIn|requireAuth|ensureAuth)\s*[\(,]',
             content, re.IGNORECASE
         ),
         "severity": "HIGH",
