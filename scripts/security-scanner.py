@@ -57,6 +57,7 @@ CODE_SECURITY_RULES = [
         "message_zh": "短信/邮件发送接口缺少频率限制，易被短信轰炸攻击",
         "recommendation": "Add rate-limit middleware, set daily limit per phone/IP",
         "recommendation_zh": "添加 rate-limit middleware，设置单手机号/IP 每日上限",
+        "context_mode": "to_top",
     },
     # SEC-002: UGC write without content moderation
     {
@@ -73,6 +74,7 @@ CODE_SECURITY_RULES = [
         "message_zh": "用户生成内容写入无审核机制，存在违法违规内容传播风险",
         "recommendation": "Integrate content safety API (e.g., Aliyun Green/NetEase Yidun), implement review-before-publish",
         "recommendation_zh": "接入内容安全API（网易易盾/阿里云内容安全），实现先审后发",
+        "context_mode": "to_top",
     },
     # SEC-003: File upload without type validation
     {
@@ -249,16 +251,24 @@ def get_context_window(content, match_pos, window_lines=20, mode="fixed"):
         # Look for previous route definition to bound the context
         for i in range(match_line - 1, -1, -1):
             line = lines[i].strip()
-            # Stop at previous route definition or top-level function
+            # Stop at previous route definition
             if re.match(r'(?:app|router|server|r)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
                 start = i + 1
                 break
+            # Stop at security middleware (means previous route has protection)
+            if re.search(r'(?:rateLimit|limiter|contentModerat|moderat(?:e|ion)|audit)\s*\(', line, re.IGNORECASE):
+                start = i + 1
+                break
+            # Stop at decorated route definitions
             if re.match(r'@(?:app|router|api)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
                 start = i + 1
+                break
             if re.match(r'@(?:app|router|api)\.route\s*\(', line, re.IGNORECASE):
                 start = i + 1
+                break
             if re.match(r'@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)', line, re.IGNORECASE):
                 start = i + 1
+                break
         end = min(len(lines), match_line + window_lines + 1)
     else:
         # Fixed window mode (original behavior)

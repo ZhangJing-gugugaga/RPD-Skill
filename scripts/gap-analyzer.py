@@ -873,16 +873,24 @@ def detect_decision_drift(state_path, project_dir):
                                 conflicting_deps.append(pkg)
 
                 # Report drift if decision mentions tech but conflicting alternatives found
-                if conflicting_deps and not found_in_deps:
+                if conflicting_deps:
+                    if not found_in_deps:
+                        severity = "HIGH"
+                        message = f"决策说使用 {tech_category}，但实际依赖中完全缺失，发现了替代方案: {', '.join(conflicting_deps[:3])}"
+                        message_en = f"Decision says use {tech_category}, but chosen tech missing entirely. Found alternatives: {', '.join(conflicting_deps[:3])}"
+                    else:
+                        severity = "MEDIUM"
+                        message = f"决策说使用 {tech_category}，但依赖中同时存在未决策的替代方案: {', '.join(conflicting_deps[:3])}"
+                        message_en = f"Decision says use {tech_category}, but conflicting alternatives coexist: {', '.join(conflicting_deps[:3])}"
                     drifts.append({
                         "decision": decision["decision"],
                         "decision_date": decision["date"],
                         "expected": tech_category,
-                        "actual": conflicting_deps[:3],  # Limit to 3 examples
+                        "actual": conflicting_deps[:3],
                         "reason": decision["reason"],
-                        "severity": "HIGH",
-                        "message": f"决策说使用 {tech_category}，但实际依赖中发现了替代方案: {', '.join(conflicting_deps[:3])}",
-                        "message_en": f"Decision says use {tech_category}, but found alternatives in dependencies: {', '.join(conflicting_deps[:3])}",
+                        "severity": severity,
+                        "message": message,
+                        "message_en": message_en,
                     })
 
     return drifts

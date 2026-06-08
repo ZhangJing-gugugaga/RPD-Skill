@@ -252,14 +252,40 @@ Refer to `references/prd-template.md` for the full template. Output complete PRD
 
 After completion, run the Six Blind Spots checklist (see `references/prd-template.md`).
 
+#### PRD Completeness Check / PRD 完整性校验
+
+After generating the full PRD, **must execute** / 生成落地版 PRD 后，**必须执行**：
+
+```bash
+python scripts/prd-validator.py <prd-file> --format text
+```
+
+If output shows `FAIL`, supplement missing content based on gaps list, then re-validate. / 如果输出 `FAIL`，根据 gaps 列表补充缺失内容后重新校验。
+
 #### A5: Generate State File / 生成状态文件
 
 Generate `.project-state.md` following `references/state-file-spec.md`.
 
-Run validation:
-```bash
-python scripts/state-validator.py .project-state.md
-```
+**Decision Table Format / 决策记录格式**:
+
+The decision table in `.project-state.md` must use 5 columns:
+| 日期 | 类型 | 决策 | 原因 | 影响范围 |
+
+**Type values / 类型字段**: 技术选型 / 架构模式 / 安全策略 / 业务逻辑 / 其他
+
+#### State File Protection / 状态文件保护
+
+After generating or updating `.project-state.md`, **must execute** / 生成或更新 `.project-state.md` 后，**必须执行**：
+
+1. Backup (if file already exists) / 备份（如果文件已存在）：
+   ```bash
+   python scripts/state-guard.py .project-state.md --action backup
+   ```
+
+2. Validate / 校验：
+   ```bash
+   python scripts/state-validator.py .project-state.md
+   ```
 
 Output: "Project initialized, state file generated. Say 'continue development' to resume context." / "项目已初始化，状态文件已生成。对我说「继续开发」来恢复上下文。"
 
@@ -424,6 +450,20 @@ Before every "continue development" and "takeover":
 ```bash
 python scripts/security-scanner.py <project-directory> [--state-file .project-state.md]
 ```
+
+---
+
+## Script Toolbox / 脚本工具箱
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `project-scanner.py` | Scan project structure, tech stack, components | Flow B (takeover), `/rpd scan` |
+| `security-scanner.py` | Detect hardcoded secrets, injection, business security | Flow B, Flow C, `/rpd scan` |
+| `state-validator.py` | Validate `.project-state.md` format and fields | After every state file change |
+| `gap-analyzer.py` | Compare PRD features vs actual code implementation | Flow C (continue development) |
+| `state-guard.py` | Backup and protect state file from corruption | Before updating state file |
+| `prd-validator.py` | Check PRD completeness against template | After generating full PRD (A4) |
+| `run-eval.py` | Run all evaluation scenarios | Testing RPD Skill itself |
 
 ---
 
