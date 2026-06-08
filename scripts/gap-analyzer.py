@@ -851,37 +851,37 @@ def detect_decision_drift(state_path, project_dir):
                 found_in_deps = False
                 conflicting_deps = []
 
-                # Check npm
+                # Check npm (don't break — need to scan all deps for conflicts)
                 for pkg in deps["npm"]:
                     pkg_lower = pkg.lower()
                     if any(kw in pkg_lower for kw in package_keywords):
                         found_in_deps = True
-                        break
-                    # Check for conflicting alternatives
-                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
-                        if alt_category != tech_category:
-                            if any(kw in pkg_lower for kw in alt_keywords):
-                                conflicting_deps.append(pkg)
+                    else:
+                        # Check for conflicting alternatives
+                        for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                            if alt_category != tech_category:
+                                if any(kw in pkg_lower for kw in alt_keywords):
+                                    conflicting_deps.append(pkg)
 
                 # Check pip
                 for pkg in deps["pip"]:
                     if any(kw in pkg for kw in package_keywords):
                         found_in_deps = True
-                        break
-                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
-                        if alt_category != tech_category:
-                            if any(kw in pkg for kw in alt_keywords):
-                                conflicting_deps.append(pkg)
+                    else:
+                        for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                            if alt_category != tech_category:
+                                if any(kw in pkg for kw in alt_keywords):
+                                    conflicting_deps.append(pkg)
 
                 # Check go
                 for pkg in deps["go"]:
                     if any(kw in pkg for kw in package_keywords):
                         found_in_deps = True
-                        break
-                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
-                        if alt_category != tech_category:
-                            if any(kw in pkg for kw in alt_keywords):
-                                conflicting_deps.append(pkg)
+                    else:
+                        for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                            if alt_category != tech_category:
+                                if any(kw in pkg for kw in alt_keywords):
+                                    conflicting_deps.append(pkg)
 
                 # Report drift if decision mentions tech but conflicting alternatives found
                 if conflicting_deps:
