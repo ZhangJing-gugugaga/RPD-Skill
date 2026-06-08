@@ -111,11 +111,43 @@ def run_validator(state_file_path: Path) -> int:
     return result.returncode
 
 
+def check_git_concurrency(state_file_path: Path) -> None:
+    """Check Git state before writing to prevent multi-branch conflict."""
+    import subprocess
+    try:
+        subprocess.check_output(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        return  # Not a git repo, skip
+
+    try:
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain", str(state_file_path)],
+            text=True
+        ).strip()
+
+        if status:
+            if "UU" in status:
+                print(f"BLOCKED: Git conflict detected for {state_file_path.name}!", file=sys.stderr)
+                print("Resolve the conflict first: git mergetool", file=sys.stderr)
+                sys.exit(4)
+            elif "M" in status:
+                print(f"WARNING: {state_file_path.name} has uncommitted changes.", file=sys.stderr)
+                print("Consider committing before updating.", file=sys.stderr)
+    except Exception:
+        pass  # Git not available, skip
+
+
 def atomic_update(state_file_path: Path, content_file: Path) -> None:
     """Atomically update state file with backup and validation."""
     if not content_file.exists():
         print(f"Error: Content file not found: {content_file}", file=sys.stderr)
         sys.exit(3)
+
+    # Step 0: Git concurrency check
+    check_git_concurrency(state_file_path)
 
     # Step 1: Physical backup (before update)
     create_backup(state_file_path)

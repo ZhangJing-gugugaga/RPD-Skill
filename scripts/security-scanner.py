@@ -51,7 +51,10 @@ CODE_SECURITY_RULES = [
         "name": "SMS/Email API without rate limiting",
         "name_zh": "短信/邮件发送接口缺少频率限制",
         "pattern": r'(?:sendSMS|sendEmail|sendCode|sendVerification|sendVerify)\s*\(',
-        "check": lambda content, match: "rateLimit" not in content and "rate-limit" not in content and "rateLimiter" not in content,
+        "check": lambda content, match: not re.search(
+            r'(?:rateLimit|rateLimiter)\s*\(|(?:limiter|rateLimitMiddleware)\s*,',
+            content, re.IGNORECASE
+        ),
         "severity": "CRITICAL",
         "message": "SMS/Email sending API lacks rate limiting, vulnerable to bombing attacks",
         "message_zh": "短信/邮件发送接口缺少频率限制，易被短信轰炸攻击",
@@ -66,7 +69,8 @@ CODE_SECURITY_RULES = [
         "name_zh": "用户生成内容(UGC)写入无审核机制",
         "pattern": r'(?:Comment|Post|Wish|Message|Review|Article|Reply)\.create\s*\(',
         "check": lambda context, match: not re.search(
-            r'(?:contentModerat|moderat(?:e|ion)|audit|contentSafe)\s*\(|审核\s*\(',
+            r'(?:contentModerat|moderat(?:e|ion)|audit|contentSafe)\s*\(|'
+            r'(?:moderationMiddleware|contentFilter|moderation)\s*,|审核\s*\(',
             context, re.IGNORECASE
         ),
         "severity": "CRITICAL",
@@ -227,6 +231,30 @@ def safe_read_file(path, max_size=MAX_FILE_SIZE):
         return None
 
 
+def verify_path_safety(base_dir: str, target_path: str) -> bool:
+    """Verify that target_path is within base_dir (no traversal, no symlink escape)."""
+    try:
+        resolved_base = Path(base_dir).resolve()
+        resolved_target = Path(target_path).resolve()
+
+        # Block path traversal
+        if not str(resolved_target).startswith(str(resolved_base) + os.sep):
+            if str(resolved_target) != str(resolved_base):
+                print(f"BLOCKED: Path traversal detected: {target_path}", file=sys.stderr)
+                return False
+
+        # Block symlink escape
+        if Path(target_path).is_symlink():
+            link_target = Path(target_path).resolve()
+            if not str(link_target).startswith(str(resolved_base) + os.sep):
+                print(f"BLOCKED: Symlink points outside project: {target_path}", file=sys.stderr)
+                return False
+
+        return True
+    except Exception:
+        return False
+
+
 def get_context_window(content, match_pos, window_lines=20, mode="fixed"):
     """Extract context window around a match position for function-level detection.
 
@@ -253,21 +281,21 @@ def get_context_window(content, match_pos, window_lines=20, mode="fixed"):
             line = lines[i].strip()
             # Stop at previous route definition
             if re.match(r'(?:app|router|server|r)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
-                start = i + 1
+                start = i
                 break
             # Stop at security middleware (means previous route has protection)
             if re.search(r'(?:rateLimit|limiter|contentModerat|moderat(?:e|ion)|audit)\s*\(', line, re.IGNORECASE):
-                start = i + 1
+                start = i
                 break
             # Stop at decorated route definitions
             if re.match(r'@(?:app|router|api)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
-                start = i + 1
+                start = i
                 break
             if re.match(r'@(?:app|router|api)\.route\s*\(', line, re.IGNORECASE):
-                start = i + 1
+                start = i
                 break
             if re.match(r'@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)', line, re.IGNORECASE):
-                start = i + 1
+                start = i
                 break
         end = min(len(lines), match_line + window_lines + 1)
     else:
@@ -326,6 +354,10 @@ def scan_for_secrets(project_dir):
         if any(should_skip_dir(part) for part in path.relative_to(project_path).parts):
             continue
 
+        # Path traversal protection
+        if not verify_path_safety(project_dir, str(path)):
+            continue
+
         # Skip binary files
         if should_skip_file(path):
             continue
@@ -370,6 +402,10 @@ def scan_code_security(project_dir):
 
         parts = f.relative_to(p).parts
         if any(skip in parts for skip in SKIP_DIRS):
+            continue
+
+        # Path traversal protection
+        if not verify_path_safety(project_dir, str(f)):
             continue
 
         content = safe_read_file(f)

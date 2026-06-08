@@ -39,6 +39,11 @@
       "type": "string",
       "enum": ["new-idea", "half-finished", "continued"],
       "description": "How the project was initialized"
+    },
+    "state_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing revision number for conflict detection"
     }
   },
   "additionalProperties": false

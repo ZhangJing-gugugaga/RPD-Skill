@@ -25,6 +25,20 @@ All prompts, questions, and outputs should use the detected language. The `.proj
 
 ---
 
+## Hard Constraints / 硬性红线
+
+**The following rules are absolutely不可违反 throughout the entire Skill execution:**
+**以下规则在整个 Skill 执行过程中绝对不可违反：**
+
+1. **Security scan不可跳过 / 安全扫描不可跳过**：每次 Flow B（接手）和 Flow C（继续）开始时，必须先运行 `security-scanner.py`。If exit code 2, must hard block / 如果 exit code 2，必须硬阻断，不可降级。
+2. **State validation不可跳过 / 状态校验不可跳过**：每次更新 `.project-state.md` 后，必须运行 `state-validator.py`。校验失败必须回滚。
+3. **Max 3 questions per round / 每轮问题不超过 3 个**：诊断过程中，每轮最多问 3 个问题，等用户回答后再继续。
+4. **Don't skip concept PRD / 不跳过概念版 PRD**：标准模式下，必须先输出概念版 PRD 并获得用户确认，再出落地版。
+5. **Don't overwrite without backup / 不覆盖未备份的文件**：写入 `.project-state.md` 前，必须先运行 `state-guard.py --action backup`。
+6. **No path traversal / 路径不越界**：所有文件操作必须在当前项目目录内，禁止 `../` 路径遍历。
+
+---
+
 ## When to Use / 何时使用
 
 **Positive matches / 正向匹配：**

@@ -181,7 +181,7 @@ def parse_state_file(state_path):
     # Extract features from the progress table
     features = []
     feature_table_pattern = re.compile(
-        r'\|\s*功能\s*\|\s*优先级\s*\|\s*状态\s*\|\s*备注\s*\|(.*?)(?=\n\n|\n##|\Z)',
+        r'\|\s*功能\s*\|(?:\s*子任务\s*\|)?\s*优先级\s*\|\s*状态\s*\|\s*备注\s*\|(.*?)(?=\n\n|\n##|\Z)',
         re.DOTALL
     )
     match = feature_table_pattern.search(content)

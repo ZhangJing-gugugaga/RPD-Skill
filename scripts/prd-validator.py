@@ -65,8 +65,8 @@ def parse_prd_features(content):
     current_line = 0
 
     for i, line in enumerate(lines, 1):
-        # Match ## or ### headings (feature sections)
-        heading_match = re.match(r'^(#{2,3})\s+(.+)', line)
+        # Match ## to #### headings (feature sections)
+        heading_match = re.match(r'^(#{2,4})\s+(.+)', line)
         if heading_match:
             # Save previous feature if exists
             if current_feature:
