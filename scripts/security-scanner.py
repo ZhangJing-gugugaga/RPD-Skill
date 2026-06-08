@@ -131,13 +131,18 @@ CODE_SECURITY_RULES = [
         "id": "SEC-007",
         "name": "API route without authentication middleware",
         "name_zh": "API 路由缺少认证中间件",
-        "pattern": r'router\.(get|post|put|delete)\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*async',
-        "check": lambda content, match: "auth" not in content.lower() and "authenticate" not in content.lower() and "verify" not in content.lower() and "protect" not in content.lower(),
+        # Match Express/Go-Gin style routes: app/router/server/r.get/post/put/delete
+        "pattern": r'(?:app|router|server|r)\.(get|post|put|delete|patch)\s*\(\s*[\'"][^\'"]+[\'"]',
+        "check": lambda content, match: not re.search(
+            r'(?:auth|authenticate|verify|protect|guard|checkLogin|isLoggedIn|requireAuth|ensureAuth)\s*\(',
+            content, re.IGNORECASE
+        ),
         "severity": "HIGH",
         "message": "API route lacks authentication middleware, accessible without login",
         "message_zh": "API 路由缺少认证中间件，未登录用户可直接访问",
         "recommendation": "Add auth middleware to verify JWT/Session",
         "recommendation_zh": "添加 auth middleware 验证 JWT/Session",
+        "context_mode": "to_top",  # Use larger context window for this rule
     },
     # SEC-008: System Prompt constructed via string concatenation
     {
@@ -220,16 +225,46 @@ def safe_read_file(path, max_size=MAX_FILE_SIZE):
         return None
 
 
-def get_context_window(content, match_pos, window_lines=20):
+def get_context_window(content, match_pos, window_lines=20, mode="fixed"):
     """Extract context window around a match position for function-level detection.
 
     Instead of checking the entire file for security measures, this extracts
     lines around the match to enable per-function (per-route) detection.
+
+    Args:
+        content: Full file content string
+        match_pos: Character position of the match in content
+        window_lines: Number of lines to extract in fixed mode
+        mode: "fixed" for ±window_lines, "to_top" for scan to file top
+
+    Returns:
+        Extracted context string
     """
     lines = content.split("\n")
     match_line = content[:match_pos].count("\n")
-    start = max(0, match_line - window_lines)
-    end = min(len(lines), match_line + window_lines + 1)
+
+    if mode == "to_top":
+        # Scan from match position to file top (or to previous route definition)
+        start = 0
+        # Look for previous route definition to bound the context
+        for i in range(match_line - 1, -1, -1):
+            line = lines[i].strip()
+            # Stop at previous route definition or top-level function
+            if re.match(r'(?:app|router|server|r)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
+                start = i + 1
+                break
+            if re.match(r'@(?:app|router|api)\.(get|post|put|delete|patch)\s*\(', line, re.IGNORECASE):
+                start = i + 1
+            if re.match(r'@(?:app|router|api)\.route\s*\(', line, re.IGNORECASE):
+                start = i + 1
+            if re.match(r'@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)', line, re.IGNORECASE):
+                start = i + 1
+        end = min(len(lines), match_line + window_lines + 1)
+    else:
+        # Fixed window mode (original behavior)
+        start = max(0, match_line - window_lines)
+        end = min(len(lines), match_line + window_lines + 1)
+
     return "\n".join(lines[start:end])
 
 
@@ -335,7 +370,9 @@ def scan_code_security(project_dir):
 
         for rule in CODE_SECURITY_RULES:
             for match in re.finditer(rule["pattern"], content, re.IGNORECASE):
-                context_window = get_context_window(content, match.start())
+                # Use rule-specific context mode if defined (e.g., SEC-007 uses "to_top")
+                context_mode = rule.get("context_mode", "fixed")
+                context_window = get_context_window(content, match.start(), mode=context_mode)
                 if rule["check"](context_window, match):
                     key = (rule["id"], rel_path, match.start())
                     if key not in seen:

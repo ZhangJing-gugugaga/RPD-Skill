@@ -41,6 +41,139 @@ def safe_read_file(path, max_size=MAX_FILE_SIZE):
         return None
 
 
+# Fallback hardcoded keyword map (used when JSON file cannot be loaded)
+_DEFAULT_KEYWORD_MAP = {
+    "登录": ["login", "signin", "auth"],
+    "注册": ["register", "signup"],
+    "用户": ["user", "profile"],
+    "权限": ["permission", "role", "access"],
+    "密码": ["password", "pwd"],
+    "添加": ["add", "create", "new"],
+    "创建": ["create", "new", "add"],
+    "编辑": ["edit", "update", "modify"],
+    "删除": ["delete", "remove", "destroy"],
+    "修改": ["update", "modify", "edit"],
+    "列表": ["list", "index", "table"],
+    "详情": ["detail", "show", "view"],
+    "信息": ["info", "detail", "profile"],
+    "搜索": ["search", "filter", "find"],
+    "查询": ["query", "search", "find"],
+    "筛选": ["filter", "筛选"],
+    "导出": ["export", "download"],
+    "导入": ["import", "upload"],
+    "上传": ["upload", "import"],
+    "下载": ["download", "export"],
+    "待办": ["todo", "task"],
+    "任务": ["task", "todo", "job"],
+    "标记": ["mark", "flag", "tag"],
+    "完成": ["complete", "done", "finish"],
+    "通知": ["notification", "alert", "message"],
+    "消息": ["message", "notification", "msg"],
+    "评论": ["comment", "review"],
+    "回复": ["reply", "respond", "comment"],
+    "收藏": ["favorite", "bookmark"],
+    "分享": ["share"],
+    "点赞": ["like", "favorite"],
+    "关注": ["follow", "subscribe"],
+    "支付": ["payment", "pay", "checkout"],
+    "订单": ["order"],
+    "购物": ["cart", "shopping"],
+    "商品": ["product", "goods", "item"],
+    "设置": ["setting", "config", "preference"],
+    "配置": ["config", "setting", "configuration"],
+    "报表": ["report", "chart", "analytics"],
+    "统计": ["statistics", "stats", "summary"],
+    "分析": ["analytics", "analysis"],
+    "分页": ["pagination", "paginate", "pager"],
+    "记账": ["accounting", "ledger", "transaction"],
+    "账单": ["bill", "invoice", "statement"],
+    "分类": ["category", "classify"],
+    "提交": ["submit", "post"],
+    "审核": ["review", "audit", "approve"],
+    "审批": ["approve", "review"],
+    "许愿树": ["wish", "wish_tree", "wish-tree", "tree"],
+    "陪聊": ["chat", "chatbot", "ai_chat", "companion"],
+    "私信": ["message", "chat", "inbox", "dm", "private"],
+    "个人主页": ["profile", "user_profile", "user-profile"],
+    "站内信": ["inbox", "message", "notification"],
+    "朋友圈": ["feed", "timeline", "moments"],
+    "打卡": ["checkin", "check-in", "punch", "attendance"],
+    "抽奖": ["lottery", "draw", "raffle", "lucky"],
+    "签到": ["checkin", "check-in", "signin", "sign-in"],
+}
+
+# Module-level cache for loaded keyword map
+_keyword_map_cache = None
+
+
+def load_keyword_map(project_dir=None):
+    """Load keyword map from JSON files with user override support.
+
+    Loading order:
+    1. references/keyword-map.json (built-in defaults)
+    2. <project_dir>/.keyword-map.json (user customizations, if exists)
+
+    User entries are merged: same-key terms are unioned and deduplicated.
+    Falls back to _DEFAULT_KEYWORD_MAP on any load error.
+
+    Returns: dict mapping Chinese keywords to lists of English terms.
+    """
+    global _keyword_map_cache
+    if _keyword_map_cache is not None:
+        return _keyword_map_cache
+
+    merged = {}
+
+    # Step 1: Load built-in keyword-map.json
+    builtin_path = Path(__file__).parent.parent / "references" / "keyword-map.json"
+    try:
+        raw = safe_read_file(str(builtin_path))
+        if raw is not None:
+            data = json.loads(raw)
+            mappings = data.get("mappings", {})
+            for key, terms in mappings.items():
+                if isinstance(terms, list):
+                    merged[key] = list(terms)
+            print(f"[gap-analyzer] Loaded {len(merged)} keyword mappings from {builtin_path.as_posix()}", file=sys.stderr)
+    except Exception as e:
+        print(f"[gap-analyzer] Warning: Failed to load {builtin_path.as_posix()}: {e}", file=sys.stderr)
+
+    # Step 2: Merge user custom .keyword-map.json from project root
+    if project_dir is not None:
+        user_path = Path(project_dir) / ".keyword-map.json"
+        if user_path.is_file():
+            try:
+                raw = safe_read_file(str(user_path))
+                if raw is not None:
+                    data = json.loads(raw)
+                    user_mappings = data.get("mappings", data)  # support flat or nested format
+                    for key, terms in user_mappings.items():
+                        if key.startswith("_"):
+                            continue  # skip meta keys
+                        if isinstance(terms, list):
+                            if key in merged:
+                                # Union and deduplicate, preserving order
+                                existing = merged[key]
+                                seen = set(existing)
+                                for t in terms:
+                                    if t not in seen:
+                                        existing.append(t)
+                                        seen.add(t)
+                            else:
+                                merged[key] = list(terms)
+                    print(f"[gap-analyzer] Merged user keywords from {user_path.as_posix()}, total: {len(merged)} mappings", file=sys.stderr)
+            except Exception as e:
+                print(f"[gap-analyzer] Warning: Failed to load user keyword map {user_path.as_posix()}: {e}", file=sys.stderr)
+
+    # Fall back to hardcoded default if nothing loaded
+    if not merged:
+        print("[gap-analyzer] Warning: Using fallback hardcoded keyword map", file=sys.stderr)
+        merged = dict(_DEFAULT_KEYWORD_MAP)
+
+    _keyword_map_cache = merged
+    return _keyword_map_cache
+
+
 def parse_state_file(state_path):
     """Parse .project-state.md to extract features and blockers."""
     content = Path(state_path).read_text(encoding="utf-8")
@@ -285,7 +418,7 @@ def detect_data_models(project_dir):
     return models
 
 
-def feature_name_keyword_match(feature_name, target):
+def feature_name_keyword_match(feature_name, target, project_dir=None):
     """Check if feature name matches a target string (path, component, model name)."""
     feature_lower = feature_name.lower()
     target_lower = target.lower()
@@ -294,82 +427,8 @@ def feature_name_keyword_match(feature_name, target):
     if feature_lower in target_lower or target_lower in feature_lower:
         return True
 
-    # Chinese to English keyword mapping for common terms
-    keyword_map = {
-        # Auth & User
-        "登录": ["login", "signin", "auth"],
-        "注册": ["register", "signup"],
-        "用户": ["user", "profile"],
-        "权限": ["permission", "role", "access"],
-        "密码": ["password", "pwd"],
-        # CRUD
-        "添加": ["add", "create", "new"],
-        "创建": ["create", "new", "add"],
-        "编辑": ["edit", "update", "modify"],
-        "删除": ["delete", "remove", "destroy"],
-        "修改": ["update", "modify", "edit"],
-        # Data display
-        "列表": ["list", "index", "table"],
-        "详情": ["detail", "show", "view"],
-        "信息": ["info", "detail", "profile"],
-        # Search & Filter
-        "搜索": ["search", "filter", "find"],
-        "查询": ["query", "search", "find"],
-        "筛选": ["filter", "筛选"],
-        # Import & Export
-        "导出": ["export", "download"],
-        "导入": ["import", "upload"],
-        "上传": ["upload", "import"],
-        "下载": ["download", "export"],
-        # Todo & Task
-        "待办": ["todo", "task"],
-        "任务": ["task", "todo", "job"],
-        "标记": ["mark", "flag", "tag"],
-        "完成": ["complete", "done", "finish"],
-        # Communication
-        "通知": ["notification", "alert", "message"],
-        "消息": ["message", "notification", "msg"],
-        "评论": ["comment", "review"],
-        "回复": ["reply", "respond", "comment"],
-        # Social
-        "收藏": ["favorite", "bookmark"],
-        "分享": ["share"],
-        "点赞": ["like", "favorite"],
-        "关注": ["follow", "subscribe"],
-        # Commerce
-        "支付": ["payment", "pay", "checkout"],
-        "订单": ["order"],
-        "购物": ["cart", "shopping"],
-        "商品": ["product", "goods", "item"],
-        # Settings & Config
-        "设置": ["setting", "config", "preference"],
-        "配置": ["config", "setting", "configuration"],
-        # Analytics & Reports
-        "报表": ["report", "chart", "analytics"],
-        "统计": ["statistics", "stats", "summary"],
-        "分析": ["analytics", "analysis"],
-        # Pagination
-        "分页": ["pagination", "paginate", "pager"],
-        # Accounting
-        "记账": ["accounting", "ledger", "transaction"],
-        "账单": ["bill", "invoice", "statement"],
-        # Category
-        "分类": ["category", "classify"],
-        # Submit & Review
-        "提交": ["submit", "post"],
-        "审核": ["review", "audit", "approve"],
-        "审批": ["approve", "review"],
-        # AI & Social features
-        "许愿树": ["wish", "wish_tree", "wish-tree", "tree"],
-        "陪聊": ["chat", "chatbot", "ai_chat", "companion"],
-        "私信": ["message", "chat", "inbox", "dm", "private"],
-        "个人主页": ["profile", "user_profile", "user-profile"],
-        "站内信": ["inbox", "message", "notification"],
-        "朋友圈": ["feed", "timeline", "moments"],
-        "打卡": ["checkin", "check-in", "punch", "attendance"],
-        "抽奖": ["lottery", "draw", "raffle", "lucky"],
-        "签到": ["checkin", "check-in", "signin", "sign-in"],
-    }
+    # Load keyword map from JSON (cached after first load)
+    keyword_map = load_keyword_map(project_dir)
 
     for key, terms in keyword_map.items():
         # Direction 1: key (Chinese) in feature name, term (English) in target
@@ -400,19 +459,19 @@ def detect_feature_by_interface(project_dir, feature_name):
 
     # Layer 1: API routes
     api_routes = detect_api_routes(project_dir)
-    feature_routes = [r for r in api_routes if feature_name_keyword_match(feature_name, r["path"])]
+    feature_routes = [r for r in api_routes if feature_name_keyword_match(feature_name, r["path"], project_dir)]
     if feature_routes:
         evidence.append({"type": "api_route", "items": feature_routes})
 
     # Layer 2: Page routes
     page_routes = detect_page_routes(project_dir)
-    feature_pages = [p for p in page_routes if feature_name_keyword_match(feature_name, p["path"])]
+    feature_pages = [p for p in page_routes if feature_name_keyword_match(feature_name, p["path"], project_dir)]
     if feature_pages:
         evidence.append({"type": "page_route", "items": feature_pages})
 
     # Layer 3: Data models
     data_models = detect_data_models(project_dir)
-    feature_models = [m for m in data_models if feature_name_keyword_match(feature_name, m["name"])]
+    feature_models = [m for m in data_models if feature_name_keyword_match(feature_name, m["name"], project_dir)]
     if feature_models:
         evidence.append({"type": "data_model", "items": feature_models})
 
@@ -624,6 +683,211 @@ def detect_security_gaps(project_dir):
     return gaps
 
 
+# --- Decision Drift Detection ---
+
+def parse_decisions_from_state(state_path):
+    """Parse decision records from .project-state.md.
+
+    Looks for decision table format:
+    | 日期 | 类型 | 决策 | 原因 | 影响范围 |
+
+    Returns list of decision dicts.
+    """
+    content = Path(state_path).read_text(encoding="utf-8")
+    decisions = []
+
+    # Find decision table
+    decision_table_pattern = re.compile(
+        r'\|\s*日期\s*\|\s*类型\s*\|\s*决策\s*\|\s*原因\s*\|\s*影响范围\s*\|(.*?)(?=\n\n|\n##|\Z)',
+        re.DOTALL
+    )
+    match = decision_table_pattern.search(content)
+    if match:
+        rows = match.group(1).strip().split("\n")
+        for row in rows:
+            if "|" not in row or "---" in row:
+                continue
+            cols = [c.strip() for c in row.split("|") if c.strip()]
+            if len(cols) >= 3:
+                decisions.append({
+                    "date": cols[0],
+                    "type": cols[1] if len(cols) > 1 else "",
+                    "decision": cols[2],
+                    "reason": cols[3] if len(cols) > 3 else "",
+                    "scope": cols[4] if len(cols) > 4 else "",
+                })
+
+    return decisions
+
+
+def read_project_dependencies(project_dir):
+    """Read dependencies from package.json, requirements.txt, go.mod.
+
+    Returns dict with keys: npm, pip, go.
+    """
+    deps = {"npm": {}, "pip": [], "go": []}
+    p = Path(project_dir)
+
+    # npm (package.json)
+    pkg_json = p / "package.json"
+    if pkg_json.exists():
+        try:
+            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            deps["npm"] = {
+                **pkg.get("dependencies", {}),
+                **pkg.get("devDependencies", {}),
+            }
+        except Exception:
+            pass
+
+    # pip (requirements.txt)
+    req_txt = p / "requirements.txt"
+    if req_txt.exists():
+        try:
+            content = req_txt.read_text(encoding="utf-8")
+            for line in content.split("\n"):
+                line = line.strip()
+                if line and not line.startswith("#") and not line.startswith("-"):
+                    # Extract package name (before == or >=)
+                    pkg_name = re.split(r'[><=!]', line)[0].strip().lower()
+                    if pkg_name:
+                        deps["pip"].append(pkg_name)
+        except Exception:
+            pass
+
+    # go (go.mod)
+    go_mod = p / "go.mod"
+    if go_mod.exists():
+        try:
+            content = go_mod.read_text(encoding="utf-8")
+            in_require = False
+            for line in content.split("\n"):
+                if line.strip().startswith("require"):
+                    in_require = True
+                    continue
+                if in_require:
+                    if line.strip() == "":
+                        in_require = False
+                        continue
+                    # Extract module path
+                    parts = line.strip().split()
+                    if parts:
+                        deps["go"].append(parts[0].lower())
+        except Exception:
+            pass
+
+    return deps
+
+
+# Decision keyword mapping: Chinese tech terms to package keywords
+DECISION_KEYWORD_MAP = {
+    # Database
+    "sqlite": ["sqlite", "sqlite3", "pysqlite", "better-sqlite", "sql.js"],
+    "mysql": ["mysql", "pymysql", "mysql2", "mysqljs"],
+    "postgresql": ["postgres", "psycopg", "pg", "knex"],
+    "mongodb": ["mongo", "mongoose", "pymongo", "motor"],
+    "redis": ["redis", "ioredis", "redis-py"],
+    # Auth
+    "jwt": ["jwt", "jsonwebtoken", "pyjwt", "jose"],
+    "session": ["express-session", "cookie-session", "session"],
+    "oauth": ["passport", "oauth", "auth0", "next-auth"],
+    # Frontend
+    "react": ["react", "react-dom", "next"],
+    "vue": ["vue", "nuxt", "vuex", "pinia"],
+    "angular": ["angular", "@angular"],
+    # Backend
+    "express": ["express", "koa", "fastify", "hapi"],
+    "django": ["django"],
+    "flask": ["flask", "fastapi"],
+    "spring": ["spring", "spring-boot"],
+    # Cloud
+    "aws": ["aws", "boto", "s3"],
+    "aliyun": ["aliyun", "oss", "alicloud"],
+    "gcp": ["gcp", "google-cloud"],
+    # AI
+    "openai": ["openai", "gpt"],
+    "anthropic": ["anthropic", "claude"],
+    "zhipu": ["zhipu", "glm"],
+}
+
+
+def detect_decision_drift(state_path, project_dir):
+    """Detect drift between documented decisions and actual implementation.
+
+    Compares decision records in state file against actual dependencies
+    and code imports to find mismatches.
+
+    Returns list of drift dicts.
+    """
+    drifts = []
+
+    # Parse decisions
+    decisions = parse_decisions_from_state(state_path)
+    if not decisions:
+        return drifts
+
+    # Read dependencies
+    deps = read_project_dependencies(project_dir)
+
+    # Check each decision for drift
+    for decision in decisions:
+        decision_text = decision["decision"].lower()
+
+        # Find which tech category this decision is about
+        for tech_category, package_keywords in DECISION_KEYWORD_MAP.items():
+            if tech_category in decision_text:
+                # Check if actual dependencies match
+                found_in_deps = False
+                conflicting_deps = []
+
+                # Check npm
+                for pkg in deps["npm"]:
+                    pkg_lower = pkg.lower()
+                    if any(kw in pkg_lower for kw in package_keywords):
+                        found_in_deps = True
+                        break
+                    # Check for conflicting alternatives
+                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                        if alt_category != tech_category:
+                            if any(kw in pkg_lower for kw in alt_keywords):
+                                conflicting_deps.append(pkg)
+
+                # Check pip
+                for pkg in deps["pip"]:
+                    if any(kw in pkg for kw in package_keywords):
+                        found_in_deps = True
+                        break
+                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                        if alt_category != tech_category:
+                            if any(kw in pkg for kw in alt_keywords):
+                                conflicting_deps.append(pkg)
+
+                # Check go
+                for pkg in deps["go"]:
+                    if any(kw in pkg for kw in package_keywords):
+                        found_in_deps = True
+                        break
+                    for alt_category, alt_keywords in DECISION_KEYWORD_MAP.items():
+                        if alt_category != tech_category:
+                            if any(kw in pkg for kw in alt_keywords):
+                                conflicting_deps.append(pkg)
+
+                # Report drift if decision mentions tech but conflicting alternatives found
+                if conflicting_deps and not found_in_deps:
+                    drifts.append({
+                        "decision": decision["decision"],
+                        "decision_date": decision["date"],
+                        "expected": tech_category,
+                        "actual": conflicting_deps[:3],  # Limit to 3 examples
+                        "reason": decision["reason"],
+                        "severity": "HIGH",
+                        "message": f"决策说使用 {tech_category}，但实际依赖中发现了替代方案: {', '.join(conflicting_deps[:3])}",
+                        "message_en": f"Decision says use {tech_category}, but found alternatives in dependencies: {', '.join(conflicting_deps[:3])}",
+                    })
+
+    return drifts
+
+
 def main():
     args = sys.argv[1:]
 
@@ -674,6 +938,7 @@ def main():
     resolved, open_blockers = check_blockers_resolved(project_dir, state_data["blockers"])
     deviations = detect_deviations(project_dir, features, state_data["prd_summary"])
     security_gaps = detect_security_gaps(project_dir)
+    decision_drifts = detect_decision_drift(state_file, project_dir)
 
     # Build summary
     completed = sum(1 for f in feature_analysis if f["detected_status"] == "completed")
@@ -693,6 +958,7 @@ def main():
         "blockers_open": open_blockers,
         "deviations": deviations,
         "security_gaps": security_gaps,
+        "decision_drifts": decision_drifts,
     }
 
     print(json.dumps(result, indent=2, ensure_ascii=False))
