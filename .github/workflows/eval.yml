@@ -5,6 +5,8 @@ name: Run Eval Tests
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: '1'
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
