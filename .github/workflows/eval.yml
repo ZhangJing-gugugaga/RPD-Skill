@@ -22,8 +22,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    - name: Verify environment
+      run: |
+        python --version
+        pwd
+        ls rpd/scripts/
+
     - name: Run eval tests
       working-directory: rpd
       run: python scripts/run-eval.py
-      env:
-        PYTHONIOENCODING: utf-8
