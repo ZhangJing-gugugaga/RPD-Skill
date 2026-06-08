@@ -153,18 +153,6 @@ cp -r _rpd_tmp/* ~/.claude/skills/rpd/
 rm -rf _rpd_tmp
 ```
 
-### 一键安装（macOS / Linux）
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ZhangJing-gugugaga/RPD-Skill/main/install.sh | bash
-```
-
-### 一键安装（Windows PowerShell）
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/ZhangJing-gugugaga/RPD-Skill/main/install.ps1 | iex
-```
-
 ### Cursor
 
 1. 克隆本仓库到项目目录
@@ -259,7 +247,7 @@ Flow A          Flow B         Flow C
 | `prd-validator.py` | 语义缺口审计（异常处理、状态机、字段规范） | 落地版 PRD 生成后 | `0` 完整, `1` 错误, `2` 有缺口 |
 | `run-eval.py` | 11 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
-> **You never run these manually.** Claude calls them automatically at the appropriate workflow nodes.
+> **你不需要手动运行这些脚本。** Claude 会在对应的流程节点自动调用。
 
 ### 底层机制 / Under the Hood
 
