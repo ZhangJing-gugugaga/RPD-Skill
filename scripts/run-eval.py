@@ -481,13 +481,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except Exception as e:
-        print(f"\n💥 FATAL ERROR: {type(e).__name__}: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc(file=sys.stderr)
-        sys.exit(1)
-    finally:
-        sys.stdout.flush()
-        sys.stderr.flush()
+    sys.exit(main())
