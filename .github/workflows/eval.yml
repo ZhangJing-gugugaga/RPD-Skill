@@ -10,5 +10,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    - run: python --version
+    - run: python -c "print('Hello from CI')"
+    - run: python -c "import sys; print(f'Python {sys.version}'); print(f'Platform {sys.platform}')"
+    - run: python -c "from pathlib import Path; print(f'CWD: {Path.cwd()}'); print(f'Files: {list(Path(\"rpd/scripts\").glob(\"*.py\"))}')"
     - run: python rpd/scripts/run-eval.py
