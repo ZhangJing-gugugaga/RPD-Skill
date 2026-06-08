@@ -100,7 +100,9 @@ def run_validator(state_file_path: Path) -> int:
     result = subprocess.run(
         [sys.executable, str(validator_path), str(state_file_path)],
         capture_output=True,
-        text=True
+        text=True,
+        encoding="utf-8",
+        errors="replace"
     )
 
     if result.stdout:
@@ -125,7 +127,9 @@ def check_git_concurrency(state_file_path: Path) -> None:
     try:
         status = subprocess.check_output(
             ["git", "status", "--porcelain", str(state_file_path)],
-            text=True
+            text=True,
+            encoding="utf-8",
+            errors="replace"
         ).strip()
 
         if status:

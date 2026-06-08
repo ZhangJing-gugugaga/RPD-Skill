@@ -35,7 +35,7 @@ def run_scenario_a():
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "state-validator.py"),
              os.path.join(tmpdir, ".project-state.md")],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 1, f"Expected exit 1, got {result.returncode}"
         assert "not found" in result.stderr.lower() or "File not found" in result.stderr, \
@@ -66,7 +66,7 @@ def run_scenario_b():
 
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "state-validator.py"), state_path],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 3, f"Expected exit 3, got {result.returncode}"
         assert "FAILED" in result.stderr or "error" in result.stderr.lower(), \
@@ -100,7 +100,7 @@ def run_scenario_c():
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "security-scanner.py"),
              tmpdir, "--state-file", state_path],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 2, f"Expected exit 2, got {result.returncode}"
         output = json.loads(result.stdout)
@@ -143,7 +143,7 @@ def run_scenario_d():
 
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "project-scanner.py"), tmpdir],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 0, f"Expected exit 0, got {result.returncode}"
         output = json.loads(result.stdout)
@@ -405,7 +405,7 @@ def run_scenario_o():
 
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "state-validator.py"), state_path],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 0, f"Chinese name should PASS, got exit {result.returncode}: {result.stderr}"
         print("  ✅ state-validator accepts Chinese project name")
@@ -425,7 +425,7 @@ def run_scenario_p():
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "intent-router.py"),
              "那个...就是...可能...随便...不知道"],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         assert result.returncode == 0, f"intent-router crashed"
         output = json.loads(result.stdout)
