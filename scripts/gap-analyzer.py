@@ -501,7 +501,9 @@ def scan_code_for_features(project_dir, features):
 
     for feature in features:
         name = feature["name"]
-        detected_status, evidence = detect_feature_by_interface(project_dir, name)
+        subtask = feature.get("subtask")
+        match_name = f"{name} {subtask}" if subtask else name
+        detected_status, evidence = detect_feature_by_interface(project_dir, match_name)
 
         # Build human-readable evidence string
         evidence_parts = []

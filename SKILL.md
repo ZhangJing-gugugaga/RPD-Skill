@@ -137,9 +137,9 @@ Route based on `recommended_flow` field / 根据输出的 `recommended_flow` 字
 - EN: "What annoys you most about [current solution]?" / "Is there something you want but don't have?"
 - ZH: "现在 [这个方式] 最烦的是什么？" / "有没有什么想要但现在没有的？"
 
-**Round 3: Talk about expectations / 第 3 轮：聊期望**（问 1 个）
-- EN: "If something could help you [solve this], what's the ONE thing you'd want it to do?"
-- ZH: "如果有一个东西能帮你 [解决这个问题]，你最希望它能做什么？一句话说。"
+**Round 3: Talk about basics / 第 3 轮：聊基础**（问 2 个）
+- EN: "Where is the data stored? (on your phone / server / cloud)" / "Do users need to register and login?"
+- ZH: "数据存在哪里？（自己手机 / 服务器 / 云端）" / "需要用户注册登录吗？（是 / 否）"
 
 **After completion / 完成后**:
 AI summarizes the scenario in its own words and asks: "I understand, you want to make a [summary], right?"
@@ -204,28 +204,45 @@ After questions: "Round 1, 2 rounds remaining" / 「第 1 轮，还剩 2 轮」
 
 After questions: "Round 2, 1 round remaining" / 「第 2 轮，还剩 1 轮」
 
-**Round 3 (Technical Perspective / 技术视角) — ask all:**
+**Round 3a (Technical - Infrastructure / 技术 - 基础设施) — ask all:**
 
 | English | 中文 |
 |---------|------|
 | Where is data stored? (on user's phone / server / cloud) | 数据存在哪里？（自己手机 / 服务器 / 云端） |
 | Do you need user registration and login? (yes / no) | 需要用户注册登录吗？（是 / 否） |
-| How long do you plan to build this version? (days / weeks / months) | 这个版本大概要做多久？（几天 / 几周 / 几个月） |
+| What devices will users primarily use? (mobile / desktop / both) | 用户主要在什么设备上用？（手机 / 电脑 / 都要） |
 
-After questions: "Round 3, 1 round remaining" / 「第 3 轮，还剩 1 轮」
+After questions: "Round 3a, 2 rounds remaining" / 「第 3a 轮，还剩 2 轮」
 
-**Round 4 (Security Perspective / 安全视角) — ask all:**
+**Round 3b (Technical - Scope / 技术 - 范围) — ask all:**
+
+| English | 中文 |
+|---------|------|
+| How many main pages will the product have? | 产品预计有几个主要页面？ |
+| How long do you expect this version to take? (weeks) | 这个版本预期几周内可以做出来？ |
+| Does it need to connect to other services? (payment, maps, etc.) | 是否需要连接其他服务？（支付、地图等） |
+
+After questions: "Round 3b, 1 round remaining" / 「第 3b 轮，还剩 1 轮」
+
+**Round 4a (Security - Account & Data / 安全 - 账户与数据) — ask all:**
 
 | English | 中文 |
 |---------|------|
 | Does it involve user registration and login? → Account security needed | 是否涉及用户注册和登录？→ 需要考虑账户安全 |
 | Does it have user-generated content (comments, posts, avatars)? → Content moderation needed | 是否有用户发布内容的功能（评论、帖子、头像等）？→ 需要内容审核 |
 | Does it have file upload? → File security measures needed | 是否有文件上传功能？→ 需要文件安全措施 |
+
+After questions: "Round 4a (Security), 1 round remaining" / 「第 4a 轮（安全），还剩 1 轮」
+
+**Round 4b (Security - AI & Scale / 安全 - AI 与规模) — ask all:**
+
+| English | 中文 |
+|---------|------|
 | Does it use AI/LLM features? → Prompt protection needed | 是否使用 AI/大模型功能？→ 需要 Prompt 保护 |
 | Does it involve payments or sensitive data? → Encryption and compliance needed | 是否涉及支付或敏感数据？→ 需要数据加密和合规 |
 | Expected user scale? → Affects security investment priority | 预期用户规模？→ 影响安全投入的优先级 |
 
-After questions: "Round 4 (Security), last question!" / 「第 4 轮（安全），最后一个问题了！」
+After questions: "Round 4b (Security), last question!" / 「第 4b 轮（安全），最后一个问题了！」
 
 **Beginner Mode / 小白模式**（当 intent-router 返回 maturity: vague 或 scene_exploration 时）：
 
