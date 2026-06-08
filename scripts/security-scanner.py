@@ -362,26 +362,44 @@ def scan_for_secrets(project_dir):
         if should_skip_file(path):
             continue
 
-        # Read file content with size limit
-        content = safe_read_file(path)
-        if content is None:
-            continue
-
-        # Scan each line
-        for line_num, line in enumerate(content.split("\n"), 1):
-            stripped = line.strip()
-            # Skip comments
-            if stripped.startswith("#") or stripped.startswith("//") or stripped.startswith("*"):
+        # Scan: small files use memory read, large files stream line by line
+        file_size = os.path.getsize(path)
+        if file_size <= MAX_FILE_SIZE:
+            content = safe_read_file(path)
+            if content is None:
                 continue
-            for pattern, description in SECRET_PATTERNS:
-                if re.search(pattern, line, re.IGNORECASE):
-                    findings.append({
-                        "type": "secret",
-                        "file": str(path),
-                        "line": line_num,
-                        "description": description,
-                        "evidence": line.strip()[:100],
-                    })
+            for line_num, line in enumerate(content.split("\n"), 1):
+                stripped = line.strip()
+                if stripped.startswith("#") or stripped.startswith("//") or stripped.startswith("*"):
+                    continue
+                for pattern, description in SECRET_PATTERNS:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        findings.append({
+                            "type": "secret",
+                            "file": str(path),
+                            "line": line_num,
+                            "description": description,
+                            "evidence": line.strip()[:100],
+                        })
+        else:
+            # Large file: stream line by line to avoid OOM, never silently skip
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    for line_num, line in enumerate(f, 1):
+                        stripped = line.strip()
+                        if stripped.startswith("#") or stripped.startswith("//") or stripped.startswith("*"):
+                            continue
+                        for pattern, description in SECRET_PATTERNS:
+                            if re.search(pattern, line, re.IGNORECASE):
+                                findings.append({
+                                    "type": "secret",
+                                    "file": str(path),
+                                    "line": line_num,
+                                    "description": f"[大文件流式拦截] {description}",
+                                    "evidence": line.strip()[:100],
+                                })
+            except Exception as e:
+                print(f"大文件流式扫描异常 {path}: {e}", file=sys.stderr)
 
     return findings
 
@@ -408,7 +426,16 @@ def scan_code_security(project_dir):
         if not verify_path_safety(project_dir, str(f)):
             continue
 
-        content = safe_read_file(f)
+        # Read file content — for code files, always read (needed for context matching)
+        # safe_read_file has size limit; for large code files, read directly
+        file_size = os.path.getsize(f)
+        if file_size <= MAX_FILE_SIZE:
+            content = safe_read_file(f)
+        else:
+            try:
+                content = f.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                content = None
         if content is None:
             continue
 

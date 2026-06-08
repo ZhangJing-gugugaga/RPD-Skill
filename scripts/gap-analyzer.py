@@ -335,6 +335,27 @@ def detect_api_routes(project_dir):
                 seen.add(key)
                 routes.append({"method": method, "path": match.group(2), "file": rel_path})
 
+    # Next.js App Router file-based API routes: app/api/xxx/route.ts
+    next_api_pattern = re.compile(r'(?:app|pages)/api/(.+)/route\.(?:ts|js)$')
+    for f in p.rglob("*"):
+        if not f.is_file():
+            continue
+        parts = f.relative_to(p).parts
+        if any(skip in parts for skip in SKIP_DIRS):
+            continue
+        rel_path = str(f.relative_to(p)).replace("\\", "/")
+        next_api_match = next_api_pattern.search(rel_path)
+        if next_api_match:
+            api_path = "/api/" + next_api_match.group(1).replace("\\", "/")
+            content = safe_read_file(f)
+            if content:
+                for method in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
+                    if re.search(r'export\s+async\s+function\s+' + method, content):
+                        key = (method, api_path, rel_path)
+                        if key not in seen:
+                            seen.add(key)
+                            routes.append({"method": method, "path": api_path, "file": rel_path})
+
     return routes
 
 
@@ -821,6 +842,12 @@ DECISION_KEYWORD_MAP = {
     "openai": ["openai", "gpt"],
     "anthropic": ["anthropic", "claude"],
     "zhipu": ["zhipu", "glm"],
+    # Modern fullstack / BaaS
+    "supabase": ["supabase", "@supabase/supabase-js"],
+    "prisma": ["prisma", "@prisma/client"],
+    "tailwind": ["tailwind", "tailwindcss", "postcss"],
+    "firebase": ["firebase", "firebase-admin"],
+    "shadcn": ["shadcn", "radix-ui", "lucide-react"],
 }
 
 

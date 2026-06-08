@@ -114,34 +114,68 @@ def run_validator(state_file_path: Path) -> int:
 
 
 def check_git_concurrency(state_file_path: Path) -> None:
-    """Check Git state before writing to prevent multi-branch conflict."""
+    """Git concurrency conflict + Branch Affinity Lock dual breaker.
+
+    Checks:
+    1. UU (unmerged) text conflict → hard block
+    2. Branch affinity mismatch between current Git branch and
+       YAML frontmatter 'branch-affinity' field → hard block
+    """
     import subprocess
+    # Verify we're in a Git repo
     try:
         subprocess.check_output(
             ["git", "rev-parse", "--is-inside-work-tree"],
             stderr=subprocess.DEVNULL
         )
+        current_branch = subprocess.check_output(
+            ["git", "branch", "--show-current"],
+            text=True, encoding="utf-8", errors="replace"
+        ).strip()
     except Exception:
-        return  # Not a git repo, skip
+        return  # Not a git repo or git unavailable, degrade gracefully
 
+    # Check 1: Text-level unmerged conflict (UU)
     try:
         status = subprocess.check_output(
             ["git", "status", "--porcelain", str(state_file_path)],
-            text=True,
-            encoding="utf-8",
-            errors="replace"
+            text=True, encoding="utf-8", errors="replace"
         ).strip()
 
         if status:
             if "UU" in status:
-                print(f"BLOCKED: Git conflict detected for {state_file_path.name}!", file=sys.stderr)
-                print("Resolve the conflict first: git mergetool", file=sys.stderr)
+                print(f"【并发硬熔断】Git 冲突未解决：{state_file_path.name}！", file=sys.stderr)
+                print("请先运行 git mergetool 解决冲突。", file=sys.stderr)
                 sys.exit(4)
             elif "M" in status:
                 print(f"WARNING: {state_file_path.name} has uncommitted changes.", file=sys.stderr)
                 print("Consider committing before updating.", file=sys.stderr)
     except Exception:
-        pass  # Git not available, skip
+        pass
+
+    # Check 2: Branch Affinity Lock — cross-branch silent merge protection
+    if state_file_path.exists():
+        try:
+            content = state_file_path.read_text(encoding="utf-8")
+            lines = content.split("\n")
+            if lines and lines[0].strip() == "---":
+                meta = {}
+                for line in lines[1:]:
+                    if line.strip() == "---":
+                        break
+                    if ":" in line:
+                        k, _, v = line.partition(":")
+                        meta[k.strip()] = v.strip().strip('"').strip("'")
+
+                if "branch-affinity" in meta:
+                    recorded_branch = meta["branch-affinity"]
+                    if recorded_branch != current_branch:
+                        print(f"【并发安全断路器触发】", file=sys.stderr)
+                        print(f"记忆锁定的 Git 分支: {recorded_branch} | 当前本地物理分支: {current_branch}", file=sys.stderr)
+                        print(f"检测到跨分支静默合并覆盖风险！已强制熔断状态写入，请人工核对记忆错位。", file=sys.stderr)
+                        sys.exit(4)
+        except Exception as e:
+            print(f"[state-guard] 分支亲和度运行时解析警告: {e}", file=sys.stderr)
 
 
 def atomic_update(state_file_path: Path, content_file: Path) -> None:
