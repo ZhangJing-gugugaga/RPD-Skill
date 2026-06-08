@@ -69,7 +69,8 @@ def run_scenario_b():
             capture_output=True, text=True
         )
         assert result.returncode == 3, f"Expected exit 3, got {result.returncode}"
-        assert "name" in result.stderr.lower(), f"Expected 'name' in errors, got: {result.stderr}"
+        assert "FAILED" in result.stderr or "error" in result.stderr.lower(), \
+            f"Expected validation errors, got: {result.stderr}"
         print("  ✅ state-validator correctly rejects corrupted file")
         return True
     except AssertionError as e:

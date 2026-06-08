@@ -61,6 +61,24 @@ All prompts, questions, and outputs should use the detected language. The `.proj
 
 ### Step 0: Intent Router / 意图路由
 
+**Deterministic routing (must execute) / 确定性路由（必须执行）**：
+
+Before any other action, run / 在做任何其他事情之前，先运行：
+```bash
+python scripts/intent-router.py "用户输入的原文"
+```
+
+Route based on `recommended_flow` field / 根据输出的 `recommended_flow` 字段决定走哪条路：
+
+| recommended_flow | Action / 动作 |
+|------------------|---------------|
+| scene_exploration | Enter Scene Exploration Mode (see below) / 进入场景探索模式 |
+| warm_start | Warm start: ask 1 core question then re-assess / 暖启动：问 1 个核心问题后重新判断 |
+| standard_diagnosis | Standard 3-round diagnosis / 标准三轮诊断 |
+| flow_b | Take over half-finished / 接手半成品 |
+| flow_c | Continue development / 继续开发 |
+| ask_user | Uncertain, ask user / 不确定，主动问用户 |
+
 #### Warm Start Layer / 暖启动层
 
 **Trigger Word Expansion / 触发词扩展表**
@@ -89,6 +107,33 @@ All prompts, questions, and outputs should use the detected language. The `.proj
    - **Clear answer (e.g., "A budgeting tool for indie developers") / 回答清晰（"给独立开发者用的记账工具"）→ 进入标准三轮诊断**
 
 **Core Principle / 核心原则**: Talk about scenarios first, then people, then tech. Don't start with jargon like "target user" or "business model". / 先聊场景，再聊人，最后聊技术。不要一上来就甩"目标用户"、"商业模式"这些术语。
+
+#### Scene Exploration Mode / 场景探索模式
+
+**Trigger / 触发条件**: `intent-router.py` returns `maturity: vague` / 返回 `maturity: vague`
+
+**Goal / 目标**: Use 3 rounds of casual conversation to help beginners turn vague ideas into concrete scenarios.
+用 3 轮生活化对话，帮小白把模糊想法变成具体场景。
+
+**Round 1: Talk about scenarios / 第 1 轮：聊场景**（问 2 个）
+- EN: "When do you usually think about [doing this]?" / "What do you currently use to [solve this problem]?"
+- ZH: "你平时什么时候会想 [做这件事]？" / "现在用什么方式 [解决这个问题]？"
+
+**Round 2: Talk about pain points / 第 2 轮：聊痛点**（问 2 个）
+- EN: "What annoys you most about [current solution]?" / "Is there something you want but don't have?"
+- ZH: "现在 [这个方式] 最烦的是什么？" / "有没有什么想要但现在没有的？"
+
+**Round 3: Talk about expectations / 第 3 轮：聊期望**（问 1 个）
+- EN: "If something could help you [solve this], what's the ONE thing you'd want it to do?"
+- ZH: "如果有一个东西能帮你 [解决这个问题]，你最希望它能做什么？一句话说。"
+
+**After completion / 完成后**:
+AI summarizes the scenario in its own words and asks: "I understand, you want to make a [summary], right?"
+AI 用自己的话总结场景，问"我理解了，你是想做一个 [总结]，对吧？"
+
+**After user confirms / 用户确认后**:
+Output concept PRD in plain language (no template jargon), skip standard 3-round diagnosis.
+直接输出概念版 PRD（人话版，不用模板术语），跳过标准三轮诊断。
 
 #### Intent Routing / 意图分发
 
@@ -174,6 +219,23 @@ After questions: "Round 3, 1 round remaining" / 「第 3 轮，还剩 1 轮」
 
 After questions: "Round 4 (Security), last question!" / 「第 4 轮（安全），最后一个问题了！」
 
+**Beginner Mode / 小白模式**（当 intent-router 返回 maturity: vague 或 scene_exploration 时）：
+
+安全视角由 AI 根据前几轮回答**自动判断**，不询问用户。
+Security perspective is auto-determined by AI based on previous answers, without asking the user.
+
+| If previous rounds mentioned... / 如果前几轮提到... | Auto-add / 自动加入 |
+|---------------------------------------------------|---------------------|
+| "login"/"register"/"account" / "登录"/"注册"/"账号" | Account security / 账户安全 |
+| "comment"/"post"/"avatar"/"UGC" / "评论"/"发帖"/"头像" | Content moderation / 内容审核 |
+| "upload"/"attachment"/"image" / "上传"/"附件"/"图片" | File security / 文件安全 |
+| "AI"/"smart"/"bot" / "AI"/"智能"/"机器人" | Prompt protection / Prompt 保护 |
+| "payment"/"money"/"bank" / "支付"/"钱"/"银行卡" | Encryption & compliance / 加密合规 |
+| None of the above / 以上都没有 | Skip security perspective / 跳过安全视角 |
+
+In concept PRD, add one line at the end / 在概念版 PRD 末尾一句话带过：
+> Security considerations: [auto-filled items] / 安全考虑：[自动填入的项]
+
 **Rules / 规则：**
 - Max 3 questions per round, wait for answers before continuing
 - Show progress after each round
@@ -214,6 +276,31 @@ Technical Prerequisites: [auth / data / third-party deps]
 本版本不做：[明确排除的功能]
 商业模式：[收费方式 或 免费]
 技术前提：[账号体系 / 数据方案 / 第三方依赖]
+```
+
+#### Beginner Concept PRD / 小白版概念 PRD
+
+When `intent-router.py` returns `maturity: vague` or `scene_exploration`, use this template:
+当 `intent-router.py` 返回 `maturity: vague` 或 `scene_exploration` 时，使用此模板：
+
+```
+📱 What you want to make / 你想做的东西：
+[One sentence, plain language / 一句话描述，用人话]
+
+✨ Main features (do these 3 first) / 主要功能（先做这 3 个）：
+1. [Feature 1, plain language / 功能一，用人话]
+2. [Feature 2, plain language / 功能二，用人话]
+3. [Feature 3, plain language / 功能三，用人话]
+
+🚫 Not doing this time / 这次不做：
+[Exclusions, plain language / 排除项，用人话]
+
+💰 Free or paid / 免费还是收费：
+[One sentence / 一句话]
+
+🔧 Technical approach / 技术方案：
+[One sentence, no jargon. E.g. "Data stored on your phone, no account needed"]
+[一句话，不用术语。例如"数据存在你自己手机里，不需要注册账号"]
 ```
 
 Then ask: "Is this direction aligned? Any adjustments needed?" / "方向是否对齐？有需要调整的地方吗？"
