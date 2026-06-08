@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> | <a href="#中文版">中文版</a>
+  <a href="README.md">English</a> | <a href="README.md">中文</a>
 </p>
 
 <p align="center">
@@ -35,28 +35,28 @@ RPD 是一个 [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code
 
 ---
 
-## 🚀 Quick Start
+## 🚀 快速开始 / Quick Start
 
-### 1. Install the skill
+### 1. 安装 Skill / Install
 
 ```bash
-# Project-level (recommended)
+# 项目级安装（推荐）
 mkdir -p .claude/skills/rpd
-git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git /tmp/rpd-skill
-cp -r /tmp/rpd-skill/* .claude/skills/rpd/
-rm -rf /tmp/rpd-skill
+git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+cp -r _rpd_tmp/* .claude/skills/rpd/
+rm -rf _rpd_tmp
 ```
 
-Or global install (available in all projects):
+或全局安装（所有项目可用）：
 
 ```bash
 mkdir -p ~/.claude/skills/rpd
-git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git /tmp/rpd-skill
-cp -r /tmp/rpd-skill/* ~/.claude/skills/rpd/
-rm -rf /tmp/rpd-skill
+git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+cp -r _rpd_tmp/* ~/.claude/skills/rpd/
+rm -rf _rpd_tmp
 ```
 
-### 2. Verify installation
+### 2. 验证安装 / Verify Installation
 
 在 Claude Code 中输入：
 
@@ -69,7 +69,7 @@ rm -rf /tmp/rpd-skill
 | Claude 问 "这个东西是给谁用的？" | ✅ Skill 已激活 |
 | Claude 直接开始写代码 | ❌ 未安装成功，检查路径 |
 
-### 3. Start building
+### 3. 开始使用 / Start Building
 
 ```
 # New project
@@ -84,7 +84,7 @@ rm -rf /tmp/rpd-skill
 
 ---
 
-## ✨ Features
+## ✨ 功能特性 / Features
 
 <table>
   <tr>
@@ -131,35 +131,35 @@ rm -rf /tmp/rpd-skill
 
 ---
 
-## 📦 Multi-Platform Installation
+## 📦 多平台安装 / Multi-Platform Installation
 
-### Claude Code (Native)
+### Claude Code（原生）
 
-**Project-level install** (recommended — isolated per project):
+**项目级安装**（推荐 — 隔离在单个项目内）：
 
 ```bash
 mkdir -p .claude/skills/rpd
-git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git /tmp/rpd-skill
-cp -r /tmp/rpd-skill/* .claude/skills/rpd/
-rm -rf /tmp/rpd-skill
+git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+cp -r _rpd_tmp/* .claude/skills/rpd/
+rm -rf _rpd_tmp
 ```
 
-**Global install** (available across all projects):
+**全局安装**（所有项目可用）：
 
 ```bash
 mkdir -p ~/.claude/skills/rpd
-git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git /tmp/rpd-skill
-cp -r /tmp/rpd-skill/* ~/.claude/skills/rpd/
-rm -rf /tmp/rpd-skill
+git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+cp -r _rpd_tmp/* ~/.claude/skills/rpd/
+rm -rf _rpd_tmp
 ```
 
-### One-line install (macOS / Linux)
+### 一键安装（macOS / Linux）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ZhangJing-gugugaga/RPD-Skill/main/install.sh | bash
 ```
 
-### One-line install (Windows PowerShell)
+### 一键安装（Windows PowerShell）
 
 ```powershell
 iwr -useb https://raw.githubusercontent.com/ZhangJing-gugugaga/RPD-Skill/main/install.ps1 | iex
@@ -167,47 +167,47 @@ iwr -useb https://raw.githubusercontent.com/ZhangJing-gugugaga/RPD-Skill/main/in
 
 ### Cursor
 
-1. Clone this repository into your project
-2. Cursor auto-discovers the skill via `.claude-plugin/plugin.json`
-3. If auto-discovery fails: **Cursor Settings → Plugins** → paste `https://github.com/ZhangJing-gugugaga/RPD-Skill`
+1. 克隆本仓库到项目目录
+2. Cursor 通过 `.claude-plugin/plugin.json` 自动发现 Skill
+3. 若自动发现失败：**Cursor Settings → Plugins** → 粘贴 `https://github.com/ZhangJing-gugugaga/RPD-Skill`
 
 ### VS Code + GitHub Copilot
 
-1. Clone this repository into your project
-2. VS Code auto-discovers the skill via `.claude-plugin/plugin.json`
-3. For personal skills (all projects): copy to `~/.claude/skills/rpd/`
+1. 克隆本仓库到项目目录
+2. VS Code 通过 `.claude-plugin/plugin.json` 自动发现 Skill
+3. 个人级 Skill（所有项目可用）：复制到 `~/.claude/skills/rpd/`
 
-### Platform Compatibility
+### 平台兼容性 / Platform Compatibility
 
-| Platform | Status | Install Method | Notes |
-|----------|--------|----------------|-------|
-| Claude Code | ✅ Native | `.claude/skills/rpd/` | Primary target, full feature support |
-| Cursor | ✅ Supported | Auto-discovery via `plugin.json` | Clone repo into project |
-| VS Code + Copilot | ✅ Supported | Auto-discovery via `plugin.json` | Clone repo into project |
-| Codex | ⚠️ Experimental | Manual copy to skills directory | Core flows only |
-| Gemini CLI | ⚠️ Experimental | Manual copy to skills directory | Core flows only |
+| 平台 | 状态 | 安装方式 | 说明 |
+|------|------|----------|------|
+| Claude Code | ✅ 原生支持 | `.claude/skills/rpd/` | 主要目标平台，全部功能 |
+| Cursor | ✅ 支持 | 通过 `plugin.json` 自动发现 | 克隆仓库到项目目录 |
+| VS Code + Copilot | ✅ 支持 | 通过 `plugin.json` 自动发现 | 克隆仓库到项目目录 |
+| Codex | ⚠️ 实验性 | 手动复制到 skills 目录 | 仅核心流程 |
+| Gemini CLI | ⚠️ 实验性 | 手动复制到 skills 目录 | 仅核心流程 |
 
 ---
 
-## 🔄 Update
+## 🔄 更新 / Update
 
-### Update to latest version
+### 更新到最新版 / Update to Latest
 
 ```bash
-# If installed via git clone
+# 项目级安装
 cd .claude/skills/rpd && git pull origin main
 
-# If installed globally
+# 全局安装
 cd ~/.claude/skills/rpd && git pull origin main
 ```
 
-### Check current version
+### 查看当前版本 / Check Version
 
 ```bash
 grep '"version"' .claude/skills/rpd/.claude-plugin/plugin.json
 ```
 
-### Pin to specific version
+### 回滚到指定版本 / Pin Version
 
 ```bash
 cd .claude/skills/rpd
@@ -217,7 +217,7 @@ git checkout v1.5.0  # or any tag
 
 ---
 
-## 🏗 Architecture
+## 🏗 架构 / Architecture
 
 ```
 [用户输入 (自然语言 / 快捷指令)]
@@ -246,59 +246,59 @@ Flow A          Flow B         Flow C
       └──────────────────┘
 ```
 
-### Runtime Toolbox
+### 运行时工具箱 / Runtime Toolbox
 
-| Script | Deterministic Assertion | Invocation Trigger | Exit Codes |
-|--------|------------------------|--------------------|------------|
-| `intent-router.py` | Regex keyword hard-routing, maturity classification | Every conversation start | `0` success, `1` error |
-| `security-scanner.py` | 8 SEC rules + path traversal + prompt injection + chunk streaming | Flow B/C cold start | `0` clear, `1` error, `2` blocked |
-| `project-scanner.py` | Tech stack, components, API routes, TODOs | Flow B takeover | `0` success, `1` error |
-| `gap-analyzer.py` | PRD vs code gap + decision drift + Next.js route detection | Flow C continue | `0` success, `1` error, `2` no state, `3` no features |
-| `state-guard.py` | Atomic write + backup (max 10) + Git branch affinity lock | Before state file changes | `0` success, `1` error, `2` rollback, `3` not found, `4` conflict |
-| `state-validator.py` | YAML frontmatter JSON Schema validation | After state file changes | `0` valid, `1` error, `3` invalid |
-| `prd-validator.py` | Semantic gap audit (error handling, state machines, field specs) | After full PRD generation | `0` complete, `1` error, `2` gaps found |
-| `run-eval.py` | 11 evaluation scenarios | Development / CI | `0` all pass, `1` some fail |
+| 脚本 | 确定性断言机制 | 调用时机 | 退出码 |
+|------|---------------|----------|--------|
+| `intent-router.py` | 正则关键词硬路由，成熟度分类 | 每次对话开始 | `0` 成功, `1` 错误 |
+| `security-scanner.py` | 8 条 SEC 规则 + 路径遍历 + 注入检测 + 流式分块 | Flow B/C 冷启动 | `0` 安全, `1` 错误, `2` 阻断 |
+| `project-scanner.py` | 技术栈、组件、API 路由、TODO | Flow B 接手 | `0` 成功, `1` 错误 |
+| `gap-analyzer.py` | PRD vs 代码差距 + 决策漂移 + Next.js 路由检测 | Flow C 续传 | `0` 成功, `1` 错误, `2` 无状态, `3` 无功能 |
+| `state-guard.py` | 原子写入 + 备份(max 10) + Git 分支亲和度锁 | 状态文件变更前 | `0` 成功, `1` 错误, `2` 回滚, `3` 未找到, `4` 冲突 |
+| `state-validator.py` | YAML Frontmatter JSON Schema 校验 | 状态文件变更后 | `0` 有效, `1` 错误, `3` 无效 |
+| `prd-validator.py` | 语义缺口审计（异常处理、状态机、字段规范） | 落地版 PRD 生成后 | `0` 完整, `1` 错误, `2` 有缺口 |
+| `run-eval.py` | 11 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
 > **You never run these manually.** Claude calls them automatically at the appropriate workflow nodes.
 
-### Under the Hood
+### 底层机制 / Under the Hood
 
-| Component | Mechanism | Why It Matters |
-|-----------|-----------|----------------|
-| `intent-router.py` | Pre-compiled regex patterns, first-match-wins priority | Zero token consumption, deterministic routing |
-| `security-scanner.py` | Function-level context window (`to_top` mode) + chunk streaming for >1MB files | Detects inline rate-limit middleware, never silently skips large files |
-| `gap-analyzer.py` | Three-layer interface detection (API route → page route → data model) + bidirectional CN↔EN keyword map (50+ entries) | Chinese "登录" matches English `login` in code |
-| `state-guard.py` | `branch-affinity` YAML field + `git branch --show-current` comparison | Prevents cross-branch silent merge of project memory |
-| `state-validator.py` | JSON Schema with `minimum`/`maximum`/`pattern`/`enum` constraints | Blocks agent from selectively truncating metadata |
-| `prd-validator.py` | Six-blind-spot checklist + `####` heading detection | Ensures PRD covers error handling, state machines, field specs |
-
----
-
-## 🔐 Security Engine
-
-| Rule ID | Name | Severity | Detection Pattern |
-|---------|------|----------|-------------------|
-| SEC-001 | SMS/Email API without rate limiting | `CRITICAL` | `sendSMS()` / `sendEmail()` without `rateLimit` in function context |
-| SEC-002 | UGC write without content moderation | `CRITICAL` | `Comment.create()` without `contentModerat` in function context |
-| SEC-003 | File upload without type validation | `HIGH` | `multer({storage})` without `fileFilter` |
-| SEC-004 | File storage on local disk | `MEDIUM` | `diskStorage()` usage |
-| SEC-005 | Hardcoded System Prompt | `HIGH` | `SYSTEM_PROMPT = "..."` in code |
-| SEC-006 | Direct file URL without access control | `MEDIUM` | `res.json({url: ...})` without signed URL |
-| SEC-007 | API route without authentication middleware | `HIGH` | `router.get("/api/...")` without `auth` in context window |
-| SEC-008 | System Prompt via string concatenation | `LOW` | `SYSTEM_PROMPT = var + "..."` |
-
-**Additional protections:**
-
-| Protection | Mechanism |
-|------------|-----------|
-| Path traversal | `verify_path_safety()` — resolves symlinks, blocks `../` escape |
-| Prompt injection | Pattern-based detection in state files (`ignore previous instructions`, etc.) |
-| Large file bypass | Files >1MB streamed line-by-line with `[大文件流式拦截]` prefix |
-| Comment filtering | Lines starting with `#`, `//`, `*` skipped to prevent false positives |
+| 组件 | 机制 | 工程价值 |
+|------|------|----------|
+| `intent-router.py` | 预编译正则模式，首次匹配优先 | 零 Token 消耗，确定性路由 |
+| `security-scanner.py` | 函数级上下文窗口（`to_top` 模式）+ >1MB 文件流式分块 | 检测同文件内联 rateLimit 中间件，永不静默跳过大文件 |
+| `gap-analyzer.py` | 三层接口检测（API 路由 → 页面路由 → 数据模型）+ 双向中英文词根映射（50+ 条目） | 中文"登录"自动匹配英文 `login` |
+| `state-guard.py` | `branch-affinity` YAML 字段 + `git branch --show-current` 比对 | 防止跨分支静默合并项目记忆 |
+| `state-validator.py` | JSON Schema `minimum`/`maximum`/`pattern`/`enum` 约束 | 阻断 Agent 选择性截断元数据 |
+| `prd-validator.py` | 六大盲区自检清单 + `####` 标题检测 | 确保 PRD 覆盖异常处理、状态机、字段规范 |
 
 ---
 
-## 📐 Architecture Boundary & Non-Goals
+## 🔐 安全引擎 / Security Engine
+
+| 规则 ID | 名称 | 严重程度 | 检测模式 |
+|---------|------|----------|----------|
+| SEC-001 | 短信/邮件发送接口缺少频率限制 | `CRITICAL` | `sendSMS()` / `sendEmail()` 同函数上下文无 `rateLimit` |
+| SEC-002 | 用户生成内容(UGC)写入无审核机制 | `CRITICAL` | `Comment.create()` 同函数上下文无 `contentModerat` |
+| SEC-003 | 文件上传缺少文件类型校验 | `HIGH` | `multer({storage})` 无 `fileFilter` |
+| SEC-004 | 文件存储在服务器本地磁盘 | `MEDIUM` | 使用 `diskStorage()` |
+| SEC-005 | AI System Prompt 硬编码在代码中 | `HIGH` | 代码中 `SYSTEM_PROMPT = "..."` |
+| SEC-006 | 文件 URL 直接可访问，无防盗链保护 | `MEDIUM` | `res.json({url: ...})` 无签名 URL |
+| SEC-007 | API 路由缺少认证中间件 | `HIGH` | `router.get("/api/...")` 上下文窗口无 `auth` |
+| SEC-008 | AI System Prompt 通过字符串拼接构造 | `LOW` | `SYSTEM_PROMPT = var + "..."` |
+
+**额外防护 / Additional Protections:**
+
+| 防护类型 | 机制 |
+|----------|------|
+| 路径遍历 | `verify_path_safety()` — 解析符号链接，阻断 `../` 逃逸 |
+| 提示词注入 | 状态文件模式检测（`ignore previous instructions` 等） |
+| 大文件绕过 | >1MB 文件逐行流式扫描，带 `[大文件流式拦截]` 前缀 |
+| 注释过滤 | 跳过 `#`、`//`、`*` 开头的行，防止误报 |
+
+---
+
+## 📐 架构边界与非目标 / Scope & Non-Goals
 
 RPD 专注于为大语言模型提供运行时确定性控制流约束，其工程职责遵循严格的**最小干预原则**：
 
@@ -309,57 +309,58 @@ RPD 专注于为大语言模型提供运行时确定性控制流约束，其工�
 
 ---
 
-## 📁 Directory Structure
+## 📁 目录结构 / Directory Structure
 
 ```
 rpd/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin metadata (name, version, keywords)
-├── SKILL.md                     # Main control instructions (bilingual, 6 Hard Constraints)
-├── README.md                    # This file
+│   └── plugin.json              # 插件元数据（名称、版本、关键词）
+├── SKILL.md                     # 主控指令（中英双语，6 条硬性红线）
+├── README.md                    # 本文件
 ├── scripts/
-│   ├── intent-router.py         # Deterministic intent classification
-│   ├── security-scanner.py      # 8 SEC rules + streaming + path traversal
-│   ├── project-scanner.py       # Tech stack / component / route detection
-│   ├── gap-analyzer.py          # PRD vs code + decision drift + Next.js
-│   ├── state-validator.py       # YAML frontmatter JSON Schema validation
-│   ├── state-guard.py           # Atomic write + backup + branch affinity
-│   ├── prd-validator.py         # PRD completeness audit
-│   └── run-eval.py              # 11 evaluation scenarios
+│   ├── intent-router.py         # 确定性意图分类
+│   ├── security-scanner.py      # 8 条 SEC 规则 + 流式扫描 + 路径遍历防护
+│   ├── project-scanner.py       # 技术栈 / 组件 / 路由检测
+│   ├── gap-analyzer.py          # PRD vs 代码 + 决策漂移 + Next.js 路由
+│   ├── state-validator.py       # YAML Frontmatter JSON Schema 校验
+│   ├── state-guard.py           # 原子写入 + 备份 + 分支亲和度锁
+│   ├── prd-validator.py         # PRD 完整性审计
+│   └── run-eval.py              # 11 个评估场景
 ├── references/
-│   ├── prd-template.md          # PRD template (concept + full + security checklist)
-│   ├── state-file-spec.md       # State file specification (5-col feature + 5-col decision)
-│   ├── state-schema.json        # JSON Schema for state file validation
-│   └── keyword-map.json         # CN↔EN keyword mappings (50+ entries)
+│   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + 安全自检清单）
+│   ├── state-file-spec.md       # 状态文件规范（5 列功能表 + 5 列决策表）
+│   ├── state-schema.json        # 状态文件 JSON Schema
+│   └── keyword-map.json         # 中英文关键词映射（50+ 条目）
 ├── eval/
-│   └── scenarios/               # 11 eval scenario definitions
+│   └── scenarios/               # 11 个评估场景定义
 └── assets/
-    └── example-state.md         # Example state file (new format)
+    ├── hero.png                 # 首图
+    └── example-state.md         # 示例状态文件
 ```
 
 ---
 
-## 🧪 Eval Matrix
+## 🧪 评估矩阵 / Eval Matrix
 
 11 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
 
-| Scenario | Name | What It Tests | Exit |
-|----------|------|---------------|------|
-| A | Empty Project | State file not found → correct error message | `1` |
-| B | Corrupted State File | Invalid YAML frontmatter → schema rejection | `3` |
-| C | Prompt Injection | Injection patterns in state file → hard block | `2` |
-| D | Half-Finished Project | React+Vite detection → correct tech stack | `0` |
-| E | Intent Router | 7 intent classification test cases (CN+EN) | `0` |
-| F | PRD Validator | Complete / missing error handling / `####` headings | `0`/`2` |
-| G | Decision Drift | No drift / MEDIUM coexistence / HIGH replacement | `0` |
-| H | State Guard | Backup / cleanup / rollback operations | `0` |
-| I | SEC Rules | SEC-001 detection, inline limiter bypass, comment filtering | `0`/`2` |
-| O | Chinese Name | Chinese project name in YAML frontmatter | `0` |
-| P | Turbo Mode | Vague input → `scene_exploration` routing | `0` |
+| 场景 | 名称 | 测试内容 | 退出码 |
+|------|------|----------|--------|
+| A | 空项目 | 状态文件不存在 → 正确报错 | `1` |
+| B | 损坏的状态文件 | YAML Frontmatter 无效 → Schema 拒绝 | `3` |
+| C | 提示词注入 | 状态文件注入模式 → 硬阻断 | `2` |
+| D | 半成品项目 | React+Vite 检测 → 正确识别技术栈 | `0` |
+| E | 意图路由器 | 7 个意图分类用例（中英文） | `0` |
+| F | PRD 校验器 | 完整 / 缺失异常处理 / `####` 标题 | `0`/`2` |
+| G | 决策漂移 | 无漂移 / MEDIUM 共存 / HIGH 替换 | `0` |
+| H | 状态守卫 | 备份 / 清理 / 回滚操作 | `0` |
+| I | SEC 规则 | SEC-001 检测、内联 limiter 绕过、注释过滤 | `0`/`2` |
+| O | 中文项目名 | YAML Frontmatter 中文项目名 | `0` |
+| P | Turbo 模式 | 模糊输入 → `scene_exploration` 路由 | `0` |
 
 ---
 
-## 📋 State File Example
+## 📋 状态文件示例 / State File Example
 
 `.project-state.md` — the project's digital twin, committed to Git:
 
@@ -391,10 +392,10 @@ entry-type: new-idea
 
 ---
 
-## ❓ FAQ
+## ❓ 常见问题 / FAQ
 
-| Question | Answer |
-|----------|--------|
+| 问题 | 回答 |
+|------|------|
 | 需要记住触发词吗？ | 不需要。`intent-router.py` 确定性分类意图，说人话就行 |
 | Token 不够了怎么办？ | Turbo Mode 自动激活：跳过概念版 PRD，4 行 100 Token 输出，安全扫描照常（零 Token） |
 | 可以中途改 PRD 吗？ | 可以。修改核心功能需重新冻结范围。概念版 PRD 改 >3 次建议先做用户调研 |
@@ -405,15 +406,15 @@ entry-type: new-idea
 
 ---
 
-## 🤝 Contributing
+## 🤝 贡献 / Contributing
 
-| Step | Action |
-|------|--------|
-| 1 | Fork the repository |
-| 2 | Create a feature branch (`git checkout -b feature/my-feature`) |
-| 3 | Run eval tests (`python scripts/run-eval.py`) |
-| 4 | All 11 scenarios must pass |
-| 5 | Commit and open a pull request |
+| 步骤 | 操作 |
+|------|------|
+| 1 | Fork 仓库 |
+| 2 | 创建功能分支 (`git checkout -b feature/my-feature`) |
+| 3 | 运行评估测试 (`python scripts/run-eval.py`) |
+| 4 | 11 个场景必须全部通过 |
+| 5 | 提交并发起 Pull Request |
 
 请先开 Issue 讨论重大变更。
 
