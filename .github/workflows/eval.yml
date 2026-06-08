@@ -5,14 +5,15 @@ name: Run Eval Tests
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+      fail-fast: false
     env:
       PYTHONUNBUFFERED: '1'
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
-    - name: Check file exists
-      run: ls -la rpd/scripts/run-eval.py
-    - name: Run eval
-      run: python rpd/scripts/run-eval.py
+        python-version: ${{ matrix.python-version }}
+    - run: python scripts/run-eval.py
