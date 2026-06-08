@@ -22,25 +22,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Debug environment
-      run: |
-        echo "Python version: $(python --version)"
-        echo "Working directory: $(pwd)"
-        echo "Platform: $(uname -a)"
-        echo "Locale: $(locale)"
-        echo "PYTHONIOENCODING: $PYTHONIOENCODING"
-        echo "---"
-        echo "Files in rpd/:"
-        ls -la rpd/
-        echo "---"
-        echo "Files in rpd/scripts/:"
-        ls -la rpd/scripts/
-
-    - name: Test basic Python
-      run: |
-        python -c "import sys; print(f'Python {sys.version}'); print(f'Encoding: {sys.stdout.encoding}')"
-        python -c "from pathlib import Path; print(f'Path test: {Path(\"rpd/scripts\").resolve()}')"
-
     - name: Run eval tests
       working-directory: rpd
       run: python scripts/run-eval.py
