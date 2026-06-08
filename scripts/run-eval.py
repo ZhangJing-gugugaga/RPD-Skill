@@ -443,6 +443,12 @@ def run_scenario_p():
 def main():
     print("RPD Skill Evaluation Matrix")
     print("=" * 40)
+    print(f"Python: {sys.version}")
+    print(f"Platform: {sys.platform}")
+    print(f"Scripts dir: {SCRIPTS_DIR}")
+    print(f"Skill dir: {SKILL_DIR}")
+    print(f"Working dir: {Path.cwd()}")
+    print("=" * 40)
 
     results = {
         "A (empty project)": run_scenario_a(),
