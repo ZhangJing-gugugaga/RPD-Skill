@@ -4,15 +4,15 @@
     "name": "RPD Contributors"
   },
   "metadata": {
-    "description": "RPD — Rapid Product Document. A Claude Code skill covering the full project lifecycle: requirement diagnosis, PRD generation, project state management, and cross-session progress recovery. Supports Chinese and English.",
-    "description_zh": "RPD — 快速产品文档。覆盖项目全生命周期的 Claude Code Skill：需求诊断、PRD 生成、项目状态管理、跨会话进度恢复。支持中英文。"
+    "description": "RPD — Rapid Product Document. A Claude Code skill covering the full project lifecycle: requirement diagnosis, PRD generation, project state management, security scanning, intent routing, decision drift detection, and cross-session progress recovery. Supports Chinese and English.",
+    "description_zh": "RPD — 快速产品文档。覆盖项目全生命周期的 Claude Code Skill：需求诊断、PRD 生成、项目状态管理、安全扫描、意图路由、决策漂移检测、跨会话进度恢复。支持中英文。"
   },
   "plugins": [
     {
       "name": "rpd",
       "source": "./",
-      "description": "RPD — Rapid Product Document. Covers the full project lifecycle with three entry flows: new project, half-finished takeover, and continue development.",
-      "description_zh": "RPD — 快速产品文档。三个入口覆盖项目全生命周期：新项目、接手半成品、继续开发。"
+      "description": "RPD — Rapid Product Document. Covers the full project lifecycle with three entry flows: new project, half-finished takeover, and continue development. Features include 8 deterministic scripts, 8 security rules, intent routing, and decision drift detection.",
+      "description_zh": "RPD — 快速产品文档。三个入口覆盖项目全生命周期：新项目、接手半成品、继续开发。包含 8 个确定性脚本、8 条安全规则、意图路由、决策漂移检测。"
     }
   ]
 }
