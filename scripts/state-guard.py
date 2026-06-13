@@ -20,6 +20,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+def smart_read(file_path):
+    """Read file with multiple encoding attempts."""
+    encodings = ['utf-8-sig', 'utf-8', 'gbk', 'cp1252', 'latin-1']
+    for enc in encodings:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                return f.read()
+        except (UnicodeDecodeError, LookupError):
+            continue
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 # Fix Windows encoding
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -156,7 +168,7 @@ def check_git_concurrency(state_file_path: Path) -> None:
     # Check 2: Branch Affinity Lock — cross-branch silent merge protection
     if state_file_path.exists():
         try:
-            content = state_file_path.read_text(encoding="utf-8")
+            content = smart_read(state_file_path)
             lines = content.split("\n")
             if lines and lines[0].strip() == "---":
                 meta = {}
@@ -191,7 +203,7 @@ def atomic_update(state_file_path: Path, content_file: Path) -> None:
     create_backup(state_file_path)
 
     # Step 2: Read new content
-    new_content = content_file.read_text(encoding="utf-8")
+    new_content = smart_read(content_file)
 
     # Step 3: Atomic write (write to temp file, then rename)
     tmp_path = state_file_path.with_suffix(".md.tmp")

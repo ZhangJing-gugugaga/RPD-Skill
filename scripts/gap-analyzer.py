@@ -18,6 +18,18 @@ import re
 import sys
 from pathlib import Path
 
+def smart_read(file_path):
+    """Read file with multiple encoding attempts."""
+    encodings = ['utf-8-sig', 'utf-8', 'gbk', 'cp1252', 'latin-1']
+    for enc in encodings:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                return f.read()
+        except (UnicodeDecodeError, LookupError):
+            continue
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 # Fix Windows encoding for JSON output
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -562,7 +574,7 @@ def check_blockers_resolved(project_dir, blockers):
         pkg_json = Path(project_dir) / "package.json"
         if pkg_json.exists():
             try:
-                pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+                pkg = json.loads(smart_read(pkg_json))
                 all_deps = " ".join({**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}.keys())
                 if "分页" in blocker and ("paginate" in all_deps or "pagination" in all_deps):
                     resolved_evidence = "Pagination library found in dependencies"
@@ -594,7 +606,7 @@ def detect_deviations(project_dir, features, prd_summary):
     pkg_json = p / "package.json"
     if pkg_json.exists():
         try:
-            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            pkg = json.loads(smart_read(pkg_json))
             all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
 
             # Check for database mismatch
@@ -652,7 +664,7 @@ def detect_security_gaps(project_dir):
         return gaps
 
     try:
-        pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+        pkg = json.loads(smart_read(pkg_json))
         all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
 
         # SMS/Email without rate limiting
@@ -766,7 +778,7 @@ def read_project_dependencies(project_dir):
     pkg_json = p / "package.json"
     if pkg_json.exists():
         try:
-            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            pkg = json.loads(smart_read(pkg_json))
             deps["npm"] = {
                 **pkg.get("dependencies", {}),
                 **pkg.get("devDependencies", {}),
@@ -778,7 +790,7 @@ def read_project_dependencies(project_dir):
     req_txt = p / "requirements.txt"
     if req_txt.exists():
         try:
-            content = req_txt.read_text(encoding="utf-8")
+            content = smart_read(req_txt)
             for line in content.split("\n"):
                 line = line.strip()
                 if line and not line.startswith("#") and not line.startswith("-"):
@@ -793,7 +805,7 @@ def read_project_dependencies(project_dir):
     go_mod = p / "go.mod"
     if go_mod.exists():
         try:
-            content = go_mod.read_text(encoding="utf-8")
+            content = smart_read(go_mod)
             in_require = False
             for line in content.split("\n"):
                 if line.strip().startswith("require"):

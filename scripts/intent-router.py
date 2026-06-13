@@ -15,6 +15,18 @@ import json
 import re
 import sys
 
+def smart_read(file_path):
+    """Read file with multiple encoding attempts."""
+    encodings = ['utf-8-sig', 'utf-8', 'gbk', 'cp1252', 'latin-1']
+    for enc in encodings:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                return f.read()
+        except (UnicodeDecodeError, LookupError):
+            continue
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 # Fix Windows encoding for JSON output
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

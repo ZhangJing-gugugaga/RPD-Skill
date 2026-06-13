@@ -16,6 +16,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+def smart_read(file_path):
+    """Read file with multiple encoding attempts."""
+    encodings = ['utf-8-sig', 'utf-8', 'gbk', 'cp1252', 'latin-1']
+    for enc in encodings:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                return f.read()
+        except (UnicodeDecodeError, LookupError):
+            continue
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 # --- Version migration ---
 
 CURRENT_VERSION = 1
@@ -226,7 +238,7 @@ def main():
 
     # Read file
     try:
-        content = file_path.read_text(encoding="utf-8")
+        content = smart_read(file_path)
     except Exception as e:
         print(f"Error: Cannot read file: {e}", file=sys.stderr)
         return 1
@@ -244,7 +256,7 @@ def main():
         return 1
 
     try:
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        schema = json.loads(smart_read(schema_path))
     except Exception as e:
         print(f"Error: Cannot parse schema: {e}", file=sys.stderr)
         return 1

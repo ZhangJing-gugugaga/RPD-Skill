@@ -16,6 +16,18 @@ import re
 import sys
 from pathlib import Path
 
+def smart_read(file_path):
+    """Read file with multiple encoding attempts."""
+    encodings = ['utf-8-sig', 'utf-8', 'gbk', 'cp1252', 'latin-1']
+    for enc in encodings:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                return f.read()
+        except (UnicodeDecodeError, LookupError):
+            continue
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 # Fix Windows encoding for JSON output
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -114,7 +126,7 @@ def detect_tech_stack(project_dir):
     pkg_deps = ""
     if pkg_json.exists():
         try:
-            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            pkg = json.loads(smart_read(pkg_json))
             all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             pkg_deps = " ".join(all_deps.keys())
         except Exception:
@@ -127,7 +139,7 @@ def detect_tech_stack(project_dir):
         if any(skip in nested_pkg.parts for skip in SKIP_DIRS):
             continue
         try:
-            nested = json.loads(nested_pkg.read_text(encoding="utf-8"))
+            nested = json.loads(smart_read(nested_pkg))
             nested_deps = {**nested.get("dependencies", {}), **nested.get("devDependencies", {})}
             pkg_deps += " " + " ".join(nested_deps.keys())
         except Exception:
