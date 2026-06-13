@@ -4,6 +4,10 @@ description: "Use when: user describes a new product idea, asks to take over an 
 description_zh: "当用户描述新产品想法、接手已有项目或说「继续开发」时使用。覆盖：需求诊断、PRD 生成、项目状态管理、跨会话进度恢复。支持中英文。"
 context: fork
 languages: ["en", "zh"]
+
+argument-hint: ""
+user-invocable: true
+allowed-tools: [Read, Write, Glob, Grep, Shell, run_shell_command]
 ---
 
 # RPD — Rapid Product Document
