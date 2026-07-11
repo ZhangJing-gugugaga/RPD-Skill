@@ -5,7 +5,7 @@ description_zh: "当用户描述新产品想法、接手已有项目或说「继
 context: fork
 languages: ["en", "zh"]
 
-argument-hint: ""
+argument-hint: "new | take | cont | status | scan"
 user-invocable: true
 allowed-tools: [Read, Write, Glob, Grep, Shell, run_shell_command]
 ---
@@ -75,16 +75,79 @@ All prompts, questions, and outputs should use the detected language. The `.proj
 
 ---
 
+## Script Path & Graceful Degradation / 脚本路径与优雅降级
+
+All scripts referenced in this Skill live in the Skill's own directory, NOT the user's project directory:
+所有脚本均位于 Skill 自身目录下，而非用户项目目录：
+
+```
+~/.qoderworkcn/skills/rpd/scripts/
+```
+
+**Resolution rule / 路径解析规则**:
+When a procedure says `python scripts/xxx.py`, resolve the path as:
+当流程中写 `python scripts/xxx.py` 时，按以下顺序查找：
+
+1. First try: `~/.qoderworkcn/skills/rpd/scripts/xxx.py` (Skill directory / Skill 目录)
+2. If not found, check if the user's project has a local `scripts/` directory
+3. If neither exists, **degrade gracefully** using the manual fallback table below
+
+**Graceful Degradation Table / 降级对照表**:
+
+| Script | If unavailable, do this manually / 脚本不可用时手动操作 |
+|--------|-----------------------------------------------------|
+| `intent-router.py` | Read the user's first message, match against the Intent Routing table and Warm Start Trigger Word table in Step 0. Determine `recommended_flow` manually based on keyword matching. / 根据用户首条消息，手动匹配 Step 0 中的意图路由表和暖启动触发词表，判断 `recommended_flow`。 |
+| `security-scanner.py` | Skip automated scan. Ask user: "Does this project handle user data, payments, or authentication?" If yes, manually check for hardcoded secrets by grepping for common patterns (API keys, passwords, tokens). If no, proceed without scan. / 跳过自动扫描，手动询问用户项目是否涉及用户数据、支付或认证，必要时手动 grep 检查硬编码密钥。 |
+| `project-scanner.py` | Manually scan project: list files with `ls` or `Glob`, read key files (package.json, requirements.txt, README.md, main entry files). Infer tech stack, components, and API routes from file structure. / 手动扫描项目：用 ls 或 Glob 列出文件，读取关键文件（package.json、requirements.txt、README.md、入口文件），推断技术栈和组件。 |
+| `state-validator.py` | Read `.project-state.md` manually, check that required fields exist (project name, PRD path, features list, timestamps). If missing fields, note them for the user. / 手动读取 .project-state.md，检查必填字段是否存在，缺失的字段记录给用户。 |
+| `gap-analyzer.py` | Compare PRD feature list against actual code files manually. For each PRD feature, search for corresponding implementation files. Mark as ✅/🔨/⏳ based on code completeness. / 手动对比 PRD 功能列表和实际代码文件，按代码完整度标记 ✅/🔨/⏳。 |
+| `state-guard.py` | Before writing `.project-state.md`, manually copy the existing file to `.project-state.md.bak` in the same directory. / 写入前手动复制 .project-state.md 为 .project-state.md.bak。 |
+| `prd-validator.py` | Manually check PRD against the template in `references/prd-template.md`. Verify all required sections exist (一~十五). Count badcase entries (≥8 required). Check AI role specificity. / 手动对照 references/prd-template.md 检查 PRD，验证章节完整性、badcase 数量和 AI 职责具体性。 |
+
+**Core principle / 核心原则**: Script failures must NEVER terminate the Skill. Always degrade to manual operation and continue the flow.
+脚本失败绝不能终止 Skill 流程。必须降级为手动操作并继续执行。
+
+---
+
 ## Procedure / 流程
 
 ### Step 0: Intent Router / 意图路由
+
+#### Step 0a: Conversation Context Detection / 对话上下文检测
+
+**Before running any script, check the current conversation for existing product context.**
+在运行任何脚本之前，先检查当前对话中是否已存在充分的产品讨论。
+
+Scan the conversation history for the following signals / 扫描对话历史，检测以下信号：
+
+| Signal / 信号 | Example / 示例 |
+|---------------|----------------|
+| Product name discussed / 产品名称已讨论 | "叫 Termify"、"名字是 XXX" |
+| Target user identified / 目标用户已明确 | "给程序员用"、"面向独立开发者" |
+| Core features listed (≥2) / 核心功能已列出（≥2 个） | "上传 GIF、选风格、下载脚本" |
+| Tech stack mentioned / 技术栈已提及 | "用 Flask"、"前端 HTML/CSS" |
+| User explicitly asks to write PRD / 用户明确要求写 PRD | "开始写 PRD 吧"、"出 PRD" |
+
+**Decision / 决策**:
+
+- If ≥3 signals found / 检测到 ≥3 个信号 → **Offer Fast Path / 提供快速通道**:
+  > "I detected that you've already discussed [product name], [target users], and [core features] in our conversation. I can skip the diagnosis rounds and generate the PRD directly from what we've already discussed. Skip diagnosis? / 检测到你们已经讨论了 [产品名]、[目标用户] 和 [核心功能]。可以跳过诊断，直接基于已有对话生成 PRD。是否跳过？"
+  >
+  > - User says yes / 用户确认 → Go directly to A-1 (Greenfield Setup) then A2 (Concept PRD) or A4 (Full PRD) based on context depth / 根据上下文深度直接跳到 A2 或 A4
+  > - User says no / 用户拒绝 → Continue to Step 0b (normal intent routing) / 继续正常意图路由
+
+- If <3 signals / 信号不足 → Continue to Step 0b (normal intent routing) / 继续正常意图路由
+
+#### Step 0b: Deterministic Routing / 确定性路由
 
 **Deterministic routing (must execute) / 确定性路由（必须执行）**：
 
 Before any other action, run / 在做任何其他事情之前，先运行：
 ```bash
-python scripts/intent-router.py "用户输入的原文"
+python ~/.qoderworkcn/skills/rpd/scripts/intent-router.py "用户输入的原文"
 ```
+
+> **Fallback / 降级**: If `intent-router.py` is not found or fails, manually match the user's input against the Intent Routing table and Warm Start Trigger Word table below to determine `recommended_flow`. / 如果脚本不可用，手动匹配用户输入与下方意图路由表和暖启动触发词表。
 
 Route based on `recommended_flow` field / 根据输出的 `recommended_flow` 字段决定走哪条路：
 
@@ -180,6 +243,59 @@ Route based on user intent / 根据用户意图分发：
 
 > From idea to PRD with structured diagnosis.
 > 从想法到 PRD 的结构化转化。
+
+#### A-1: Greenfield Setup / 从零开始的项目初始化
+
+**Trigger / 触发条件**: The project directory does not exist yet, or the user asks to create a new project folder. / 项目目录尚不存在，或用户要求创建新项目文件夹。
+
+This step handles the "from zero" scenario — the user has a product idea but no project directory, no code, no state file. The skill should NOT fail or terminate in this case; it should seamlessly create the workspace and proceed to PRD generation.
+此步骤处理"从零开始"的场景——用户有产品想法但还没有项目目录、没有代码、没有状态文件。Skill 在这种情况下不应失败或终止，而应无缝创建工作空间并继续 PRD 生成。
+
+**Procedure / 流程**:
+
+1. **Confirm project directory / 确认项目目录**:
+   - If user specified a directory path → use it / 如果用户指定了路径 → 使用该路径
+   - If user only specified a project name → create directory in current working directory / 如果用户只给了项目名 → 在当前工作目录下创建
+   - Ask: "Where should I create the project? [suggested path] OK?" / "项目创建在哪里？[建议路径] 可以吗？"
+
+2. **Create project directory / 创建项目目录**:
+   ```bash
+   mkdir -p <project-directory>
+   cd <project-directory>
+   git init  # If user wants version control / 如果用户需要版本控制
+   ```
+
+3. **Skip security scan / 跳过安全扫描**:
+   No code exists yet, so `security-scanner.py` and `project-scanner.py` are not applicable. Note: "New project, no code to scan. Security scan will run after first code is written." / "新项目，没有代码可扫描。安全扫描将在首次写代码后运行。"
+
+4. **Proceed to A0 or A2 / 进入 A0 或 A2**:
+   - If coming from Step 0a Fast Path (conversation has rich context) → skip to A2 (Concept PRD) / 如果来自快速通道（对话已有丰富上下文）→ 跳到 A2
+   - If normal entry → proceed to A0 (Problem Validation) / 正常进入 → 进入 A0
+
+**Key principle / 关键原则**: For a greenfield project, the PRD comes FIRST, then code. The skill should never block PRD generation on the absence of code or project files.
+对于从零开始的项目，PRD 先于代码。Skill 绝不能因为没有代码或项目文件而阻断 PRD 生成。
+
+#### A0: Problem Validation / 问题校验
+
+After user provides their initial product idea, before starting diagnosis:
+
+1. Check input quality against 6 criteria / 检查输入质量，6 项标准：
+   - Is target user too broad? ("所有人" = too broad) / 目标用户是否太泛？（"所有人"=太泛）
+   - Is core scenario specific enough? / 核心场景是否具体？
+   - Is the pain point a real problem, not just a feature idea? / 用户卡点是否是真问题（而非功能想法）？
+   - Is the MVP scope too large? / MVP 是否过大？
+   - Is the "out of scope" boundary clear? / 本期不做的边界是否清楚？
+   - Is the AI role specific, or just "call LLM"? / AI 的角色是否具体（而非只写"调用大模型"）？
+
+2. Output validation table / 输出校验表格：
+   | 检查项 | 当前判断 | 存在的问题 | 修改建议 |
+   |--------|----------|------------|----------|
+
+3. If issues found, suggest adjustments before proceeding to A1 / 如发现问题，建议调整后再进入 A1
+4. If input is insufficient, make reasonable assumptions but mark them with 「假设」/ 信息不足时做合理假设，但必须用「假设」标注
+
+> This step ensures the diagnosis in A1 starts from a well-formed problem statement.
+> 此步骤确保 A1 的诊断从结构良好的问题描述开始。
 
 #### A1: Three-Perspective Diagnosis / 三视角诊断
 
@@ -281,7 +397,9 @@ After diagnosis, output concept PRD (≤ 200 words):
 
 **English:**
 ```
+Product Name: [name]
 Who it's for: [one sentence]
+Core Problem: For [who], in [scenario], because [pain point], wants [result].
 Problem to solve: [one specific pain point]
 How it works: [Web / App / Mini-program / CLI]
 Tech requirements: [auth / data / third-party deps]
@@ -295,7 +413,9 @@ Business Model: [pricing or free]
 
 **中文：**
 ```
+产品名称：[名称]
 给谁用的：[一句话描述目标用户]
+核心问题：对 [谁]，在 [什么场景] 下，因为 [卡点]，所以希望 [结果]
 解决什么问题：[一个具体痛点]
 怎么用的：[Web / App / 小程序 / 命令行]
 技术上需要什么：[账号体系 / 数据方案 / 第三方依赖]
@@ -364,7 +484,12 @@ Please reply "confirmed" to continue.
 
 #### A4: Full PRD / 落地版 PRD
 
-Refer to `references/prd-template.md` for the full template. Output complete PRD with all sections.
+Refer to `references/prd-template.md` for the full template. Output complete PRD with all sections, including AI-enhanced sections (七~十五): problem validation, input design, output design, AI workflow, AI responsibilities, badcase analysis, validation goals, PRD risks, and AI PRD self-check.
+
+**Before writing the PRD to a file, ask the user:**
+> "May I write the full PRD to [filename]? / 可以将落地版 PRD 写入 [文件名] 吗？"
+
+Wait for user confirmation before writing any file.
 
 After completion, run the Six Blind Spots checklist (see `references/prd-template.md`).
 
@@ -373,12 +498,21 @@ After completion, run the Six Blind Spots checklist (see `references/prd-templat
 After generating the full PRD, **must execute** / 生成落地版 PRD 后，**必须执行**：
 
 ```bash
-python scripts/prd-validator.py <prd-file> --format text
+python ~/.qoderworkcn/skills/rpd/scripts/prd-validator.py <prd-file> --format text --ai-mode
 ```
+
+> **Fallback / 降级**: If script unavailable, manually check PRD against `references/prd-template.md`. Verify sections 一~十五 exist, count badcase entries (≥8), check AI role specificity. / 脚本不可用时，手动对照 `references/prd-template.md` 检查 PRD 章节完整性、badcase 数量和 AI 职责具体性。
+
+The `--ai-mode` flag enables AI PRD section checks (badcase count ≥8, AI role specificity, section presence). / `--ai-mode` 启用 AI PRD 章节检查（badcase 数量≥8、AI 职责具体性、章节存在性）。
 
 If output shows `FAIL`, supplement missing content based on gaps list, then re-validate. / 如果输出 `FAIL`，根据 gaps 列表补充缺失内容后重新校验。
 
 #### A5: Generate State File / 生成状态文件
+
+**Before generating the state file, ask the user:**
+> "May I generate the project state file (.project-state.md)? / 可以生成项目状态文件吗？"
+
+Wait for confirmation, then proceed with backup + write + validate.
 
 Generate `.project-state.md` following `references/state-file-spec.md`.
 
@@ -395,13 +529,15 @@ After generating or updating `.project-state.md`, **must execute** / 生成或�
 
 1. Backup (if file already exists) / 备份（如果文件已存在）：
    ```bash
-   python scripts/state-guard.py .project-state.md --action backup
+   python ~/.qoderworkcn/skills/rpd/scripts/state-guard.py .project-state.md --action backup
    ```
+   > **Fallback / 降级**: If script unavailable, manually copy: `cp .project-state.md .project-state.md.bak` / 脚本不可用时手动复制备份。
 
 2. Validate / 校验：
    ```bash
-   python scripts/state-validator.py .project-state.md
+   python ~/.qoderworkcn/skills/rpd/scripts/state-validator.py .project-state.md
    ```
+   > **Fallback / 降级**: If script unavailable, manually read `.project-state.md` and verify required fields exist (project name, PRD path, features list, timestamps). / 脚本不可用时手动检查必填字段。
 
 Output: "Project initialized, state file generated. Say 'continue development' to resume context." / "项目已初始化，状态文件已生成。对我说「继续开发」来恢复上下文。"
 
@@ -415,16 +551,20 @@ Output: "Project initialized, state file generated. Say 'continue development' t
 #### B1: Security Scan / 安全扫描
 
 ```bash
-python scripts/security-scanner.py <project-directory>
+python ~/.qoderworkcn/skills/rpd/scripts/security-scanner.py <project-directory>
 ```
+
+> **Fallback / 降级**: If script unavailable, ask user if project handles user data, payments, or authentication. If yes, manually grep for hardcoded secrets (API keys, passwords, tokens). If no, proceed without scan. / 脚本不可用时，手动询问用户项目是否涉及敏感数据，必要时手动检查硬编码密钥。
 
 If exit code 2 → output security report and STOP. / 输出安全报告并停止流程。
 
 #### B2: Project Scan / 项目扫描
 
 ```bash
-python scripts/project-scanner.py <project-directory>
+python ~/.qoderworkcn/skills/rpd/scripts/project-scanner.py <project-directory>
 ```
+
+> **Fallback / 降级**: If script unavailable, manually scan project: list files with `ls`/`Glob`, read key files (package.json, requirements.txt, README.md, entry files). Infer tech stack and components from file structure. / 脚本不可用时，手动扫描项目文件结构和关键文件。
 
 Analyze JSON output for: tech stack, components, API routes, TODOs, stats.
 
@@ -455,8 +595,10 @@ Feature progress auto-marking based on code analysis:
 
 Run validation:
 ```bash
-python scripts/state-validator.py .project-state.md
+python ~/.qoderworkcn/skills/rpd/scripts/state-validator.py .project-state.md
 ```
+
+> **Fallback / 降级**: If script unavailable, manually verify `.project-state.md` has required fields (project name, PRD path, features list, timestamps). / 脚本不可用时手动检查必填字段。
 
 Output: "Project takeover complete, state file generated. Say 'continue development' to start." / "已接手项目，状态文件已生成。对我说「继续开发」开始下一步。"
 
@@ -487,24 +629,30 @@ When user has been inactive for >3 days, or explicitly says "回顾"/"之前做�
 #### C2: Security Scan / 安全扫描
 
 ```bash
-python scripts/security-scanner.py <project-directory> --state-file .project-state.md
+python ~/.qoderworkcn/skills/rpd/scripts/security-scanner.py <project-directory> --state-file .project-state.md
 ```
+
+> **Fallback / 降级**: If script unavailable, ask user about sensitive data handling. Manually grep for hardcoded secrets if needed. / 脚本不可用时手动检查安全风险。
 
 If exit code 2 → output security report and STOP.
 
 #### C3: State Validation / 状态校验
 
 ```bash
-python scripts/state-validator.py .project-state.md
+python ~/.qoderworkcn/skills/rpd/scripts/state-validator.py .project-state.md
 ```
+
+> **Fallback / 降级**: If script unavailable, manually verify `.project-state.md` required fields. / 脚本不可用时手动校验字段。
 
 If validation fails → try to fix or prompt user to regenerate.
 
 #### C4: Gap Analysis / 差距分析
 
 ```bash
-python scripts/gap-analyzer.py <project-directory> --state-file .project-state.md
+python ~/.qoderworkcn/skills/rpd/scripts/gap-analyzer.py <project-directory> --state-file .project-state.md
 ```
+
+> **Fallback / 降级**: If script unavailable, manually compare PRD feature list against actual code files. For each PRD feature, search for corresponding implementation files. Mark as ✅/🔨/⏳ based on code completeness. / 脚本不可用时手动对比 PRD 与代码实现。
 
 #### C5: Generate Action Plan / 生成行动建议
 
@@ -570,13 +718,15 @@ When token budget is tight, degrade gracefully:
 
 After every state file change:
 ```bash
-python scripts/state-validator.py .project-state.md
+python ~/.qoderworkcn/skills/rpd/scripts/state-validator.py .project-state.md
 ```
+> **Fallback / 降级**: Manually check required fields in `.project-state.md`. / 手动检查必填字段。
 
 Before every "continue development" and "takeover":
 ```bash
-python scripts/security-scanner.py <project-directory> [--state-file .project-state.md]
+python ~/.qoderworkcn/skills/rpd/scripts/security-scanner.py <project-directory> [--state-file .project-state.md]
 ```
+> **Fallback / 降级**: Manually check for hardcoded secrets and security risks if script unavailable. / 脚本不可用时手动检查安全风险。
 
 ---
 
@@ -599,6 +749,8 @@ python scripts/security-scanner.py <project-directory> [--state-file .project-st
 | EN | ZH | Handling |
 |----|-----|----------|
 | Empty project | 空项目 | Prompt: "Use 'new project' flow" / 提示"请使用「新建项目」流程" |
+| Skill terminated without output | Skill 终止无输出 | Check script paths (use `~/.qoderworkcn/skills/rpd/scripts/`), degrade to manual flow per the Graceful Degradation Table. Never silently terminate. / 检查脚本路径，按降级表手动执行流程，绝不静默终止。 |
+| Script not found | 脚本未找到 | Use the Graceful Degradation Table in the "Script Path & Graceful Degradation" section to continue manually. / 使用「脚本路径与优雅降级」章节中的降级对照表手动继续。 |
 | Corrupted state file | 状态文件损坏 | Try to fix, else prompt to regenerate / 尝试修复，失败则提示重新生成 |
 | State version too high | 状态文件版本过高 | Prompt: "State file version incompatible, update RPD Skill" |
 | Scan timeout | 扫描超时 | Degrade to manual tech stack questions / 降级为手动询问技术栈 |
@@ -628,3 +780,17 @@ When resuming development, use warm, natural language instead of mechanical prom
 | Code contains hardcoded secrets | 代码含硬编码密钥 | Hard block, do not continue / 硬阻断，不继续 |
 | State file severely inconsistent with code | 状态文件与代码严重不一致 | Ask user which is correct / 提示用户确认 |
 | User rejects suggestions 3 times in a row | 用户连续 3 次否定建议 | Re-align requirements / 重新对齐需求 |
+
+---
+
+## Follow-Up Actions / 后续推荐
+
+After completing RPD flow, recommended next steps / 完成 RPD 流程后，推荐后续操作：
+
+| Scenario / 场景 | Recommended Skill / 推荐技能 | Why / 原因 |
+|----------|-------------------|-----|
+| PRD completed, ready to implement / PRD 完成，准备实施 | `/brainstorming` or design system skill | Turn PRD into implementation plan / 将 PRD 转为实施计划 |
+| Project state file generated / 状态文件已生成 | `/sprint-plan` | Break features into sprint stories / 将功能拆分为冲刺故事 |
+| Takeover completed (Flow B) / 接手完成 | `/code-review` | Review existing code quality / 审查现有代码质量 |
+| Security scan found issues / 安全扫描发现问题 | Manual remediation / 人工修复 | Fix SEC findings before proceeding / 先修复安全问题再继续 |
+| Need to track progress / 需要追踪进度 | `/sprint-status` | Monitor implementation against PRD / 监控实施进度与 PRD 对齐 |
