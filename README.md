@@ -133,6 +133,8 @@ rm -rf _rpd_tmp
 
 ---
 
+> **如果你是其他开发者，想把这个 skill 用到自己的项目**——下面几节（多平台安装、更新、架构、安全引擎、v2 升级、目录结构、评估矩阵、贡献）是给安装者/贡献者看的。个人使用只需看上面的「快速开始」即可。
+
 ## 📦 多平台安装 / Multi-Platform Installation
 
 > RPD 是平台无关的 Agent Skill（AI-Agent-Agnostic）。核心是 `SKILL.md` + `scripts/` + `references/` 三件套；Claude Code 通过 `.claude-plugin/` 提供 marketplace 自动发现，其他 AI 工具手动复制即可。
