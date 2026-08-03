@@ -10,10 +10,10 @@
   <a href="https://github.com/ZhangJing-gugugaga/RPD-Skill/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-UNLICENSED-red" alt="License" /></a>
   <a href="https://docs.anthropic.com/en/docs/claude-code"><img src="https://img.shields.io/badge/Claude_Code-8A2BE2" alt="Claude Code" /></a>
   <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-00c853" alt="Quick Start" /></a>
-  <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-8__stdlib__Python-yellow" alt="8 stdlib Python" /></a>
+  <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
   <a href="#-security-engine"><img src="https://img.shields.io/badge/Security-8__SEC__Rules-critical" alt="8 SEC Rules" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Fullstack-Next.js__Router__Ready-blue" alt="Next.js Ready" /></a>
-  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-11__Scenarios-brightgreen" alt="11 Eval Scenarios" /></a>
+  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-17__Scenarios-brightgreen" alt="17 Eval Scenarios" /></a>
   <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Claude%20Code%20%7C%20Cursor%20%7C%20VS%20Code-lightgrey" alt="Multi-platform" /></a>
 </p>
 
@@ -29,7 +29,7 @@
 
 **你用 AI 做 Vibe Coding，每次开新对话它就失忆了。两周后回来，忘了当初为什么选 SQLite。**
 
-RPD 是一个 [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills)，通过 **8 个零依赖的纯标准库 Python 脚本** 构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
+RPD 是一个 [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills)，通过 **12 个零依赖的纯标准库 Python 脚本**（8 个 v1 + 4 个 v2）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
 
 > **核心使命：硬化跨会话项目孪生状态，拦截决策 Spec 漂移，强行将具备概率不确定性的 AI 智能体死死锁在线性工程的高保真轨道上。**
 
@@ -244,8 +244,12 @@ Flow A          Flow B         Flow C
 | `gap-analyzer.py` | PRD vs 代码差距 + 决策漂移 + Next.js 路由检测 | Flow C 续传 | `0` 成功, `1` 错误, `2` 无状态, `3` 无功能 |
 | `state-guard.py` | 原子写入 + 备份(max 10) + Git 分支亲和度锁 | 状态文件变更前 | `0` 成功, `1` 错误, `2` 回滚, `3` 未找到, `4` 冲突 |
 | `state-validator.py` | YAML Frontmatter JSON Schema 校验 | 状态文件变更后 | `0` 有效, `1` 错误, `3` 无效 |
-| `prd-validator.py` | 语义缺口审计（异常处理、状态机、字段规范） | 落地版 PRD 生成后 | `0` 完整, `1` 错误, `2` 有缺口 |
-| `run-eval.py` | 11 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
+| `prd-validator.py` | 语义缺口审计（异常处理、状态机、字段规范）+ `--ai-mode` 8 大区块 | 落地版 PRD 生成后 | `0` 完整, `1` 错误, `2` 有缺口 |
+| `rpd-cold-start.py` | v2 冷启动 7 步 + v1 兼容读取（显式告警）+ 迁移备份 | 新会话接手 v2 项目 | `0` 成功, `1` 错误 |
+| `code-map-generator.py` | v2 code-map 三件套（tree-sitter+正则双路径，预算守卫） | 功能完成 / 收尾 | `0` 成功, `1` 错误 |
+| `rpd-decisions.py` | decisions.md 决策日志（grill-me 前置） | 决策确认前 | `0` 成功, `1` 错误, `3` 未找到 |
+| `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 会话观测 | `0` 成功, `1` 错误 |
+| `run-eval.py` | 17 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
 > **你不需要手动运行这些脚本。** Claude 会在对应的流程节点自动调用。
 
@@ -297,14 +301,72 @@ RPD 专注于为大语言模型提供运行时确定性控制流约束，其工�
 
 ---
 
+## 🚀 v2 升级 / v2 Upgrade
+
+### 主指标重构：跨会话理解连续性
+
+v1 以「省 token」为主指标；v2 重构为**跨会话理解连续性**多指标并列：
+
+| # | 指标 | 定义 | 对比口径 |
+|---|------|------|----------|
+| M1 | 理解连续性 | 有/无 code-map 时，新会话接手是否保有项目理解（结构/关键符号/上次进度/关键决策），无需重扫即知道 | A/B：同一任务、同一新会话，有 map vs 无 map |
+| M2 | 定位成本 | 调用 vs 不调用 map 定位同一函数/接口调用关系的时间成本与 token 成本 | 同任务两轮计时 + token 日志 |
+| M3 | 文档引用 | 定位 README/CHANGELOG/决策文档与代码对应关系的时间与 token 成本 | 同上 |
+
+> `net_tokens_to_first_action` 仅作**次要观测**，不作为 Gate 卡口。
+
+### code-map 两层导航
+
+「每次新会话重扫代码」→「读 code-map 导航」：
+
+- **层1** `code-map.router.json`：永远在 context，硬守 ≤3k token **且** ≤全码库 15%
+- **层2** `code-map.json`：key-value 完整符号表，按 `function:path:name` 查单条 entry（≤300 token），**从不整份喂入**
+- **红线机检**：`code-map.meta.json` 记录 commit + 每文件 fingerprint（sha256）；会话启动比对，fingerprint 不匹配（stale）→ 禁止「基于 map 动手」，先 Read
+- **三级信任**：`verified` / `unverified` / `stale`；map 是导航，不是免 Read 通行证
+- **候选调用边**：calls 边带 `confidence`（resolved/heuristic），只称「候选调用边 + 可验证锚点」，不称「精确调用图」
+
+### 决策日志 + grill-me 前置
+
+`decisions.md` 追加式日志；**任何决策确定前必须先拷问用户（grill-me）**：proposed → 用户确认 → accepted（记录 confirmed_by）；否决 rejected；被替代 superseded。
+
+### 兼容读取降级（显式告警）
+
+v2 兼容读取 v1 `.project-state.md`（保留原文件、不覆盖 v2 active-context），并输出显式告警；首启自动迁移备份至 `.rpd-backup-<timestamp>/`。
+
+### 小仓库标准与收益边界声明
+
+| 指标 | 小仓库阈值（建议值） |
+|------|---------------------|
+| 源码文件数 | **≤ 20 个**（src/ 下，排除 tests/generated/vendor） |
+| 源码行数 | **≤ 1500 行**（同上口径） |
+| 符号数 | **≤ 150 个**（推论值） |
+
+> 小仓库（≤20 源文件或 ≤1500 行）的 code-map 收益低于大仓库属**预期**。token 不是主指标；code-map 的价值在于**跨会话理解连续性**与**演进确定性**——小仓会进化成大仓，map 从第一天就应建立。`required_h>85%` 不再作为停建 Gate。
+
+### 运行时工具箱（v2 新增）
+
+| 脚本 | 用途 |
+|------|------|
+| `rpd-cold-start.py <root>` | 冷启动 7 步 + v1 兼容读取（显式告警）+ 迁移备份 |
+| `code-map-generator.py <root>` | 生成 .rpd/ 三件套（tree-sitter + 正则双路径，预算守卫） |
+| `rpd-decisions.py <root> propose/accept/...` | decisions.md 决策日志（grill-me 前置） |
+| `rpd-metrics.py <root> record/report` | M1/M2/M3 主指标采集与聚合 |
+
+详细运行细节见 `docs/rpd-v2-usage.md`。
+
+---
+
 ## 📁 目录结构 / Directory Structure
 
 ```
 rpd/
 ├── .claude-plugin/
 │   └── plugin.json              # 插件元数据（名称、版本、关键词）
-├── SKILL.md                     # 主控指令（中英双语，6 条硬性红线）
+├── SKILL.md                     # 主控指令（中英双语，≤8KB，6 条 v1 + 4 条 v2 硬性红线）
 ├── README.md                    # 本文件
+├── docs/
+│   ├── rpd-v2-technical-spec.md # v2 技术规格书（17 节 + 2 附录）
+│   └── rpd-v2-usage.md          # v2 使用规格（冷启动 7 步/红线机检/审核视图）
 ├── scripts/
 │   ├── intent-router.py         # 确定性意图分类
 │   ├── security-scanner.py      # 8 条 SEC 规则 + 流式扫描 + 路径遍历防护
@@ -312,15 +374,20 @@ rpd/
 │   ├── gap-analyzer.py          # PRD vs 代码 + 决策漂移 + Next.js 路由
 │   ├── state-validator.py       # YAML Frontmatter JSON Schema 校验
 │   ├── state-guard.py           # 原子写入 + 备份 + 分支亲和度锁
-│   ├── prd-validator.py         # PRD 完整性审计
-│   └── run-eval.py              # 11 个评估场景
+│   ├── prd-validator.py         # PRD 完整性审计 + `--ai-mode`
+│   ├── rpd-cold-start.py        # v2 冷启动 7 步 + v1 兼容读取（显式告警）
+│   ├── code-map-generator.py    # v2 code-map 三件套（tree-sitter+正则双路径）
+│   ├── rpd-decisions.py         # decisions.md 决策日志（grill-me 前置）
+│   ├── rpd-metrics.py           # M1/M2/M3 主指标采集与聚合
+│   └── run-eval.py              # 17 个评估场景
 ├── references/
-│   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + 安全自检清单）
+│   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + AI 增强 8 大区块）
 │   ├── state-file-spec.md       # 状态文件规范（5 列功能表 + 5 列决策表）
 │   ├── state-schema.json        # 状态文件 JSON Schema
-│   └── keyword-map.json         # 中英文关键词映射（50+ 条目）
+│   ├── keyword-map.json         # 中英文关键词映射（50+ 条目）
+│   └── rpd-v2-layout.md         # .rpd/ 目录规格（双层落点 + 全动态路径 + 迁移）
 ├── eval/
-│   └── scenarios/               # 11 个评估场景定义
+│   └── scenarios/               # eval 场景（A/B/C/D/E/F/G/H/I/O/P/Q/R/S/T/U/V）
 └── assets/
     ├── hero.png                 # 首图
     └── example-state.md         # 示例状态文件
@@ -330,7 +397,7 @@ rpd/
 
 ## 🧪 评估矩阵 / Eval Matrix
 
-11 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
+17 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
 
 | 场景 | 名称 | 测试内容 | 退出码 |
 |------|------|----------|--------|
@@ -345,6 +412,12 @@ rpd/
 | I | SEC 规则 | SEC-001 检测、内联 limiter 绕过、注释过滤 | `0`/`2` |
 | O | 中文项目名 | YAML Frontmatter 中文项目名 | `0` |
 | P | Turbo 模式 | 模糊输入 → `scene_exploration` 路由 | `0` |
+| Q | AI PRD 完整性 | `--ai-mode` 8 大区块 / badcase≥8 | `0`/`2` |
+| R | 模板校验 | prd-template 含 AI 增强章节 | `0` |
+| S | v2 冷启动 | v1 兼容读取 + 显式告警 + 迁移备份 | `0` |
+| T | v2 决策日志 | decisions.md proposed→accepted + grill-me | `0` |
+| U | v2 code-map | 预算守卫 + calls confidence + 三段式 id | `0` |
+| V | v2 主指标 | M1/M2/M3 主指标 + net_tokens 次要 | `0` |
 
 ---
 

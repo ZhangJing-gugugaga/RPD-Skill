@@ -2,7 +2,7 @@
   "name": "rpd",
   "description": "RPD — Rapid Product Document. A Claude Code skill covering the full project lifecycle: requirement diagnosis, PRD generation, project state management, security scanning, intent routing, decision drift detection, and cross-session progress recovery. Supports Chinese and English.",
   "description_zh": "RPD — 快速产品文档。覆盖项目全生命周期的 Claude Code Skill：需求诊断、PRD 生成、项目状态管理、安全扫描、意图路由、决策漂移检测、跨会话进度恢复。支持中英文。",
-  "version": "1.6.2",
+  "version": "2.0.0",
   "author": {
     "name": "RPD Contributors"
   },
