@@ -43,6 +43,33 @@ All prompts, questions, and outputs should use the detected language. The `.proj
 
 ---
 
+## v2 Code-Map Mode / v2 代码导航模式
+
+> v2 将「每次新会话重扫代码」升级为「读 code-map 导航」。主指标 = **跨会话理解连续性**（M1 理解连续性 / M2 定位成本 / M3 文档引用），token 降为次要观测。
+
+**v2 三件套（机器产物，agent 只读不手改）**：
+- `.rpd/code-map.router.json` — 层1，常驻 context，≤3k token 且 ≤全码库 15%
+- `.rpd/code-map.json` — 层2，完整符号表，按 `function:path:name` 查单条 entry（≤300 token），**从不整份喂入**
+- `.rpd/code-map.meta.json` — fingerprint/预算/信任数据源（红线机检）
+
+**v2 新增硬性红线**：
+1. **代码层 json 只读**：`code-map.*.json` 由生成器写入，agent 绝不手工编辑；需修改 = 重跑 `code-map-generator.py`
+2. **stale 禁止动手**：红线机检发现文件 fingerprint 不匹配（stale），禁止「基于 map 动手」，必须先 Read 该文件
+3. **决策先 grill-me**：任何决策写入 `decisions.md` 前，必须先拷问用户确认（proposed→用户确认→accepted）
+4. **候选调用边口径**：calls 边只称「候选调用边 + 可验证锚点」，绝不称「精确调用图」
+
+**v2 新增脚本**：
+| 脚本 | 用途 |
+|------|------|
+| `rpd-cold-start.py <root>` | 冷启动 7 步 + v1 兼容读取（显式告警）+ 迁移备份 |
+| `code-map-generator.py <root>` | 生成 .rpd/ 三件套（tree-sitter+正则双路径） |
+| `rpd-decisions.py <root> propose/accept/...` | decisions.md 决策日志（grill-me 前置） |
+| `rpd-metrics.py <root> record/report` | M1/M2/M3 主指标采集与聚合 |
+
+**降级**：以上脚本不可用时，手动读 `.rpd/` 文件并按 AGENT.md「v2 冷启动流程」操作；从不中断 Skill。
+
+---
+
 ## When to Use / 何时使用
 
 **Positive matches / 正向匹配：**
