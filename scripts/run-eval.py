@@ -595,6 +595,7 @@ def main():
         "T (v2 decisions)": run_scenario_t(),
         "U (v2 code-map)": run_scenario_u(),
         "V (v2 primary metrics)": run_scenario_v(),
+        "W (v2 physical lock)": run_scenario_w(),
     }
 
     print("\n" + "=" * 40)
@@ -762,6 +763,50 @@ def run_scenario_v():
         assert d["secondary"]["net_tokens_to_first_action"]["count"] == 1, "secondary not recorded"
         assert "net_tokens_to_first_action" in d["note"], "secondary metric should be marked secondary"
         print("  ✅ v2 primary metrics: M1/M2/M3 primary + net_tokens secondary")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print("  ❌ FAILED: " + str(e))
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+
+
+def run_scenario_w():
+    """RPD v2 physical lock: concurrent state updates serialize (R-18 hardening)."""
+    print("=== Scenario W: v2 physical lock (concurrent update) ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        state_path = os.path.join(tmpdir, ".project-state.md")
+        valid = "---\nname: test\ncreated: 2026-06-08\nlast-synced: 2026-06-08T00:00:00\nstatus: in-development\nentry-type: new-idea\n---\n"
+        with open(state_path, "w", encoding="utf-8") as f:
+            f.write(valid)
+
+        c1 = os.path.join(tmpdir, "c1.md")
+        c2 = os.path.join(tmpdir, "c2.md")
+        with open(c1, "w", encoding="utf-8") as f:
+            f.write(valid.replace("name: test", "name: test-one"))
+        with open(c2, "w", encoding="utf-8") as f:
+            f.write(valid.replace("name: test", "name: test-two"))
+
+        # Concurrent updates to the same state file
+        p1 = subprocess.Popen([sys.executable, str(SCRIPTS_DIR / "state-guard.py"), state_path, "--action", "update", c1],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+        p2 = subprocess.Popen([sys.executable, str(SCRIPTS_DIR / "state-guard.py"), state_path, "--action", "update", c2],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+        out1, err1 = p1.communicate(timeout=60)
+        out2, err2 = p2.communicate(timeout=60)
+        assert p1.returncode == 0 and p2.returncode == 0, \
+            f"concurrent updates should both succeed (rc {p1.returncode}/{p2.returncode})"
+
+        # Final file must be valid (no race-corrupted state)
+        final = open(state_path, encoding="utf-8").read()
+        assert final.startswith("---") and "status: in-development" in final, "state file corrupted by race"
+        # Lock file should be cleaned up
+        leftovers = [f for f in os.listdir(tmpdir) if f.endswith(".lock")]
+        assert not leftovers, f"lock files not cleaned: {leftovers}"
+        print("  ✅ v2 physical lock: concurrent updates serialize, no corruption")
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print("  ❌ FAILED: " + str(e))

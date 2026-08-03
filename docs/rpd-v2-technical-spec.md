@@ -546,7 +546,7 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 3. **不手工编辑代码层 json**：code-map.* 只由生成器写入，agent 只读。
 4. **不做跨语言统一符号解析**：R-16 多语言是 P2，v1 仅 C++/主语言，其它语言走"未索引文件 → 按需 Read"。
 5. **不替代 understand-anything**：对 knowledge-graph.json 只读复用，不写、不迁移、不管理其生命周期。
-6. **不做多会话并发写冲突解决**：R-18 是 P2；v1 的"同时两个会话写同一项目"仅靠 fingerprint/原子写兜底，不做锁。
+6. **多会话并发写冲突用进程级物理锁兜底**：R-18 已升级——state-guard.py 的 atomic_update 用 `ProjectStateMutex`（msvcrt/fcntl 文件锁）包裹备份→写入→校验事务，防双 Agent 竞态覆写；fingerprint/原子写仍作兜底。
 7. **不承诺 100% 的 token 节省**：token 是次要观测指标；小仓收益低属预期（见 §15 收益边界声明）。
 8. **不生成逐行级代码索引**：map 是符号级导航，不含函数体/实现细节；精确到行的 bug 定位仍需 Read（§1.4③）。
 9. **不自动写入用户决策**：decisions.md 中任何决策必须先 grill-me 拷问用户并获确认（Q5）。
@@ -600,7 +600,7 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 | **R-15 clangd 校准**（P2） | 不排期；仅当 clangd 可用时作为 tree-sitter 校准源 |
 | **R-16 多语言**（P2） | 不排期；主语言外走未索引→按需 Read |
 | **R-17 parking-lot**（P2） | 需求池新增/暂缓需求记录到 `docs/parking-lot.md`，不丢失 |
-| **R-18 多会话并发冲突**（P2） | 不排期；仅原子写 + fingerprint 兜底 |
+| **R-18 多会话并发冲突**（P1 兜底） | 进程级物理锁（ProjectStateMutex）包裹写入事务；原子写 + fingerprint 兜底 |
 
 ### 16.2 迭代出口 Gate（I0–I5）
 
@@ -668,7 +668,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-15 | clangd 校准 | P2 | I5（不排期） |
 | R-16 | 多语言 | P2 | I5（不排期） |
 | R-17 | parking-lot | P2 | I5（不排期） |
-| R-18 | 多会话并发冲突 | P2 | I5（不排期） |
+| R-18 | 多会话并发冲突（进程级物理锁兜底） | P1 | 已落地（state-guard ProjectStateMutex） |
 
 ## 附录 B：试点项目基线（I0/I3 引用）
 

@@ -13,7 +13,7 @@
   <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
   <a href="#-security-engine"><img src="https://img.shields.io/badge/Security-8__SEC__Rules-critical" alt="8 SEC Rules" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Fullstack-Next.js__Router__Ready-blue" alt="Next.js Ready" /></a>
-  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-17__Scenarios-brightgreen" alt="17 Eval Scenarios" /></a>
+  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-18__Scenarios-brightgreen" alt="18 Eval Scenarios" /></a>
   <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Agnostic-lightgrey" alt="Platform Agnostic" /></a>
 </p>
 
@@ -248,7 +248,7 @@ Flow A          Flow B         Flow C
 | `code-map-generator.py` | v2 code-map 三件套（tree-sitter+正则双路径，预算守卫） | 功能完成 / 收尾 | `0` 成功, `1` 错误 |
 | `rpd-decisions.py` | decisions.md 决策日志（grill-me 前置） | 决策确认前 | `0` 成功, `1` 错误, `3` 未找到 |
 | `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 会话观测 | `0` 成功, `1` 错误 |
-| `run-eval.py` | 17 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
+| `run-eval.py` | 18 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
 > **你不需要手动运行这些脚本。** AI 助手会在对应的流程节点自动调用。
 
@@ -377,7 +377,7 @@ rpd/
 │   ├── code-map-generator.py    # v2 code-map 三件套（tree-sitter+正则双路径）
 │   ├── rpd-decisions.py         # decisions.md 决策日志（grill-me 前置）
 │   ├── rpd-metrics.py           # M1/M2/M3 主指标采集与聚合
-│   └── run-eval.py              # 17 个评估场景
+│   └── run-eval.py              # 18 个评估场景
 ├── references/
 │   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + AI 增强 8 大区块）
 │   ├── state-file-spec.md       # 状态文件规范（5 列功能表 + 5 列决策表）
@@ -395,7 +395,7 @@ rpd/
 
 ## 🧪 评估矩阵 / Eval Matrix
 
-17 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
+18 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
 
 | 场景 | 名称 | 测试内容 | 退出码 |
 |------|------|----------|--------|
@@ -416,6 +416,7 @@ rpd/
 | T | v2 决策日志 | decisions.md proposed→accepted + grill-me | `0` |
 | U | v2 code-map | 预算守卫 + calls confidence + 三段式 id | `0` |
 | V | v2 主指标 | M1/M2/M3 主指标 + net_tokens 次要 | `0` |
+| W | v2 物理锁 | 并发状态更新串行化（R-18 兜底） | `0` |
 
 ---
 
