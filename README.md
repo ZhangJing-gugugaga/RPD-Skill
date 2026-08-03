@@ -135,53 +135,44 @@ rm -rf _rpd_tmp
 
 ## 📦 多平台安装 / Multi-Platform Installation
 
-> RPD 是平台无关的 Agent Skill（AI-Agent-Agnostic）。各 AI 工具按自身的 Skill/Agent/Plugin 机制加载同一份 `SKILL.md` + `scripts/` + `references/`。
+> RPD 是平台无关的 Agent Skill（AI-Agent-Agnostic）。核心是 `SKILL.md` + `scripts/` + `references/` 三件套；Claude Code 通过 `.claude-plugin/` 提供 marketplace 自动发现，其他 AI 工具手动复制即可。
 
-### Claude Code
+### Claude Code（marketplace 自动发现）
 
-**项目级安装**（推荐 — 隔离在单个项目内）：
+1. **项目级安装**（推荐 — 隔离在单个项目内）：
+   ```bash
+   mkdir -p .claude/skills/rpd
+   git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+   cp -r _rpd_tmp/* .claude/skills/rpd/
+   rm -rf _rpd_tmp
+   ```
+2. **全局安装**（所有项目可用）：
+   ```bash
+   mkdir -p ~/.claude/skills/rpd
+   git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
+   cp -r _rpd_tmp/* ~/.claude/skills/rpd/
+   rm -rf _rpd_tmp
+   ```
+
+### Cursor / VS Code + Copilot / Codex / Gemini CLI（手动复制）
+
+将仓库复制到该工具的 skill/agent 目录，并读取 `SKILL.md` 作为主控指令：
 
 ```bash
-mkdir -p .claude/skills/rpd
 git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
-cp -r _rpd_tmp/* .claude/skills/rpd/
+cp -r _rpd_tmp/* <你的工具 skill 目录>/
 rm -rf _rpd_tmp
 ```
-
-**全局安装**（所有项目可用）：
-
-```bash
-mkdir -p ~/.claude/skills/rpd
-git clone --depth 1 https://github.com/ZhangJing-gugugaga/RPD-Skill.git _rpd_tmp
-cp -r _rpd_tmp/* ~/.claude/skills/rpd/
-rm -rf _rpd_tmp
-```
-
-### Cursor
-
-1. 克隆本仓库到项目目录
-2. Cursor 通过 `.cursor-plugin/` 自动发现 Skill
-3. 若自动发现失败：**Cursor Settings → Plugins** → 粘贴 `https://github.com/ZhangJing-gugugaga/RPD-Skill`
-
-### VS Code + GitHub Copilot
-
-1. 克隆本仓库到项目目录
-2. VS Code 通过 `.copilot-plugin/` 自动发现 Skill
-3. 个人级 Skill（所有项目可用）：复制到对应 skill 目录
-
-### Codex / Gemini CLI（实验性）
-
-手动将仓库复制到该工具的 skills/agents 目录，读取 `SKILL.md` 作为指令。
 
 ### 平台兼容性 / Platform Compatibility
 
 | 平台 | 状态 | 安装方式 | 说明 |
 |------|------|----------|------|
-| Claude Code | ✅ 支持 | `.claude/skills/rpd/` | 完整功能 |
-| Cursor | ✅ 支持 | `.cursor-plugin/` 自动发现 | 完整功能 |
-| VS Code + Copilot | ✅ 支持 | `.copilot-plugin/` 自动发现 | 完整功能 |
-| Codex | ⚠️ 实验性 | 手动复制到 skills 目录 | 核心流程 |
-| Gemini CLI | ⚠️ 实验性 | 手动复制到 skills 目录 | 核心流程 |
+| Claude Code | ✅ 支持 | `.claude/skills/rpd/` + `.claude-plugin/` marketplace | 完整功能，自动发现 |
+| Cursor | ✅ 支持 | 手动复制 `SKILL.md` + `scripts/` + `references/` | 完整功能 |
+| VS Code + Copilot | ✅ 支持 | 手动复制 `SKILL.md` + `scripts/` + `references/` | 完整功能 |
+| Codex | ⚠️ 实验性 | 手动复制 `SKILL.md` | 核心流程 |
+| Gemini CLI | ⚠️ 实验性 | 手动复制 `SKILL.md` | 核心流程 |
 
 ---
 
@@ -368,11 +359,7 @@ v2 兼容读取 v1 `.project-state.md`（保留原文件、不覆盖 v2 active-c
 
 ```
 rpd/
-├── .claude-plugin/            # Claude Code 插件配置
-├── .cursor-plugin/            # Cursor 插件配置
-├── .codex-plugin/             # Codex 插件配置
-├── .copilot-plugin/           # VS Code + Copilot 插件配置
-├── .gemini-plugin/            # Gemini CLI 插件配置
+├── .claude-plugin/            # Claude Code marketplace 插件配置
 ├── SKILL.md                   # 主控指令（中英双语，≤8KB，6 条 v1 + 4 条 v2 硬性红线）
 ├── README.md                    # 本文件
 ├── docs/

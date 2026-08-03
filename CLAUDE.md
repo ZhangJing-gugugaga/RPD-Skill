@@ -18,11 +18,8 @@ RPD（Rapid Product Document）是一个 Claude Code Skill，覆盖项目全生�
 
 ```
 rpd/
-├── .claude-plugin/           # 插件配置
+├── .claude-plugin/           # Claude Code marketplace 插件配置
 ├── .github/                  # GitHub 模板 + CI
-├── .cursor-plugin/           # Cursor 插件配置
-├── .codex-plugin/            # Codex 插件配置
-├── .copilot-plugin/          # Copilot 插件配置
 ├── SKILL.md                  # 主控指令（中英双语，≤8KB）
 ├── CLAUDE.md                 # 本文件
 ├── AGENT.md                  # Agent 交互指南（含 v2 决策纪律 + 冷启动 7 步）
