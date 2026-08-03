@@ -8,3 +8,6 @@ logs/
 
 # WorkBuddy install metadata
 _user_meta.json
+
+# 个人训练文件（不跟踪）
+TRAINING.md
