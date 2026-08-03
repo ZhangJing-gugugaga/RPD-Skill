@@ -8,13 +8,13 @@
 
 <p align="center">
   <a href="https://github.com/ZhangJing-gugugaga/RPD-Skill/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-UNLICENSED-red" alt="License" /></a>
-  <a href="https://docs.anthropic.com/en/docs/claude-code"><img src="https://img.shields.io/badge/Claude_Code-8A2BE2" alt="Claude Code" /></a>
+  <a href="#-architecture"><img src="https://img.shields.io/badge/AI_Agent_Skill-8A2BE2" alt="AI Agent Skill" /></a>
   <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-00c853" alt="Quick Start" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
   <a href="#-security-engine"><img src="https://img.shields.io/badge/Security-8__SEC__Rules-critical" alt="8 SEC Rules" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Fullstack-Next.js__Router__Ready-blue" alt="Next.js Ready" /></a>
   <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-17__Scenarios-brightgreen" alt="17 Eval Scenarios" /></a>
-  <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Claude%20Code%20%7C%20Cursor%20%7C%20VS%20Code-lightgrey" alt="Multi-platform" /></a>
+  <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Agnostic-lightgrey" alt="Platform Agnostic" /></a>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 **你用 AI 做 Vibe Coding，每次开新对话它就失忆了。两周后回来，忘了当初为什么选 SQLite。**
 
-RPD 是一个 [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills)，通过 **12 个零依赖的纯标准库 Python 脚本**（8 个 v1 + 4 个 v2）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
+RPD 是一个 **面向任意 AI 工具的 Agent Skill**（AI-Agent-Agnostic），通过 **12 个零依赖的纯标准库 Python 脚本**（8 个 v1 + 4 个 v2）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
 
 > **核心使命：硬化跨会话项目孪生状态，拦截决策 Spec 漂移，强行将具备概率不确定性的 AI 智能体死死锁在线性工程的高保真轨道上。**
 
@@ -38,6 +38,8 @@ RPD 是一个 [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code
 ## 🚀 快速开始 / Quick Start
 
 ### 1. 安装 Skill / Install
+
+> 以下以 Claude Code 的 skill 目录为例；其他 AI 工具把安装路径换成该工具的 skill/agent 目录即可。
 
 ```bash
 # 项目级安装（推荐）
@@ -58,7 +60,7 @@ rm -rf _rpd_tmp
 
 ### 2. 验证安装 / Verify Installation
 
-在 Claude Code 中输入：
+在任意支持 Agent Skill 的 AI 工具中输入（Claude Code、Cursor、Gemini CLI 等）：
 
 ```
 我想做一个记账App
@@ -66,8 +68,8 @@ rm -rf _rpd_tmp
 
 | 结果 | 含义 |
 |------|------|
-| Claude 问 "这个东西是给谁用的？" | ✅ Skill 已激活 |
-| Claude 直接开始写代码 | ❌ 未安装成功，检查路径 |
+| AI 助手问 "这个东西是给谁用的？" | ✅ Skill 已激活 |
+| AI 助手直接开始写代码 | ❌ 未安装成功，检查路径 |
 
 ### 3. 开始使用 / Start Building
 
@@ -133,7 +135,9 @@ rm -rf _rpd_tmp
 
 ## 📦 多平台安装 / Multi-Platform Installation
 
-### Claude Code（原生）
+> RPD 是平台无关的 Agent Skill（AI-Agent-Agnostic）。各 AI 工具按自身的 Skill/Agent/Plugin 机制加载同一份 `SKILL.md` + `scripts/` + `references/`。
+
+### Claude Code
 
 **项目级安装**（推荐 — 隔离在单个项目内）：
 
@@ -156,24 +160,28 @@ rm -rf _rpd_tmp
 ### Cursor
 
 1. 克隆本仓库到项目目录
-2. Cursor 通过 `.claude-plugin/plugin.json` 自动发现 Skill
+2. Cursor 通过 `.cursor-plugin/` 自动发现 Skill
 3. 若自动发现失败：**Cursor Settings → Plugins** → 粘贴 `https://github.com/ZhangJing-gugugaga/RPD-Skill`
 
 ### VS Code + GitHub Copilot
 
 1. 克隆本仓库到项目目录
-2. VS Code 通过 `.claude-plugin/plugin.json` 自动发现 Skill
-3. 个人级 Skill（所有项目可用）：复制到 `~/.claude/skills/rpd/`
+2. VS Code 通过 `.copilot-plugin/` 自动发现 Skill
+3. 个人级 Skill（所有项目可用）：复制到对应 skill 目录
+
+### Codex / Gemini CLI（实验性）
+
+手动将仓库复制到该工具的 skills/agents 目录，读取 `SKILL.md` 作为指令。
 
 ### 平台兼容性 / Platform Compatibility
 
 | 平台 | 状态 | 安装方式 | 说明 |
 |------|------|----------|------|
-| Claude Code | ✅ 原生支持 | `.claude/skills/rpd/` | 主要目标平台，全部功能 |
-| Cursor | ✅ 支持 | 通过 `plugin.json` 自动发现 | 克隆仓库到项目目录 |
-| VS Code + Copilot | ✅ 支持 | 通过 `plugin.json` 自动发现 | 克隆仓库到项目目录 |
-| Codex | ⚠️ 实验性 | 手动复制到 skills 目录 | 仅核心流程 |
-| Gemini CLI | ⚠️ 实验性 | 手动复制到 skills 目录 | 仅核心流程 |
+| Claude Code | ✅ 支持 | `.claude/skills/rpd/` | 完整功能 |
+| Cursor | ✅ 支持 | `.cursor-plugin/` 自动发现 | 完整功能 |
+| VS Code + Copilot | ✅ 支持 | `.copilot-plugin/` 自动发现 | 完整功能 |
+| Codex | ⚠️ 实验性 | 手动复制到 skills 目录 | 核心流程 |
+| Gemini CLI | ⚠️ 实验性 | 手动复制到 skills 目录 | 核心流程 |
 
 ---
 
@@ -182,7 +190,7 @@ rm -rf _rpd_tmp
 ### 更新到最新版 / Update to Latest
 
 ```bash
-# 项目级安装
+# 项目级安装（以 Claude Code 为例，其他工具替换为对应 skill 目录）
 cd .claude/skills/rpd && git pull origin main
 
 # 全局安装
@@ -192,7 +200,7 @@ cd ~/.claude/skills/rpd && git pull origin main
 ### 查看当前版本 / Check Version
 
 ```bash
-grep '"version"' .claude/skills/rpd/.claude-plugin/plugin.json
+grep '"version"' .claude-plugin/plugin.json
 ```
 
 ### 回滚到指定版本 / Pin Version
@@ -251,7 +259,7 @@ Flow A          Flow B         Flow C
 | `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 会话观测 | `0` 成功, `1` 错误 |
 | `run-eval.py` | 17 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
-> **你不需要手动运行这些脚本。** Claude 会在对应的流程节点自动调用。
+> **你不需要手动运行这些脚本。** AI 助手会在对应的流程节点自动调用。
 
 ### 底层机制 / Under the Hood
 
@@ -360,9 +368,12 @@ v2 兼容读取 v1 `.project-state.md`（保留原文件、不覆盖 v2 active-c
 
 ```
 rpd/
-├── .claude-plugin/
-│   └── plugin.json              # 插件元数据（名称、版本、关键词）
-├── SKILL.md                     # 主控指令（中英双语，≤8KB，6 条 v1 + 4 条 v2 硬性红线）
+├── .claude-plugin/            # Claude Code 插件配置
+├── .cursor-plugin/            # Cursor 插件配置
+├── .codex-plugin/             # Codex 插件配置
+├── .copilot-plugin/           # VS Code + Copilot 插件配置
+├── .gemini-plugin/            # Gemini CLI 插件配置
+├── SKILL.md                   # 主控指令（中英双语，≤8KB，6 条 v1 + 4 条 v2 硬性红线）
 ├── README.md                    # 本文件
 ├── docs/
 │   ├── rpd-v2-technical-spec.md # v2 技术规格书（17 节 + 2 附录）
@@ -474,7 +485,7 @@ entry-type: new-idea
 | 1 | Fork 仓库 |
 | 2 | 创建功能分支 (`git checkout -b feature/my-feature`) |
 | 3 | 运行评估测试 (`python scripts/run-eval.py`) |
-| 4 | 11 个场景必须全部通过 |
+| 4 | 17 个场景必须全部通过 |
 | 5 | 提交并发起 Pull Request |
 
 请先开 Issue 讨论重大变更。
