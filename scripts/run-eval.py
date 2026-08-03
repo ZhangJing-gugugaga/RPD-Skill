@@ -593,6 +593,7 @@ def main():
         "R (problem validation)": run_scenario_r(),
         "S (v2 cold-start)": run_scenario_s(),
         "T (v2 decisions)": run_scenario_t(),
+        "U (v2 code-map)": run_scenario_u(),
     }
 
     print("\n" + "=" * 40)
@@ -655,7 +656,6 @@ def run_scenario_t():
     print("\n=== Scenario T: v2 decisions.md flow ===")
     tmpdir = tempfile.mkdtemp()
     try:
-        # Propose: should be proposed + grill-me hint, never accepted directly
         r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir,
                             "propose", "测试决策", "--decision", "用X", "--type", "技术选型",
                             "--reason", "原因", "--impact", "影响"],
@@ -663,14 +663,10 @@ def run_scenario_t():
         assert r.returncode == 0, f"propose failed: {r.stderr}"
         assert "proposed" in r.stdout, f"New decision should be proposed, got: {r.stdout}"
         assert "grill-me" in r.stdout, f"Should mention grill-me gate, got: {r.stdout}"
-
-        # Accept: needs --confirmed-by
         r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir,
                             "accept", "1", "--confirmed-by", "user/2026-08-03"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         assert r.returncode == 0, f"accept failed: {r.stderr}"
-
-        # List: D-1 should now be accepted
         r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir, "list", "--json"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         output = json.loads(r.stdout)
@@ -682,6 +678,59 @@ def run_scenario_t():
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def run_scenario_u():
+    """RPD v2 code-map generator: two-layer map + budget guard + confidence."""
+    print("=== Scenario U: v2 code-map generator ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(tmpdir, "src"))
+        with open(os.path.join(tmpdir, "src", "game.h"), "w", encoding="utf-8") as f:
+            f.write("class Game {\npublic:\n    void update(float dt);\n    int score = 0;\n};\n")
+        with open(os.path.join(tmpdir, "src", "game.cpp"), "w", encoding="utf-8") as f:
+            f.write('#include "game.h"\nvoid Game::update(float dt) { helper(dt); }\nstatic void helper(float x) {}\nint main() { Game g; g.update(0.1f); }\n')
+
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "generator failed: " + r.stderr
+
+        rpd = os.path.join(tmpdir, ".rpd")
+        for name in ("code-map.router.json", "code-map.json", "code-map.meta.json"):
+            assert os.path.isfile(os.path.join(rpd, name)), "Missing " + name
+
+        router = json.load(open(os.path.join(rpd, "code-map.router.json"), encoding="utf-8"))
+        meta = json.load(open(os.path.join(rpd, "code-map.meta.json"), encoding="utf-8"))
+        cmap = json.load(open(os.path.join(rpd, "code-map.json"), encoding="utf-8"))
+
+        est = router["budget"]["estimated_read_tokens"]
+        assert est <= router["budget"]["token_limit"], "router tokens " + str(est) + " > limit"
+        pct = router["budget"]["pct_of_codebase"]
+        if pct > router["budget"]["pct_limit"]:
+            assert router["budget"].get("relative_cap_breached"), "over 15% but no breach note"
+
+        for eid, entry in cmap["entries"].items():
+            for call in entry["calls"]:
+                assert call["confidence"] in ("resolved", "heuristic"), "call missing confidence: " + str(call)
+
+        sample_id = next(iter(cmap["entries"]))
+        assert sample_id.count(":") >= 2, "entry id not 3-part: " + sample_id
+        entry = cmap["entries"][sample_id]
+        prefix_map = {"function": "function", "method": "method", "class": "class",
+                      "struct": "struct", "variable": "variable", "macro": "macro", "enum": "enum"}
+        assert sample_id.startswith(prefix_map[entry["kind"]]), "id/kind prefix mismatch"
+
+        assert meta.get("files"), "meta.files missing"
+        assert any("fingerprint" in v for v in meta["files"].values()), "fingerprints missing"
+        assert meta.get("parser") in ("tree-sitter", "regex"), "parser not dual-path"
+
+        print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print("  ❌ FAILED: " + str(e))
         return False
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
