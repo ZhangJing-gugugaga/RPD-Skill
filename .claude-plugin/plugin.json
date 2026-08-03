@@ -7,7 +7,7 @@
     "name": "RPD Contributors"
   },
   "repository": "https://github.com/ZhangJing-gugugaga/RPD-Skill",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "languages": ["en", "zh"],
   "keywords": ["prd", "product-requirements", "vibecoding", "project-management", "state-management", "i18n", "security", "intent-routing", "decision-drift"]
 }

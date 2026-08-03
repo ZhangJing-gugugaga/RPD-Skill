@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZhangJing-gugugaga/RPD-Skill/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-UNLICENSED-red" alt="License" /></a>
+  <a href="https://github.com/ZhangJing-gugugaga/RPD-Skill/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-brightgreen" alt="License" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/AI_Agent_Skill-8A2BE2" alt="AI Agent Skill" /></a>
   <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-00c853" alt="Quick Start" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
