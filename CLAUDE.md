@@ -34,7 +34,7 @@ RPD（Rapid Product Document）是一个 Agent Skill，覆盖项目全生命周�
 
 ## 修改后必须做的事
 
-1. 运行 eval：`python scripts/run-eval.py`（18 个场景必须全过）
+1. 运行 eval：`python scripts/run-eval.py`（19 个场景必须全过）
 2. 保持中英双语
 3. 等待用户批准后才能 push 到 GitHub
 

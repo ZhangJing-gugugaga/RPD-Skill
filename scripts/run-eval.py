@@ -598,6 +598,7 @@ def main():
         "U (v2 code-map)": run_scenario_u(),
         "V (v2 primary metrics)": run_scenario_v(),
         "W (v2 physical lock)": run_scenario_w(),
+        "X (agent behavior flow)": run_scenario_x(),
     }
 
     print("\n" + "=" * 40)
@@ -815,6 +816,34 @@ def run_scenario_w():
         return False
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+
+
+def run_scenario_x():
+    """Agent behavior-level eval: cold-start flow manual verification (Scenario X).
+
+    Unlike A-W (script-level, assert exit codes), this verifies the Agent walks
+    the SKILL.md flow (3-perspective diagnosis -> concept PRD -> freeze -> full
+    PRD -> decisions grill-me). Scripts cannot enforce process compliance;
+    manual verification of end artifacts is the safety net.
+    """
+    print("=== Scenario X: Agent Behavior Flow (Manual Verification) ===")
+    scenario_path = SKILL_DIR / "eval" / "scenarios" / "cold-start-flow.md"
+    if not scenario_path.exists():
+        print("  ❌ FAILED: eval/scenarios/cold-start-flow.md not found")
+        return False
+    print("  ✅ 场景文档存在。本场景为人工核验（非自动断言）：")
+    print("     cold-start-flow.md 定义 7 项核验清单：")
+    print("      1. 三视角诊断记录（R1-R4，每轮≤3问）")
+    print("      2. 概念版 PRD ≤200 字，先于落地版并获确认")
+    print("      3. 范围冻结清单 + 用户确认")
+    print("      4. decisions.md ≥1 条 accepted（grill-me 确认）")
+    print("      5. .project-state.md 通过 state-validator（exit 0）")
+    print("      6. 语言跟随")
+    print("      7. 未跳过任何 Hard Constraints")
+    print("     ⚠️ 维护者须在流程/文档改动后手动跑一遍核验。")
+    return True
 
 
 if __name__ == "__main__":

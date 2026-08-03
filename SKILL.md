@@ -104,7 +104,7 @@ C1 查 `.project-state.md`（无→提示先「分析项目」或「新建项目
 | `code-map-generator.py` | v2 code-map 三件套（功能完成/收尾） |
 | `rpd-decisions.py` | decisions.md 决策日志（决策确认前） |
 | `rpd-metrics.py` | M1/M2/M3 指标采集（会话观测） |
-| `run-eval.py` | eval 场景（18 个，开发/CI） |
+| `run-eval.py` | eval 场景（19 个，开发/CI） |
 
 ## Failure Modes / 故障处理
 脚本不可用 → 按降级表手动继续，绝不静默终止；状态损坏 → 尝试修复或提示重新生成；概念版 PRD 改 >3 次 → 建议先用户调研；状态与代码严重不一致 → 提示用户确认。

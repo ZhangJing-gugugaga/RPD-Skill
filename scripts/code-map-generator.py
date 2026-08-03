@@ -58,6 +58,7 @@ SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
     "dist", "build", ".next", ".nuxt", "vendor", "target", "third_party",
     "thirdparty", "out", "cmake-build-debug", "CMakeFiles", ".rpd", ".code-map.tmp",
+    ".claude", ".claude-plugin", ".github",  # agent 配置/worktree 副本不应被索引
 }
 SKIP_PATH_PARTS = {"tests", "test", "generated", "gen", "external", "ext"}
 

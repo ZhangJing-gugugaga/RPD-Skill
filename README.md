@@ -13,7 +13,7 @@
   <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
   <a href="#-security-engine"><img src="https://img.shields.io/badge/Security-8__SEC__Rules-critical" alt="8 SEC Rules" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Fullstack-Next.js__Router__Ready-blue" alt="Next.js Ready" /></a>
-  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-18__Scenarios-brightgreen" alt="18 Eval Scenarios" /></a>
+  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-19__Scenarios-brightgreen" alt="19 Eval Scenarios" /></a>
   <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Agnostic-lightgrey" alt="Platform Agnostic" /></a>
 </p>
 
@@ -29,7 +29,7 @@
 
 **你用 AI 做 Vibe Coding，每次开新对话它就失忆了。两周后回来，忘了当初为什么选 SQLite。**
 
-RPD 是一个 **面向任意 AI 工具的 Agent Skill**（AI-Agent-Agnostic），通过 **12 个零依赖的纯标准库 Python 脚本**（8 个 v1 + 4 个 v2）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
+RPD 是一个 **面向任意 AI 工具的 Agent Skill**（AI-Agent-Agnostic），通过 **12 个零依赖的纯标准库 Python 脚本**（7 个运行时 v1 + 4 个 v2 + 1 个 run-eval）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
 
 > **核心使命：硬化跨会话项目孪生状态，拦截决策 Spec 漂移，强行将具备概率不确定性的 AI 智能体死死锁在线性工程的高保真轨道上。**
 
@@ -250,7 +250,7 @@ Flow A          Flow B         Flow C
 | `code-map-generator.py` | v2 code-map 三件套（tree-sitter+正则双路径，预算守卫） | 功能完成 / 收尾 | `0` 成功, `1` 错误 |
 | `rpd-decisions.py` | decisions.md 决策日志（grill-me 前置） | 决策确认前 | `0` 成功, `1` 错误, `3` 未找到 |
 | `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 会话观测 | `0` 成功, `1` 错误 |
-| `run-eval.py` | 18 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
+| `run-eval.py` | 19 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
 > **你不需要手动运行这些脚本。** AI 助手会在对应的流程节点自动调用。
 
@@ -355,6 +355,20 @@ v2 兼容读取 v1 `.project-state.md`（保留原文件、不覆盖 v2 active-c
 
 详细运行细节见 `docs/rpd-v2-usage.md`。
 
+### 大仓库实测 / Large-Repo Benchmark
+
+code-map 生成器在真实大仓库（Cangjie 运行时，454 源文件 / ~8.5 万行）实测：
+
+| 指标 | 实测值 |
+|------|--------|
+| 处理耗时 | **6.83 s**（tree-sitter 解析全仓） |
+| 源文件 / 符号 | 454 / 5451 |
+| router（层1） | **2936 token**（限 3000），占全码库 **0.3%**（限 15%） |
+| 产物体积 | router 15 KB / code-map 5.6 MB / meta 91 KB |
+| 内存 | 无 OOM（安全扫描流式分块 + 符号表惰性构建） |
+
+> 数据点：大仓库下 router 因 `files` 清单挤占预算自动裁剪 top_symbols（保留高频/入口符号），预算守卫按设计工作。
+
 ---
 
 ## 📁 目录结构 / Directory Structure
@@ -379,7 +393,7 @@ rpd/
 │   ├── code-map-generator.py    # v2 code-map 三件套（tree-sitter+正则双路径）
 │   ├── rpd-decisions.py         # decisions.md 决策日志（grill-me 前置）
 │   ├── rpd-metrics.py           # M1/M2/M3 主指标采集与聚合
-│   └── run-eval.py              # 18 个评估场景
+│   └── run-eval.py              # 19 个评估场景
 ├── references/
 │   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + AI 增强 8 大区块）
 │   ├── state-file-spec.md       # 状态文件规范（5 列功能表 + 5 列决策表）
@@ -387,7 +401,7 @@ rpd/
 │   ├── keyword-map.json         # 中英文关键词映射（50+ 条目）
 │   └── rpd-v2-layout.md         # .rpd/ 目录规格（双层落点 + 全动态路径 + 迁移）
 ├── eval/
-│   └── scenarios/               # eval 场景（A/B/C/D/E/F/G/H/I/O/P/Q/R/S/T/U/V）
+│   └── scenarios/               # eval 场景（A~W 脚本级 + X 行为级人工核验）
 └── assets/
     ├── hero.png                 # 首图
     └── example-state.md         # 示例状态文件
@@ -397,7 +411,7 @@ rpd/
 
 ## 🧪 评估矩阵 / Eval Matrix
 
-18 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
+19 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
 
 | 场景 | 名称 | 测试内容 | 退出码 |
 |------|------|----------|--------|
@@ -418,6 +432,7 @@ rpd/
 | T | v2 决策日志 | decisions.md proposed→accepted + grill-me | `0` |
 | U | v2 code-map | 预算守卫 + calls confidence + 三段式 id | `0` |
 | V | v2 主指标 | M1/M2/M3 主指标 + net_tokens 次要 | `0` |
+| X | Agent 行为 | 冷启动全流程（三视角/冻结/grill-me）人工核验 | `0` |
 | W | v2 物理锁 | 并发状态更新串行化（R-18 兜底） | `0` |
 
 ---
@@ -475,7 +490,7 @@ entry-type: new-idea
 | 1 | Fork 仓库 |
 | 2 | 创建功能分支 (`git checkout -b feature/my-feature`) |
 | 3 | 运行评估测试 (`python scripts/run-eval.py`) |
-| 4 | 17 个场景必须全部通过 |
+| 4 | 19 个场景必须全部通过 |
 | 5 | 提交并发起 Pull Request |
 
 请先开 Issue 讨论重大变更。
