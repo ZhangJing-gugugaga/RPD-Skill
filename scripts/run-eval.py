@@ -591,6 +591,8 @@ def main():
         "P (turbo mode)": run_scenario_p(),
         "Q (ai prd completeness)": run_scenario_q(),
         "R (problem validation)": run_scenario_r(),
+        "S (v2 cold-start)": run_scenario_s(),
+        "T (v2 decisions)": run_scenario_t(),
     }
 
     print("\n" + "=" * 40)
@@ -607,6 +609,82 @@ def main():
     else:
         print(f"\n💥 {len(failed)} scenario(s) failed: {', '.join(failed)}")
         return 1
+
+
+
+
+def run_scenario_s():
+    """RPD v2 cold-start: v1 compat read + explicit warning + migration backup."""
+    print("\n=== Scenario S: v2 Cold-Start (v1 compat) ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Create a v1 .project-state.md
+        state_path = os.path.join(tmpdir, ".project-state.md")
+        with open(state_path, "w", encoding="utf-8") as f:
+            f.write("---\nname: demo\ncreated: 2026-06-05\nlast-synced: 2026-06-05T14:30:00\n")
+            f.write("status: in-development\nentry-type: new-idea\n---\n\n")
+            f.write("## 功能进度清单\n| 功能 | 子任务 | 优先级 | 状态 | 备注 |\n")
+            f.write("|------|--------|--------|------|------|\n| 登录 | 表单 | P0 | ✅ 已完成 | |\n\n")
+            f.write("## 关键决策记录\n| 日期 | 类型 | 决策 | 原因 | 影响范围 |\n")
+            f.write("|------|------|------|------|----------|\n| 06-03 | 技术选型 | 用SQLite | 单机 | 数据层 |\n")
+
+        # Run with --migrate: should backup + warn + keep v1 file
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--migrate"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"Cold-start should exit 0, got {r.returncode}: {r.stderr}"
+        # Explicit warning for v1 compat read (never silent)
+        assert "兼容读取" in r.stderr, f"Expected explicit v1 compat warning, got: {r.stderr}"
+        # v1 original file preserved
+        assert os.path.exists(state_path), "v1 .project-state.md should be preserved"
+        # Migration backup dir created (.rpd-backup-<ts>/)
+        backups = [d for d in os.listdir(tmpdir) if d.startswith(".rpd-backup-")]
+        assert backups, "Migration backup dir .rpd-backup-<ts>/ should exist"
+        # .rpd/ dir created
+        assert os.path.isdir(os.path.join(tmpdir, ".rpd")), ".rpd/ dir should exist"
+        print("  ✅ v2 cold-start: v1 compat read + explicit warning + migration backup")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def run_scenario_t():
+    """RPD v2 decisions.md: proposed -> accepted flow with grill-me gate."""
+    print("\n=== Scenario T: v2 decisions.md flow ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Propose: should be proposed + grill-me hint, never accepted directly
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir,
+                            "propose", "测试决策", "--decision", "用X", "--type", "技术选型",
+                            "--reason", "原因", "--impact", "影响"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"propose failed: {r.stderr}"
+        assert "proposed" in r.stdout, f"New decision should be proposed, got: {r.stdout}"
+        assert "grill-me" in r.stdout, f"Should mention grill-me gate, got: {r.stdout}"
+
+        # Accept: needs --confirmed-by
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir,
+                            "accept", "1", "--confirmed-by", "user/2026-08-03"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"accept failed: {r.stderr}"
+
+        # List: D-1 should now be accepted
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-decisions.py"), tmpdir, "list", "--json"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        output = json.loads(r.stdout)
+        assert output, "Should list at least 1 decision"
+        assert output[0]["n"] == 1, f"Expected D-1, got: {output}"
+        assert output[0]["status"] == "accepted", f"Expected accepted, got: {output[0]['status']}"
+        assert "confirmed_by" in output[0], f"accepted entry should record confirmed_by, got: {output[0]}"
+        print("  ✅ v2 decisions.md: proposed -> accepted with confirmed_by")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 if __name__ == "__main__":
