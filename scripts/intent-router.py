@@ -35,8 +35,8 @@ if sys.platform == "win32":
 # --- Intent trigger patterns (priority order: new_project > takeover > continue) ---
 
 WARM_START_TRIGGERS = [
-    r"帮我做个", r"我想做个", r"有个想法", r"帮我弄个",
-    r"那个.*就是", r"能不能帮我", r"我想搞个",
+    r"帮我做", r"我想做", r"有个想法", r"帮我弄",
+    r"那个.*就是", r"能不能帮我", r"我想搞",
     r"help me", r"i want to", r"i have an idea", r"i'd like to build",
 ]
 

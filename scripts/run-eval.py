@@ -184,6 +184,8 @@ def run_scenario_e():
         ("我想做个记账App，给独立开发者用的", "new_project", "standard_diagnosis"),
         ("帮我做个东西，不知道做啥", "new_project", "warm_start"),
         ("那个...就是...可能...随便", "new_project", "scene_exploration"),
+        ("我想做一个记账App", "new_project", "warm_start"),       # 量词变体（regression）
+        ("帮我做一个记账App", "new_project", "warm_start"),       # 量词变体（regression）
         ("接手这个项目", "takeover", "flow_b"),
         ("继续开发", "continue", "flow_c"),
         ("随便聊聊", "unknown", "ask_user"),
