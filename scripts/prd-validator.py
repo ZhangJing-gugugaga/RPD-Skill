@@ -54,6 +54,23 @@ FEATURE_CHECKS = {
     },
 }
 
+# --- AI PRD check rules (activated with --ai-mode) ---
+
+AI_PRD_SECTIONS = {
+    "问题校验": ["问题校验", "problem validation", "input quality"],
+    "输入设计": ["输入设计", "input design", "输入项", "是否必填"],
+    "输出设计": ["输出设计", "output design", "用户看完后"],
+    "AI Workflow": ["ai workflow", "workflow 设计", "流程图"],
+    "AI 职责拆解": ["ai 职责", "ai responsibility", "ai 是否负责", "ai 具体任务"],
+    "Badcase 分析": ["badcase", "bad case", "边缘场景"],
+    "验证目标": ["验证目标", "validation goal", "验证维度"],
+    "PRD 风险和下一步": ["prd 风险", "风险和下一步", "不确定性"],
+}
+
+AI_PRD_BADCASE_MIN = 8  # badcase 至少 8 个
+
+AI_TASK_KEYWORDS = ["抽取", "分类", "匹配", "排序", "生成", "extract", "classify", "match", "rank", "generate"]
+
 
 def safe_read_file(path, max_size=10 * 1024 * 1024):
     """Read file with size limit to prevent OOM."""
@@ -124,6 +141,34 @@ def check_feature_completeness(feature):
     return missing
 
 
+def check_ai_prd_completeness(prd_content):
+    """Check if AI-enhanced PRD sections exist and meet requirements.
+
+    Returns list of gap strings.
+    """
+    gaps = []
+    content_lower = prd_content.lower()
+
+    # Check each AI PRD section exists
+    for section_name, keywords in AI_PRD_SECTIONS.items():
+        found = any(kw in content_lower for kw in keywords)
+        if not found:
+            gaps.append(f"缺少 AI PRD 章节: {section_name}")
+
+    # Check badcase count (table rows starting with | [场景 or | [badcase)
+    badcase_rows = prd_content.count("| [场景") + prd_content.count("| [badcase") + prd_content.count("| [场景1") + prd_content.count("| [场景2")
+    if badcase_rows < AI_PRD_BADCASE_MIN:
+        gaps.append(f"Badcase 分析不足：找到 {badcase_rows} 个，要求 ≥ {AI_PRD_BADCASE_MIN} 个")
+
+    # Check AI responsibility table has specific task descriptions
+    if "ai 是否负责" in content_lower or "ai 职责" in content_lower or "ai 具体任务" in content_lower:
+        has_specific_task = any(kw in content_lower for kw in AI_TASK_KEYWORDS)
+        if not has_specific_task:
+            gaps.append("AI 职责拆解过于笼统，缺少具体任务（抽取/分类/匹配/排序/生成）")
+
+    return gaps
+
+
 def parse_checklist(content):
     """Parse security checklist checkboxes in the PRD.
 
@@ -153,7 +198,7 @@ def parse_checklist(content):
     }
 
 
-def validate_prd(prd_path):
+def validate_prd(prd_path, ai_mode=False):
     """Validate a PRD file for completeness.
 
     Returns validation result dict.
@@ -173,7 +218,7 @@ def validate_prd(prd_path):
     gaps = []
     for feature in features:
         # Skip non-feature headings (like "## 概述", "## 附录")
-        if any(skip in feature["name"] for skip in ["概述", "附录", "术语", "参考", "变更", "overview", "appendix", "glossary"]):
+        if any(skip in feature["name"] for skip in ["概述", "附录", "术语", "参考", "变更", "overview", "appendix", "glossary", "问题校验", "输入设计", "输出设计", "AI Workflow", "AI 职责", "Badcase", "验证目标", "PRD 风险", "AI PRD 自检", "产品信息"]):
             continue
 
         missing = check_feature_completeness(feature)
@@ -187,16 +232,24 @@ def validate_prd(prd_path):
     # Parse checklist
     checklist = parse_checklist(content)
 
+    # AI PRD checks (only when --ai-mode is enabled)
+    ai_gaps = []
+    if ai_mode:
+        ai_gaps = check_ai_prd_completeness(content)
+
     # Determine status
     has_gaps = len(gaps) > 0
+    has_ai_gaps = len(ai_gaps) > 0
     checklist_incomplete = checklist["total"] > 0 and checklist["completed"] < checklist["total"]
-    status = "FAIL" if (has_gaps or checklist_incomplete) else "PASS"
+    status = "FAIL" if (has_gaps or has_ai_gaps or checklist_incomplete) else "PASS"
 
     return {
         "status": status,
-        "total_features": len([f for f in features if not any(skip in f["name"] for skip in ["概述", "附录", "术语", "参考", "变更", "overview", "appendix", "glossary"])]),
+        "total_features": len([f for f in features if not any(skip in f["name"] for skip in ["概述", "附录", "术语", "参考", "变更", "overview", "appendix", "glossary", "问题校验", "输入设计", "输出设计", "AI Workflow", "AI 职责", "Badcase", "验证目标", "PRD 风险", "AI PRD 自检", "产品信息"])]),
         "gaps": gaps,
         "checklist": checklist,
+        "ai_gaps": ai_gaps if ai_mode else [],
+        "ai_mode": ai_mode,
     }
 
 
@@ -211,6 +264,12 @@ def format_text_output(result):
         lines.append("Feature Gaps:")
         for gap in result["gaps"]:
             lines.append(f"  [{gap['line']}] {gap['feature']}: missing {', '.join(gap['missing'])}")
+        lines.append("")
+
+    if result.get("ai_mode") and result.get("ai_gaps"):
+        lines.append("AI PRD Gaps:")
+        for gap in result["ai_gaps"]:
+            lines.append(f"  - {gap}")
         lines.append("")
 
     checklist = result["checklist"]
@@ -229,19 +288,24 @@ def main():
     args = sys.argv[1:]
 
     if not args or args[0] in ("-h", "--help"):
-        print("Usage: python prd-validator.py <prd-file> [--format json|text]")
+        print("Usage: python prd-validator.py <prd-file> [--format json|text] [--ai-mode]")
+        print("  --ai-mode: Enable AI PRD section checks (badcase count, AI role specificity, etc.)")
         return 1
 
     prd_file = args[0]
     output_format = "json"
+    ai_mode = False
 
     if "--format" in args:
         idx = args.index("--format")
         if idx + 1 < len(args):
             output_format = args[idx + 1]
 
+    if "--ai-mode" in args:
+        ai_mode = True
+
     # Validate
-    result = validate_prd(prd_file)
+    result = validate_prd(prd_file, ai_mode=ai_mode)
 
     if "error" in result:
         print(json.dumps(result, indent=2, ensure_ascii=False), file=sys.stderr)

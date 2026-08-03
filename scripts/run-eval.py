@@ -452,6 +452,121 @@ def run_scenario_p():
         return False
 
 
+def run_scenario_q():
+    """AI PRD completeness validation with --ai-mode."""
+    print("\n=== Scenario Q: AI PRD Completeness ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        # Test 1: Complete AI PRD → PASS with --ai-mode
+        p = os.path.join(tmpdir, "ai-complete.md")
+        with open(p, "w", encoding="utf-8") as f:
+            f.write("## 功能一\n失败时显示错误\n状态机：idle→success\n字段校验：必填\n文案：提示语\n")
+            f.write("- [x] 页面结构\n- [x] 异常交互\n")
+            f.write("## 七、问题校验\n目标用户是否太泛\n")
+            f.write("## 八、输入设计\n输入项 是否必填\n")
+            f.write("## 九、输出设计\n用户看完后\n")
+            f.write("## 十、AI Workflow 设计\n流程图 workflow\n")
+            f.write("## 十一、AI 职责拆解\nAI 是否负责\nAI 具体任务：信息抽取、分类、语义匹配\n")
+            f.write("## 十二、Badcase 分析\n")
+            for i in range(1, 9):
+                f.write(f"| [场景{i}-AI泛化] | 原因 | 风险 | 策略 | 是 |\n")
+            f.write("## 十三、验证目标\n验证维度 指标\n")
+            f.write("## 十四、PRD 风险和下一步\n不确定性\n")
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "prd-validator.py"), p, "--format", "json", "--ai-mode"],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"Complete AI PRD should PASS, got exit {r.returncode}, stdout: {r.stdout}"
+
+        # Test 2: Missing badcase section → FAIL with --ai-mode
+        p2 = os.path.join(tmpdir, "no-badcase.md")
+        with open(p2, "w", encoding="utf-8") as f:
+            f.write("## 功能一\n失败时显示错误\n状态机：idle→success\n字段校验：必填\n文案：提示语\n")
+            f.write("- [x] 页面结构\n- [x] 异常交互\n")
+            f.write("## 七、问题校验\n目标用户\n")
+            f.write("## 八、输入设计\n输入项\n")
+            f.write("## 九、输出设计\n用户看完后\n")
+            f.write("## 十、AI Workflow\n流程图\n")
+            f.write("## 十一、AI 职责\nAI 是否负责\n抽取 分类\n")
+            f.write("## 十三、验证目标\n验证维度\n")
+            f.write("## 十四、PRD 风险和下一步\n不确定性\n")
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "prd-validator.py"), p2, "--format", "json", "--ai-mode"],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 2, f"Missing badcase should FAIL, got exit {r.returncode}"
+        output = json.loads(r.stdout)
+        ai_gaps = output.get("ai_gaps", [])
+        assert any("Badcase" in g for g in ai_gaps), f"Should report missing Badcase, got: {ai_gaps}"
+
+        # Test 3: Insufficient badcase count (<8) → FAIL with --ai-mode
+        p3 = os.path.join(tmpdir, "few-badcase.md")
+        with open(p3, "w", encoding="utf-8") as f:
+            f.write("## 功能一\n失败时显示错误\n状态机：idle→success\n字段校验：必填\n文案：提示语\n")
+            f.write("- [x] 页面结构\n- [x] 异常交互\n")
+            f.write("## 七、问题校验\n目标用户\n")
+            f.write("## 八、输入设计\n输入项\n")
+            f.write("## 九、输出设计\n用户看完后\n")
+            f.write("## 十、AI Workflow\n流程图\n")
+            f.write("## 十一、AI 职责\nAI 是否负责\n抽取 分类\n")
+            f.write("## 十二、Badcase 分析\n")
+            f.write("| [场景1-AI泛化] | 原因 | 风险 | 策略 | 是 |\n")
+            f.write("| [场景2-输入不足] | 原因 | 风险 | 策略 | 否 |\n")
+            f.write("| [场景3-错误匹配] | 原因 | 风险 | 策略 | 是 |\n")
+            f.write("## 十三、验证目标\n验证维度\n")
+            f.write("## 十四、PRD 风险和下一步\n不确定性\n")
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "prd-validator.py"), p3, "--format", "json", "--ai-mode"],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 2, f"Insufficient badcase should FAIL, got exit {r.returncode}"
+        output = json.loads(r.stdout)
+        ai_gaps = output.get("ai_gaps", [])
+        assert any("Badcase" in g and "不足" in g for g in ai_gaps), f"Should report insufficient badcase, got: {ai_gaps}"
+
+        print("  ✅ AI PRD completeness validation works correctly")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def run_scenario_r():
+    """Problem validation: verify prd-template.md contains AI PRD sections."""
+    print("\n=== Scenario R: Problem Validation (Template) ===")
+    try:
+        template_path = SKILL_DIR / "references" / "prd-template.md"
+        content = smart_read(str(template_path))
+        assert content is not None, "prd-template.md not found or unreadable"
+
+        # Test 1: Template contains 问题校验 section
+        assert "问题校验" in content, "Template should contain 问题校验 section"
+        assert "目标用户是否太泛" in content, "Template should check if target user is too broad"
+        assert "MVP 是否过大" in content, "Template should check if MVP is too large"
+
+        # Test 2: Template contains AI 职责拆解 section
+        assert "AI 职责拆解" in content, "Template should contain AI 职责拆解 section"
+        assert "抽取" in content and "分类" in content and "匹配" in content, \
+            "Template should mention specific AI tasks (抽取/分类/匹配)"
+
+        # Test 3: Template contains Badcase 分析 with 8+ rows
+        assert "Badcase" in content, "Template should contain Badcase 分析 section"
+        # Count template badcase rows
+        badcase_count = content.count("| [场景")
+        assert badcase_count >= 8, f"Template should have ≥8 badcase rows, found {badcase_count}"
+
+        # Test 4: Template contains 输入设计 and 输出设计
+        assert "输入设计" in content, "Template should contain 输入设计 section"
+        assert "输出设计" in content, "Template should contain 输出设计 section"
+        assert "用户看完后能做什么动作" in content, "Template should specify user action per output"
+
+        # Test 5: Template contains 验证目标
+        assert "验证目标" in content, "Template should contain 验证目标 section"
+        assert "验证维度" in content, "Template should have 验证维度 in validation goals"
+
+        print("  ✅ PRD template contains all AI-enhanced sections")
+        return True
+    except AssertionError as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+
+
 def main():
     print("RPD Skill Evaluation Matrix")
     print("=" * 40)
@@ -474,6 +589,8 @@ def main():
         "I (sec rules)": run_scenario_i(),
         "O (chinese name)": run_scenario_o(),
         "P (turbo mode)": run_scenario_p(),
+        "Q (ai prd completeness)": run_scenario_q(),
+        "R (problem validation)": run_scenario_r(),
     }
 
     print("\n" + "=" * 40)

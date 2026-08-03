@@ -5,3 +5,6 @@ __pycache__/
 # Claude Code session data
 .claude/
 logs/
+
+# WorkBuddy install metadata
+_user_meta.json
