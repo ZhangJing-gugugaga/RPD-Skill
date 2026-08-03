@@ -28,7 +28,7 @@ rpd/
 ├── docs/                     # v2 规格文档
 ├── scripts/                  # 12 个确定性 Python 脚本（8 v1 + 4 v2）
 ├── references/               # 知识库
-├── eval/scenarios/           # 17 个评估场景
+├── eval/scenarios/           # 18 个评估场景
 ├── images/                   # 项目图片
 └── assets/                   # 示例文件
 ```
@@ -50,7 +50,7 @@ rpd/
 | `code-map-generator.py` | v2 code-map 三件套（tree-sitter+正则双路径） | 0/1 |
 | `rpd-decisions.py` | decisions.md 决策日志（grill-me 前置） | 0/1/3 |
 | `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 0/1 |
-| `run-eval.py` | 17 个评估场景 | 0/1 |
+| `run-eval.py` | 18 个评估场景 | 0/1 |
 
 ---
 
@@ -88,3 +88,4 @@ rpd/
 | v1.2.0 | 2026-06-08 | 暖启动 + state-guard + prd-validator + intent-router |
 | v1.3.0 | 2026-06-08 | SEC-001/002 修复 + Spec 漂移 + Git 并发 + Hard Constraints |
 | v2.0.0 | 2026-08-03 | 主指标重构（M1/M2/M3）+ code-map 两层导航 + 取消停建 Gate + decisions.md grill-me + v1 兼容读取降级 + SKILL.md ≤8KB |
+| v2.0.1 | 2026-08-03 | R-18 升级：state-guard 进程级物理锁（ProjectStateMutex）防多 Agent 竞态覆写 |

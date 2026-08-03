@@ -17,6 +17,7 @@ Exit codes:
 import os
 import shutil
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -125,6 +126,81 @@ def run_validator(state_file_path: Path) -> int:
     return result.returncode
 
 
+class ProjectStateMutex:
+    """Cross-process file lock for .project-state.md writes (R-18 hardening).
+
+    Prevents race conditions when two AI agent processes (or windows) try to
+    overwrite the state file concurrently. Uses stdlib only:
+      - Windows: msvcrt.locking (byte-range lock on a lock file)
+      - POSIX:   fcntl.flock
+    Falls back to a no-op if neither is available (single-process safe anyway).
+
+    Usage:
+        with ProjectStateMutex(state_file_path):
+            ... atomic write ...
+    """
+
+    def __init__(self, state_file_path, timeout=10):
+        self.lock_path = Path(str(state_file_path) + ".lock")
+        self.timeout = timeout
+        self._fd = None
+
+    def __enter__(self):
+        import platform
+        self.lock_path.parent.mkdir(exist_ok=True)
+        self._fd = open(self.lock_path, "a+b")
+        deadline = time.time() + self.timeout
+        if platform.system() == "Windows":
+            import msvcrt
+            while True:
+                try:
+                    self._fd.seek(0)
+                    msvcrt.locking(self._fd.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.time() > deadline:
+                        raise TimeoutError(
+                            f"项目状态文件被其他进程锁定（>{self.timeout}s）：{self.lock_path}"
+                        )
+                    time.sleep(0.1)
+        else:
+            try:
+                import fcntl
+                while True:
+                    try:
+                        fcntl.flock(self._fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except OSError:
+                        if time.time() > deadline:
+                            raise TimeoutError(
+                                f"Project state file locked by another process (>{self.timeout}s): {self.lock_path}"
+                            )
+                        time.sleep(0.1)
+            except ImportError:
+                pass  # no flock on this platform; degrade to no-op
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._fd is None:
+            return False
+        try:
+            import platform
+            if platform.system() == "Windows":
+                import msvcrt
+                self._fd.seek(0)
+                msvcrt.locking(self._fd.fileno(), msvcrt.LK_UNLCK, 1)
+        except Exception:
+            pass
+        self._fd.close()
+        self._fd = None
+        # Best-effort cleanup of lock file
+        try:
+            self.lock_path.unlink()
+        except Exception:
+            pass
+        return False
+
+
 def check_git_concurrency(state_file_path: Path) -> None:
     """Git concurrency conflict + Branch Affinity Lock dual breaker.
 
@@ -199,37 +275,40 @@ def atomic_update(state_file_path: Path, content_file: Path) -> None:
     # Step 0: Git concurrency check
     check_git_concurrency(state_file_path)
 
-    # Step 1: Physical backup (before update)
-    create_backup(state_file_path)
+    # Step 1-4: Physical lock around the whole backup->write->validate transaction
+    # (R-18 hardening: prevent race conditions from concurrent agent processes)
+    with ProjectStateMutex(state_file_path):
+        # Step 1: Physical backup (before update)
+        create_backup(state_file_path)
 
-    # Step 2: Read new content
-    new_content = smart_read(content_file)
+        # Step 2: Read new content
+        new_content = smart_read(content_file)
 
-    # Step 3: Atomic write (write to temp file, then rename)
-    tmp_path = state_file_path.with_suffix(".md.tmp")
-    try:
-        tmp_path.write_text(new_content, encoding="utf-8")
-        os.replace(tmp_path, state_file_path)
-        print(f"Atomic write completed: {state_file_path}")
-    except Exception as e:
-        # Clean up temp file if write failed
-        if tmp_path.exists():
-            tmp_path.unlink()
-        raise e
+        # Step 3: Atomic write (write to temp file, then rename)
+        tmp_path = state_file_path.with_suffix(".md.tmp")
+        try:
+            tmp_path.write_text(new_content, encoding="utf-8")
+            os.replace(tmp_path, state_file_path)
+            print(f"Atomic write completed: {state_file_path}")
+        except Exception as e:
+            # Clean up temp file if write failed
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise e
 
-    # Step 4: Post-write validation
-    result = run_validator(state_file_path)
-    if result != 0:
-        # Rollback to latest backup
-        backup_dir = get_backup_dir(state_file_path)
-        backups = sorted(backup_dir.glob("state-*.md"))
-        if backups:
-            latest_backup = backups[-1]
-            shutil.copy2(latest_backup, state_file_path)
-            print(f"Validation failed. Rolled back to: {latest_backup.name}", file=sys.stderr)
-        else:
-            print("Validation failed and no backup available for rollback!", file=sys.stderr)
-        sys.exit(2)
+        # Step 4: Post-write validation
+        result = run_validator(state_file_path)
+        if result != 0:
+            # Rollback to latest backup
+            backup_dir = get_backup_dir(state_file_path)
+            backups = sorted(backup_dir.glob("state-*.md"))
+            if backups:
+                latest_backup = backups[-1]
+                shutil.copy2(latest_backup, state_file_path)
+                print(f"Validation failed. Rolled back to: {latest_backup.name}", file=sys.stderr)
+            else:
+                print("Validation failed and no backup available for rollback!", file=sys.stderr)
+            sys.exit(2)
 
 
 def main():
@@ -266,3 +345,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
