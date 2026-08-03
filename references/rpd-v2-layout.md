@@ -48,7 +48,7 @@
 
 1. 用户项目根（`.rpd/` 所在处）
 2. skill 安装目录（`SKILL.md` 同级的 `scripts/`）
-3. 均不存在 → 按 AGENT.md 降级表手动操作
+3. 均不存在 → 按 SKILL.md「Script Path & Graceful Degradation」降级表手动操作
 
 所有引用统一为相对项目根路径，写盘时用 `Path.resolve()` 归一化。
 

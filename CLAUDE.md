@@ -22,7 +22,6 @@ rpd/
 ├── .github/                  # GitHub 模板 + CI
 ├── SKILL.md                  # 主控指令（中英双语，≤8KB）
 ├── CLAUDE.md                 # 本文件
-├── AGENT.md                  # Agent 交互指南（含 v2 决策纪律 + 冷启动 7 步）
 ├── README.md                 # 项目文档
 ├── 行为守则.md                # AI 行为守则
 ├── docs/                     # v2 规格文档

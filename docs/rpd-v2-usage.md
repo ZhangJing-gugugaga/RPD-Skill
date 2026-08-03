@@ -103,3 +103,30 @@
 - 探测 `knowledge-graph.json`（`.claude/` → `.workbuddy/` → 项目根 → `.rpd/`）
 - schema 匹配 → **只读复用**（绝不写）；不匹配 → 自建 code-map + 首条输出显式告警
 - 无论复用/降级，`code-map.meta.json.understand_anything` 记录检测结果
+
+## 10. decisions.md 决策日志命令（R-14，grill-me 前置）
+
+> agent 可以写 `decisions.md`，但**每次决策确定前必须先以 grill-me 形式拷问用户**（逐项确认：决策是什么、为什么、影响谁、是否有替代方案）。与「每轮 ≤3 问」红线并存。
+
+| 状态 | 条件 | 动作 |
+|------|------|------|
+| `proposed` | 决策提出，用户未确认 | 唯一可立即写入的状态 |
+| `accepted` | 用户明确确认 | 改 status 并记录 `confirmed_by`（人/时间） |
+| `rejected` | 用户否决 | 标 `rejected` |
+| `superseded` | 被后续决策替代 | 旧条目标 `superseded`，新条目 `supersedes` 指向旧条目 |
+
+**命令**：
+```bash
+python scripts/rpd-decisions.py <root> propose "标题" --decision "决策" --type 技术选型 --reason "原因" --impact "影响"
+python scripts/rpd-decisions.py <root> accept <n> --confirmed-by "user/2026-08-03"
+python scripts/rpd-decisions.py <root> reject <n>
+python scripts/rpd-decisions.py <root> supersede <n> --by <新n>
+python scripts/rpd-decisions.py <root> list
+```
+
+**gap CRITICAL 落盘**：`gap-analyzer.py` 输出 CRITICAL 漂移时：
+1. 记录到 `active-context.md` 的阻塞/风险区；
+2. 若是新决策 → 走 decisions.md 流程（proposed → 用户确认 → accepted）；
+3. 审核视图把 gap 归入「漂移」区块。
+
+**严禁**：不拷问用户就把决策标为 accepted；静默覆盖既有决策。

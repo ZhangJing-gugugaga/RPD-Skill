@@ -2,7 +2,7 @@
 
 > 面向接手 rpd skill v2 开发/维护的 agent。本文件是**实现约束**而非产品文档——所有已拍板决策（2026-08-03 方向明 Q1–Q7 + 主指标重构）必须遵守，本规格只做展开，不做翻案。
 >
-> 相关文件：`README.md`（对外口径）、`references/state-file-spec.md`（v1 状态文件规范）、`references/state-schema.json`（v1 schema）、`AGENT.md`（agent 交互指南）。v2 变更点见下文各节。
+> 相关文件：`README.md`（对外口径）、`references/state-file-spec.md`（v1 状态文件规范）、`references/state-schema.json`（v1 schema）、v2 变更点见下文各节。
 
 ---
 
@@ -301,7 +301,7 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
 - 路径解析顺序（rpd 自身脚本与产物）：
   1. 用户项目根（`.rpd/` 所在处）；
   2. skill 安装目录（`SKILL.md` 同级的 `scripts/`）；
-  3. 均不存在 → 按 AGENT.md 降级表手动操作。
+  3. 均不存在 → 按 SKILL.md「Script Path & Graceful Degradation」降级表手动操作。
 - 所有引用统一为相对项目根路径，写盘时用 `Path.resolve()` 归一化。
 
 ### 4.3 迁移与备份
@@ -628,7 +628,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 
 ### 17.2 启动指引（Checklist）
 
-1. [ ] 读本规格 + `AGENT.md` + `README.md` + `references/state-file-spec.md`（理解 v1 基线）
+1. [ ] 读本规格 + `README.md` + `references/state-file-spec.md`（理解 v1 基线）
 2. [ ] 确认工作区 `E:/Desktop/work/RPD-skill/` 与试点 `E:\Desktop\work\mix\roguelike` 可用
 3. [ ] I0：设计 arm A 协议 → 在 roguelike 上跑 3 次反解 S/m/k → 输出 calibration.md
 4. [ ] I1：选 tree-sitter Python 绑定（`tree-sitter` + `tree-sitter-cpp`），实现生成器；**禁用 Pygments**；为 C++ 配置 reference query

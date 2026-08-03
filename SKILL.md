@@ -30,7 +30,7 @@ Follow the user's first-message language throughout. 从首条消息检测语言
 10. **v2：候选调用边口径**：calls 边只称「候选调用边 + 可验证锚点」，不称「精确调用图」。
 
 ## When to Use / 何时使用
-**Positive / 正向**：新想法/新项目（"我想做…"）、接手半成品（"接手这个项目"）、继续开发（"继续开发"）、更新进度。
+**Positive / 正向**：新想法/新项目（"我想做…"/"我想做一个…"）、接手半成品（"接手这个项目"）、继续开发（"继续开发"）、更新进度、"快一点/简单点"→极速模式、"回顾/之前做了什么"→回顾模式。
 **Negative / 负向**：纯写码/调试、纯技术讨论、需求已完备且无方向困惑。
 
 ## v2 Code-Map Mode / v2 代码导航
@@ -40,7 +40,7 @@ Follow the user's first-message language throughout. 从首条消息检测语言
 - **meta** `code-map.meta.json`：commit + 每文件 fingerprint（sha256），红线机检数据源。
 - **三级信任**：verified（可基于 map 动手）/ unverified（动手前必 Read）/ stale（禁止动手，先 Read）。
 - **重扫仅三情形**：用户明确要求全量审查 / 目标符号不知名 / bug 需精确到行实现。
-- 冷启动 7 步、审核视图五区块、预算守卫详见 `docs/rpd-v2-usage.md` + `AGENT.md`。
+- 冷启动 7 步、审核视图五区块、预算守卫、decisions 命令详见 `docs/rpd-v2-usage.md`。
 
 ## Script Path & Graceful Degradation / 脚本路径与优雅降级
 All scripts live in the Skill dir (`SKILL.md` 同级 `scripts/`); fallback to project `scripts/`.
@@ -82,6 +82,12 @@ C1 查 `.project-state.md`（无→提示先「分析项目」或「新建项目
 概念版始终输出（≤200 字）；落地版紧张时只输出功能列表+页面结构；安全扫描始终执行（零 token）。
 **Turbo Mode**（用户说"快一点"或 Token<2000）：跳过概念版与冻结确认，输出 4 行矩阵（进度/下一步/阻塞/预估）。
 
+## Output Norms / 输出规范
+- 概念版 PRD：≤200 字，用人话
+- 落地版 PRD：完整规范 + 状态机 + 字段校验
+- 继续开发：进度摘要 + 下一步 + 阻塞项
+- 极速模式：一行进度 + 一行下一步
+
 ## Verification / 验证
 - 状态变更后：`state-validator.py`
 - 接手/继续前：`security-scanner.py`
@@ -101,7 +107,7 @@ C1 查 `.project-state.md`（无→提示先「分析项目」或「新建项目
 | `code-map-generator.py` | v2 code-map 三件套 | 功能完成/收尾 |
 | `rpd-decisions.py` | decisions.md 决策日志 | 决策确认前 |
 | `rpd-metrics.py` | M1/M2/M3 指标采集 | 会话观测 |
-| `run-eval.py` | eval 场景（17 个） | 开发/CI |
+| `run-eval.py` | eval 场景（18 个） | 开发/CI |
 
 ## Failure Modes / 故障处理
 脚本不可用 → 按降级表手动继续；终止无输出 → 查脚本路径 + 手动流程，绝不静默终止；状态损坏 → 尝试修复或提示重新生成；概念版 PRD 改 >3 次 → 建议先用户调研；硬编码密钥 → 硬阻断；状态文件与代码严重不一致 → 提示用户确认。
