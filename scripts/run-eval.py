@@ -594,6 +594,7 @@ def main():
         "S (v2 cold-start)": run_scenario_s(),
         "T (v2 decisions)": run_scenario_t(),
         "U (v2 code-map)": run_scenario_u(),
+        "V (v2 primary metrics)": run_scenario_v(),
     }
 
     print("\n" + "=" * 40)
@@ -728,6 +729,39 @@ def run_scenario_u():
         assert meta.get("parser") in ("tree-sitter", "regex"), "parser not dual-path"
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print("  ❌ FAILED: " + str(e))
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+
+
+def run_scenario_v():
+    """RPD v2 primary metrics: M1/M2/M3 primary, net_tokens secondary."""
+    print("=== Scenario V: v2 primary metrics M1/M2/M3 ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        rec = [sys.executable, str(SCRIPTS_DIR / "rpd-metrics.py"), tmpdir, "record"]
+        for m in (["--metric", "M1", "--value", "0.8", "--unit", "continuity"],
+                  ["--metric", "M2", "--value", "350", "--unit", "token"],
+                  ["--metric", "M3", "--value", "120", "--unit", "token"],
+                  ["--metric", "net_tokens_to_first_action", "--value", "1500", "--unit", "token"]):
+            r = subprocess.run(rec + m, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            assert r.returncode == 0, "record failed: " + r.stderr
+
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-metrics.py"), tmpdir, "report", "--json"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "report failed: " + r.stderr
+        d = json.loads(r.stdout)
+        assert d["primary_metrics"]["M1_continuity"]["count"] == 1, "M1 not recorded"
+        assert d["primary_metrics"]["M2_locate_cost"]["avg"] == 350.0, "M2 avg wrong"
+        assert d["primary_metrics"]["M3_doc_ref"]["avg"] == 120.0, "M3 avg wrong"
+        assert d["secondary"]["net_tokens_to_first_action"]["count"] == 1, "secondary not recorded"
+        assert "net_tokens_to_first_action" in d["note"], "secondary metric should be marked secondary"
+        print("  ✅ v2 primary metrics: M1/M2/M3 primary + net_tokens secondary")
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print("  ❌ FAILED: " + str(e))
