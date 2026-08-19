@@ -11,3 +11,9 @@ _user_meta.json
 
 # 个人训练文件（不跟踪）
 TRAINING.md
+
+# 工作助手本地产物（agent 运行痕迹：memory / research-materials / artifacts / assemble_report.py）
+.workbuddy/*
+# 例外：自动化任务（Advancer/Verifier）依赖的规则文件，需保留在版本库
+!.workbuddy/automation-rules.md
+promo/

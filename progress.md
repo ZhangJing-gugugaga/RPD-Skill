@@ -1,5 +1,44 @@
 # Progress Log — RPD-skill 整体生命周期
 
+## Session: 2026-08-19（纠错：创建 WorkBuddy Todo）
+
+### 本次会话：Agent 团队误建 → 清理 → 创建真实 WorkBuddy Todo
+- **Status:** complete
+- **错误：** 第一次用 TeamCreate + 后台 Agent 创建了自主运行的 agent 团队，用户要的是 WorkBuddy 项目 todo（UI 可审查可微调）。
+- **清理：** 删除团队 rpd-i4-automation（TeamDelete 成功）；后台 agent 已 killed。
+- **正确创建：** 用 `mcp__wb-issues__todo_create` 创建 10 条 WorkBuddy todo（I4-0~I4-9）：
+  - 先查 `todo_statuses`（claim/running/paused/done）+ `project_members`（owner id: 6c5fe5b9），不猜参数
+  - 每条带 title/description/assignee/priority/tags/start_date/due_date/status_id
+  - I4-0 标进行中（git+eval 基线已完成）；I4-1~9 标待开始
+- **Todo ID 清单：** I4-0(rhb7Wp) / I4-1(rcW4RS) / I4-2(raUZs4) / I4-3(rnAxRa) / I4-4(rsO1C9) / I4-5(rvXVu0) / I4-6(rZEKBI) / I4-7(r7Madr) / I4-8(rMym7V) / I4-9(rDdzl2)
+- **保留资产：** automation/i4-l2 分支（commit 854a67f）+ .workbuddy/automation-rules.md + 计划三件套 + Key Decisions Q1~Q5
+
+---
+
+## Session: 2026-08-19（自动化启动 · 双 Agent 配置）
+
+### 本次会话：双 Agent 自动化配置与首个 tick 启动
+- **Status:** complete（配置完成，Advancer 运行中）
+- **用户决策：** 推进 reasoning / 验证 default · FAIL 自动 revert+重试 · 仅 automation 分支手动 merge · 严格 1h 交替
+- Actions taken:
+  - 创建 `automation/i4-l2` 分支（从 main）
+  - 清理计划：Key Questions → **Key Decisions**（Q1–Q5 全部转为明确决策，计划无"本轮不做"类延后语）
+  - 写入 `.workbuddy/automation-rules.md`（Advancer + Verifier 完整规则 + 7 项 0-trust 验证清单 + 串行节奏）
+  - 提交基础文件到 automation 分支（commit `854a67f`：计划三件套 + 规则 + 研究报告）
+  - 创建团队 `rpd-i4-automation`
+  - 创建 Task #1（I4-0 基线核对收尾）
+  - 启动 **Advancer agent**（reasoning 模型，后台运行，agent_id: advancer@rpd-i4-automation）
+- Files modified: task_plan.md（Key Decisions + L3 措辞）· .workbuddy/automation-rules.md（新建）· progress.md（本日志）
+- 当前状态：**Advancer 在后台推进 I4-0**；完成后通知 team-lead → 启动 Verifier 验证 → PASS 标 complete / FAIL revert → 启动下一 Advancer
+- Key Decisions 摘要：
+  - Q1: R-22 零外部依赖先行（BM25+RRF），向量打标 TODO
+  - Q2: R-19 仅复用 R-10 knowledge-graph.json，不自建 AST
+  - Q3: R-20 从现有 PRD 文档解析，不新增 domain 注册
+  - Q4: R-23 第三级语义摘要 ≤500 token，"深入追问"= 连续 2 轮追问
+  - Q5: M1/M2 纳入 eval 基线作为 I4 出口 Gate
+
+---
+
 ## Session: 2026-08-19（配置收尾 · 基线条化）
 
 ### 本次会话：基线条化，确保新会话可立即接手
@@ -53,6 +92,20 @@
   - 盘点 scripts/ 12 .py、specs 目录结构
 - Note: 原 I4-only 计划已并入本生命周期计划的 L2 阶段，细节完整保留。
 
+## Session: 2026-08-19（Advancer · I4-0 基线核对收尾）
+
+### 本次会话：I4-0 收尾 — 通读规格 / 盘点脚本 / R-19~R-25 草案入附录 A
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `chore: 初始化自动化计划三件套 [automation-init]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **I4-0 勾选项完成：**
+  - [x] 通读 SKILL.md（113 行）+ docs/rpd-v2-technical-spec.md（682 行，重点 §3 code-map schema / §6 红线机检 / §7 预算守卫 / 附录 A）
+  - [x] 盘点 12 个 scripts 职责边界（intent-router / code-map-generator / state-guard / rpd-decisions / gap-analyzer 等，见 findings.md §B 台账核对一致）
+  - [x] 起草 R-19~R-25 需求编号占位 → 写入 `docs/rpd-v2-technical-spec.md` 附录 A（标注"草案，验收后转正"）+ R-24 归 parking-lot 不排期
+  - [x] Q1 确认：R-22 零外部依赖先行（BM25+RRF，向量打标 TODO）— 已在 Key Decisions，直接执行
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** docs/rpd-v2-technical-spec.md（附录 A + R-19~R-25 + 占位说明）· .gitignore（配置阶段遗留：忽略 .workbuddy/* + promo/，保留 automation-rules.md）· progress.md（本日志）
+- **遗留：** todo 同步依赖 wb-issues MCP 工具，本会话工具列表不可用则记录不猜（见 Error Log）；Verifier 验证后由 Verifier 标记 task_plan.md Phase I4-0 为 complete
+
 ## Test Results
 
 | Test | Input | Expected | Actual | Status |
@@ -65,6 +118,7 @@
 
 | Timestamp | Error | Attempt | Resolution |
 |-----------|-------|---------|------------|
+| 2026-08-19（Advancer tick） | 第 5 步 todo 同步阻塞：`mcp__wb-issues__todo_statuses` / `todo_add_comment` 本会话工具列表不可用（ToolSearch 精确名未命中，deferred tools 无 wb-issues 前缀） | 1 | 记录不猜，留待具备 wb-issues MCP 的会话补做（I4-0 todo=rhb7Wp） |
 | 2026-08-19（研究阶段） | patch 指令未被执行 | 1 | lead 直接对终稿最小化 Edit |
 | 2026-08-19（研究阶段） | Ch2 论文归属误述 | 1 | 审稿退回 → 修订 → round2 PASS |
 | 2026-08-19（研究阶段） | Ch3 归因口径不一致 | 1 | 四分法统一 → round2 PASS |
