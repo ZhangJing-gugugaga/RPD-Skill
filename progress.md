@@ -139,3 +139,19 @@
 ---
 
 *Update after completing each phase or encountering errors*
+
+## Session: 2026-08-19（Advancer · I4-1 R-22 混合检索）
+
+### 本次会话：实现 R-22 混合检索 retriever.py + eval U 扩展
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `docs(I4-0): 记录 Verifier todo 同步阻塞 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-1（R-22 混合检索，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/retriever.py`（296 行）：exact 通道（R-11 兼容：整名/末段/inverted index 命中）+ BM25 通道（零依赖，CJK bigram）+ RRF 融合（k=60）+ 预算守卫（结果列表 ≤300 token）+ 向量通道打标 TODO（Q1 零依赖先行）
+  - `scripts/run-eval.py` Scenario U 扩展断言：精确命中 "Game" 排名第一且 channel=exact（R-11 不劣化）、预算 ≤300t、向量 TODO 注释在位、语义查询回退不崩
+  - `docs/rpd-v2-technical-spec.md` 附录 A：R-22 状态转正（草案 → 已落地）
+- **核心验收（真实运行）：** 中文语义查询 "支付重试逻辑" → #1 PaymentRetry（bm25）；精确查询 "PaymentRetry" → #1 PaymentRetry（exact）
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** scripts/retriever.py（新增）· scripts/run-eval.py（U 场景扩展）· docs/rpd-v2-technical-spec.md（R-22 转正）· progress.md（本日志）
+- **技术注记：** 零依赖环境 tree-sitter 不可用 → 生成器降级正则，`Game::update` 限定名方法不被正则解析（既有缺陷，不属本 tick 范围，已避免在 eval 断言依赖它；I4-2 边信息或 I4-8 可评估是否修）
+- **遗留：** 向量通道 TODO（需外部 embedding 依赖，按 Q1 冻结）；wb-issues MCP todo 同步仍不可用（同前轮）

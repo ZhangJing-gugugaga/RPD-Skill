@@ -732,7 +732,30 @@ def run_scenario_u():
         assert any("fingerprint" in v for v in meta["files"].values()), "fingerprints missing"
         assert meta.get("parser") in ("tree-sitter", "regex"), "parser not dual-path"
 
+        # R-22 hybrid retriever (I4-1): exact-name + BM25 + RRF + budget + vector TODO
+        # 1) exact-name hit must surface "Game" (R-11 not degraded)
+        rq = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "retriever.py"), tmpdir, "--query", "Game", "--top", "5", "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rq.returncode == 0, "retriever crashed: " + rq.stderr
+        rq_out = json.loads(rq.stdout)
+        assert rq_out["ok"], rq_out
+        rq_names = [x["name"] for x in rq_out["results"]]
+        assert "Game" in rq_names, f"R-22 exact hit missing (R-11 degraded): {rq_names}"
+        assert rq_out["results"][0]["channel"] == "exact", "exact hit should rank first"
+        assert rq_out["budget"]["estimated_results_tokens"] <= 300, rq_out["budget"]
+        assert rq_out["channels"]["vector"]["enabled"] is False, "vector should be TODO (Q1)"
+        assert "TODO" in rq_out["channels"]["vector"]["note"], "vector TODO note missing"
+        # 2) CJK semantic query over Chinese doc comment must fall back gracefully
+        rq2 = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "retriever.py"), tmpdir,
+             "--query", "game update flow", "--top", "5", "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rq2.returncode == 0, "retriever crashed on semantic query: " + rq2.stderr
+        assert json.loads(rq2.stdout)["ok"], "semantic query not ok"
+
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
+        print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print("  ❌ FAILED: " + str(e))
