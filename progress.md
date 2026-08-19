@@ -257,3 +257,23 @@
 - **工具故障：** Edit/Write 持续报「Not logged in」（同前轮）→ Bash heredoc 多层转义（`\n` 变真实换行）造成 run-eval 语法破坏→ 终于采用 **base64 包装 + chr(10) 拼接** 等义修复（经验：嵌套 heredoc 写 python 字符串一律用 chr(10) 或 base64）
 - **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-4 todo=rsO1C9）
 - **下轮预期：** Verifier 复验 I4-4：7 项 0-trust + R-20 专项（eval 3i + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-4 complete
+
+## Session: 2026-08-20（Advancer · I4-5 R-23 渐进式暴露）
+
+### 本次会话：实现 R-23 渐进式暴露（exposure-guard.py 三层注入 + 深入追问闸门 + 任务级双预算）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-4): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-5（R-23 渐进式暴露，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/exposure-guard.py`（297 行）：三层暴露 L1 router 常驻（≤3000t）/ L2 entry 按需单条（≤300t）/ L3 语义摘要（≤500t，Q4）；深入追问闸门（DEEP_FOLLOWUP_TURNS=2，deep<N 越级拦截 blocked_reason=deep_followup_required + 降级提示）；任务级双预算（entries≤24 + tokens≤2000）；未解析/无 code-map 降级提示不崩溃；CLI `--l1/--entry/--summary --deep`
+  - `scripts/rpd-cold-start.py`（+48 行）：importlib 加载 exposure-guard（同 R-25 模式，失败降级 no-op stub）；step04 增 `exposure_layers` 报告（checked/L1-L3 allowed+limit+est/task_budget）
+  - `scripts/run-eval.py` Scenario U 3j（+54 行）：3j-1 L1≤3000t 允许 / 3j-2 L2≤300t 解析 / 3j-3 L3 deep=0 拦截 / 3j-4 L3 deep=2 放行≤500t / 3j-5 未解析降级 / 3j-6 双预算 ok / 3j-7 cold-start exposure_layers checked
+  - `docs/rpd-v2-technical-spec.md`：新增 §3.8 渐进式暴露（三层/双预算/实现/降级）+ 附录 A R-23 转正
+- **核心验收（eval 3j 真实运行）：** L1 allowed 246t≤3000t；L2 Game 30t≤300t；L3 deep=0 blocked(deep_followup_required) → deep=2 allowed 39t≤500t；未解析 NoSuchSymbolXYZ 降级；task_budget entries=2≤24/tokens=69≤2000 ok；cold-start step04 exposure_layers checked=True
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；3j 断言行实际执行 ✅ R-23 exposure）
+- **Files modified:** scripts/exposure-guard.py（新增 297）· scripts/rpd-cold-start.py（+48）· scripts/run-eval.py（+54）· docs/rpd-v2-technical-spec.md（+8）· progress.md（本日志）
+- **commit：** `56076ca` feat(I4-5): R-23 渐进式暴露（三层注入 + 深入追问闸门 + 任务级双预算） [advancer]
+- **工具故障：** Write/Edit 仍报 Not logged in（同前轮）→ 分段 heredoc + python 补丁脚本完成（等义 Edit/Write，带唯一命中断言）；bash mktemp -d 路径 Windows Python 不识别 → 改用 python tempfile 驱动冒烟测试
+- **技术注记：** 冒烟测试发现 run_exposure 首版不支持独立 --entry（L2 仅随 summary 构建）→ 补丁加 entry_symbol 参数修复；3i-4 删 .rpd 后 3j 需先重生成 code-map
+- **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-5 todo=rvXVu0）
+- **下轮预期：** Verifier 复验 I4-5：7 项 0-trust + R-23 专项（eval 3j + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-5 complete
