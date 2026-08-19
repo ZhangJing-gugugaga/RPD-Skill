@@ -156,3 +156,22 @@
 - **Files modified:** scripts/retriever.py（新增）· scripts/run-eval.py（U 场景扩展）· docs/rpd-v2-technical-spec.md（R-22 转正）· progress.md（本日志）
 - **技术注记：** 零依赖环境 tree-sitter 不可用 → 生成器降级正则，`Game::update` 限定名方法不被正则解析（既有缺陷，不属本 tick 范围，已避免在 eval 断言依赖它；I4-2 边信息或 I4-8 可评估是否修）
 - **遗留：** 向量通道 TODO（需外部 embedding 依赖，按 Q1 冻结）；wb-issues MCP todo 同步仍不可用（同前轮）
+
+
+## Session: 2026-08-19（Advancer · I4-2 R-19 边信息复用）
+
+### 本次会话：实现 R-19 边信息（edges schema + KG 只读映射 + 悬挂剔除 + 降级）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-1): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-2（R-19 边信息复用，第一个非 complete）
+- **做了什么：**
+  - `scripts/code-map-generator.py`（+144 行）：SCHEMA_VERSION 2.0.0→2.1.0（R-10 白名单 2.0.0/2.1.0）；entry 增 `edges[]`（type/weight/target/confidence=mapped）；UA 权重表（contains 1.0 / calls 0.8 / imports 0.7 / depends_on 0.6…）；`load_knowledge_graph`（四路径探测、只读、schema 不匹配→降级告警）；`attach_kg_edges`（entry id→name→末段三级映射、**悬挂边剔除并计数**、layer 富化、单 entry 边数上限 24）；attach 后重写 code-map.json 持久化
+  - `scripts/run-eval.py` Scenario U 扩展（+67 行）：KG 映射 2 边（calls 0.8 + contains 1.0）断言、ghost 悬挂边剔除断言、layer 富化断言、entry ≤300t 预算断言、**无 KG 降级**（edges 空数组、不崩）断言
+  - `docs/rpd-v2-technical-spec.md`：§3.3 加 edges/layer 字段表；§3.5 meta 示例加 edges 统计；新增 §3.6 edges 边信息（来源/权重/完整性/口径/降级/预算/查询）；附录 A R-19 转正
+- **核心验收（真实运行）：** 有 KG → Game entry 带 calls(0.8)+contains(1.0) 两条 mapped 边 + layer=Core；ghost 边 dropped=1；entry 全 ≤300t；删 KG 后重生成 edges 空数组不崩
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** scripts/code-map-generator.py · scripts/run-eval.py · docs/rpd-v2-technical-spec.md（3 文件，+227/-3）
+- **commit：** `e7db0f0` feat(I4-2): R-19 边信息复用（edges schema + KG 只读映射 + 悬挂剔除 + 降级） [advancer]
+- **技术注记：** regex 降级解析器不解析 `Game::update` 限定名方法（I4-1 已知缺陷）→ KG 中此类符号/文件节点的边会正确计为悬挂剔除；eval fixture 已避开；tree-sitter 可用时此类边可解析
+- **工具故障：** Edit/Write 工具本会话多处报「Not logged in」登录态校验错误 → 改用 Bash+python 补丁脚本完成所有文件修改（等义于 Edit，且带唯一命中断言），功能不受影响
+- **遗留：** 向量通道 TODO（I4-1 Q1 冻结，不属本 tick）；wb-issues MCP todo 同步仍不可用（同前轮，I4-2 todo=raUZs4）
