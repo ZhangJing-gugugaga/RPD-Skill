@@ -175,3 +175,25 @@
 - **技术注记：** regex 降级解析器不解析 `Game::update` 限定名方法（I4-1 已知缺陷）→ KG 中此类符号/文件节点的边会正确计为悬挂剔除；eval fixture 已避开；tree-sitter 可用时此类边可解析
 - **工具故障：** Edit/Write 工具本会话多处报「Not logged in」登录态校验错误 → 改用 Bash+python 补丁脚本完成所有文件修改（等义于 Edit，且带唯一命中断言），功能不受影响
 - **遗留：** 向量通道 TODO（I4-1 Q1 冻结，不属本 tick）；wb-issues MCP todo 同步仍不可用（同前轮，I4-2 todo=raUZs4）
+
+## Session: 2026-08-19（Verifier · I4-2 部分完成，待继续）
+
+### 本次会话：7 项 0-trust 验证 → 判定 C（部分完成，不回滚）
+- **轮次闸门：** git log -1 = `docs(I4-2): progress 记录 R-19 边信息实现与 eval 19/19 [advancer]` → 属 Verifier 轮次 ✅；分支 automation/i4-l2 ✅
+- **验证对象：** commit e7db0f0（实现）+ 1ad0c5c（progress 记录），diff 范围 70b97fc..HEAD
+- **7 项检查结果：**
+  1. ✅ eval 全量：`python scripts/run-eval.py` → **19/19 PASS**（A~X，exit 0）
+  2. ✅ diff 审计：仅 4 文件（docs/rpd-v2-technical-spec.md +19 · progress.md +19 · scripts/code-map-generator.py +144 · scripts/run-eval.py +67），全在 I4-2「涉及文件」范围内；task_plan.md 的 Goal/Key Decisions/Phase 结构未动
+  3. ✅ 预算守卫：ROUTER_TOKEN_LIMIT=3000 / ENTRY_MAX_TOKENS=300 在位；EDGE_MAX_PER_ENTRY=24；attach 后 while 裁剪至 ≤300t（code-map-generator.py:858-860）
+  4. ✅ 红线机检：rpd-cold-start.py verified/unverified/stale + fingerprint 在位（:101-141）
+  5. ✅ 向后兼容：SCHEMA_VERSION 2.1.0 + SCHEMA_WHITELIST (2.0.0, 2.1.0)；无 KG → edges 空数组、生成器不崩（eval 3e 断言实证）
+  6. ✅ 计划一致性：task_plan.md I4-2 仍 pending（Advancer 未越权改状态）；progress 记录与 commit 内容一致
+  7. ✅ 无视觉/UI 改动
+- **未达成项（判定 C 依据）：** task_plan.md I4-2 勾选项「查询能力：谁调用 X / X 依赖谁 / X 属于哪个架构层」未实现：
+  - `scripts/retriever.py` 全文无 `edges`/`layer` 消费（grep 零命中，仅 exact/BM25/RRF 通道）
+  - `scripts/code-map-generator.py` 无查询 CLI（main 仅生成 map）
+  - eval U 扩展断言覆盖数据映射（edges 映射/悬挂剔除/layer 富化/预算/降级）但**无查询断言**
+  - 验收标准「层2 entry 可回答依赖/调用/归属三类问题」仅数据层达成（edges+layer 落盘），查询层缺失
+- **处置：** 不回滚（改动正确）、不标 complete（验收未全达成）；保留 Advancer 成果；只 git add progress.md
+- **commit：** `verify(I4-2): 部分完成，待继续 查询能力（谁调用X/依赖/归属）未实现 [verifier]`
+- **下轮预期：** Advancer 接手 I4-2 剩余项——补 edges 查询能力（retriever 或独立查询入口 + eval 查询断言），完成后 Verifier 再验证
