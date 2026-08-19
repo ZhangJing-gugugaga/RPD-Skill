@@ -217,3 +217,23 @@
 - **处置：** 不回滚（改动正确）、不标 complete（验收未全达成）；保留 Advancer 成果；只 git add progress.md
 - **commit：** `verify(I4-2): 部分完成，待继续 查询能力（谁调用X/依赖/归属）未实现 [verifier]`
 - **下轮预期：** Advancer 接手 I4-2 剩余项——补 edges 查询能力（retriever 或独立查询入口 + eval 查询断言），完成后 Verifier 再验证
+
+## Session: 2026-08-19（Advancer · I4-3 R-25 依赖版本锁定）
+
+### 本次会话：实现 R-25 依赖版本锁定（清单快照 + 复合指纹 + 漂移检测 + 三级信任衔接）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-2): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-3（R-25 依赖版本锁定，第一个非 complete）
+- **做了什么：**
+  - `scripts/code-map-generator.py`（+84 行）：`DEPENDENCY_MANIFESTS`（21 种清单：package*.json / requirements / pyproject / Cargo / go.mod / CMakeLists 等，深度 ≤2）+ `dependency_snapshot()`（逐清单 sha256 + 复合指纹）+ `check_dependency_drift()`（指纹比对 missing/fingerprint_mismatch，无快照降级 checked:False 不崩）；meta 增 `dependencies`（detected/files/fingerprint）；generate_map 报告增 `dependency_drift`；漂移时 stderr 提示重新生成图谱
+  - `scripts/rpd-cold-start.py`（+34 行）：importlib 加载连字符文件名模块（降级 no-op stub）；红线机检 `redline_check` 增第 3 支柱 `dependency_drift`；freshness 行漂移时追加 "⚠️ 依赖漂移 … 请重新生成图谱"（显式告警，不静默）
+  - `scripts/run-eval.py` Scenario U 3h（+75 行）：无清单→detected:False；建 package.json 重生成→快照+复合指纹在位；冷启动无漂移 ok；改版本→fingerprint_mismatch 漂移 + freshness 含告警；删清单→missing 漂移；旧 meta 无 dependencies→checked:False 降级不崩
+  - `docs/rpd-v2-technical-spec.md` 附录 A：R-25 转正（草案 → 已落地）
+- **核心验收（eval 3h 真实运行）：** 依赖清单创建/变更/删除三种漂移均可被检测并提示；无快照降级不崩；三级信任状态机不受影响
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** scripts/code-map-generator.py · scripts/rpd-cold-start.py · scripts/run-eval.py · docs/rpd-v2-technical-spec.md（4 文件，+193/-2）
+- **commit：** `61908d4` feat(I4-3): R-25 依赖版本锁定（依赖清单快照 + 复合指纹 + 漂移检测集成冷启动红线机检） [advancer]
+- **工具故障：** Edit/Write 仍报「Not logged in」（同前轮）；Bash heredoc 中 `\n` 多层转义成真实换行 → 改用 `chr(10)` 等义修复（经验：嵌套 python - << 'EOF' 内嵌字符串转义要逐层核查）
+- **技术注记：** `code-map-generator.py` 连字符文件名无法普通 import → cold-start 用 importlib.util.spec_from_file_location 加载，失败降级 no-op stub（eval 3h 断言覆盖）
+- **遗留：** wb-issues MCP todo 同步仍不可用（同前轮，I4-3 todo=rnAxRa）；向量通道 TODO（Q1 冻结）
+- **下轮预期：** Verifier 复验 I4-3：7 项 0-trust + R-25 专项（eval 3h + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-3 complete
