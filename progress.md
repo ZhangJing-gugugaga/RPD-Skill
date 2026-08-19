@@ -118,6 +118,7 @@
 | I4-2 Verifier 验证（68e0f4e） | 7 项 0-trust 检查 + I4-2 验收（查询能力补齐） | 19/19 PASS + 三类查询可达 + 白名单/降级不崩 | eval 19/19（exit 0，含 Scenario U 3f/3g）· diff 仅 spec(+2)/progress/retriever.py(+151)/run-eval.py(+46) 4 文件，task_plan 未动 · 预算守卫 3000/300/300+EDGE_MAX=24 在位 · 三级信任+stale 在位 · SCHEMA 2.1.0+白名单(2.0.0,2.1.0)+降级在位 · 验收实测（真实项目+KG）：who-calls helper→Game(calls 0.8) / deps-of Game→main(contains 1.0)+helper(calls 0.8) / layer-of Game→Core / 未解析→resolved:false 空结果 | ✅ 2026-08-19 判定A |
 | I4-3 Verifier 验证（61908d4+eb9f56c） | 7 项 0-trust 检查 + I4-3 验收（R-25 依赖锁定） | 19/19 PASS + 快照/漂移/降级均实测 + 红线机检不回归 | eval 19/19（exit 0，含 Scenario U 3h）· diff 仅 code-map-generator(+84)/rpd-cold-start(+34)/run-eval(+75)/spec(1 行)/progress 5 文件，task_plan 未动 · 预算守卫 3000/300 在位 · 三级信任+stale 在位（dependency_drift 为增量第 3 支柱，非回归）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · R-25 专项实测（真实 C++ 项目+package.json）：快照 detected=True+fingerprint / 无漂移 ok / 改版本→fingerprint_mismatch+freshness 含"依赖漂移"告警 / 删清单→missing / 旧 meta 无 dependencies→checked=False 降级不崩 | ✅ 2026-08-19 判定A |
 | I4-4 Verifier 验证（4076938） | 7 项 0-trust 检查 + I4-4 验收（R-20 PRD↔代码影响） | 19/19 PASS + 双向映射/1-hop/blast/降级均实测 + 预算守卫/兼容不回归 | eval 19/19（exit 0，含 Scenario U 3i）· diff 仅 impact-analyzer.py(新增429)/run-eval(+77)/spec(+9)/progress(+18) 4 文件，task_plan 未动 · 预算守卫 3000/300 未回归 + impact RESULT_MAX_TOKENS=300 · 三级信任+stale 在位（:126-170）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · R-20 专项实测（真实 C++ 项目+真实 PRD+KG）：PRD→code changed=Game(layer Core)+1-hop=helper/main(edges 涌出)+blast Medium / code→PRD Game 反查命中 feature+page / 未解析 resolved:false 不猜 / 无 code-map 降级直扫 game.cpp/game.h / 缺 PRD ok:false 不崩 / 载荷 182t·77t·153t ≤300t | ✅ 2026-08-19 判定A |
+| I4-5 Verifier 验证（56076ca+d8e713a） | 7 项 0-trust 检查 + I4-5 验收（R-23 渐进式暴露） | 19/19 PASS + 三层注入/追问闸门/双预算/降级均实测 + I0~I3 不回归 | eval 19/19（exit 0，含 Scenario U 3j 断言行）· diff 仅 exposure-guard.py(新增307)/rpd-cold-start(+48)/run-eval(+54)/spec(+8)/progress(+20) 5 文件，task_plan 未动 · 预算守卫 3000/300 未回归 + 新增 L3 500t(Q4) + 双预算 24条/2000t · 三级信任+stale 在位（:169-213 未回归）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · R-23 专项实测（真实 C++ 项目）：L1 241t≤3000t / L2 Game 30t≤300t resolved / L3 deep=0 拦截(deep_followup_required) / L3 deep=2 放行 39t≤500t / 双预算 entries=2≤24 tokens=69≤2000 ok / 未解析 NoSuchSymbolXYZ 降级不猜 / cold-start exposure_layers checked:true（无 code-map 走 no_router 降级不崩） | ✅ 2026-08-20 判定A |
 
 ## Error Log
 
@@ -277,3 +278,23 @@
 - **技术注记：** 冒烟测试发现 run_exposure 首版不支持独立 --entry（L2 仅随 summary 构建）→ 补丁加 entry_symbol 参数修复；3i-4 删 .rpd 后 3j 需先重生成 code-map
 - **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-5 todo=rvXVu0）
 - **下轮预期：** Verifier 复验 I4-5：7 项 0-trust + R-23 专项（eval 3j + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-5 complete
+
+## Session: 2026-08-20（Verifier · I4-5 判定 A）
+
+### 本次会话：7 项 0-trust 验证 → 判定 A（complete）
+- **轮次闸门：** git log -1 = `docs(I4-5): progress 记录 R-23 渐进式暴露实现与 eval 19/19 [advancer]` → 属 Verifier 轮次 ✅；分支 automation/i4-l2 ✅
+- **验证对象：** commit 56076ca（实现）+ d8e713a（progress），diff 范围 b92e48c..HEAD
+- **7 项检查结果：**
+  1. ✅ eval 全量：`python scripts/run-eval.py` → **19/19 PASS**（A~X，exit 0；Scenario U 3j 断言行实际打印 "R-23 exposure: 3-layer progressive + deep follow-up gate + dual budget + cold-start report"）
+  2. ✅ diff 审计：仅 5 文件（scripts/exposure-guard.py 新增 307 · scripts/rpd-cold-start.py +48 · scripts/run-eval.py +54 · docs/rpd-v2-technical-spec.md +8 · progress.md +20），全在 I4-5「涉及文件」范围（SKILL.md 未动——三层暴露落在 exposure-guard.py 独立模块，注入策略由 cold-start 集成）；task_plan.md 的 Goal/Key Decisions/Phase 结构未动
+  3. ✅ 预算守卫：ROUTER_TOKEN_LIMIT=3000 / ENTRY_MAX_TOKENS=300 未回归（code-map-generator.py:46-49）；新增 SUMMARY_MAX_TOKENS=500（Q4）+ TASK_ENTRY_BUDGET=24 + TASK_TOKEN_BUDGET=2000（exposure-guard.py:45-49）
+  4. ✅ 红线机检：三级信任 verified/unverified/stale + fingerprint 在位（rpd-cold-start.py:169-213），新增 exposure 为独立函数不触碰 redline_check 逻辑
+  5. ✅ 向后兼容：SCHEMA_VERSION 2.1.0 + SCHEMA_WHITELIST (2.0.0, 2.1.0) 在位（code-map-generator.py:50,62）；无 code-map → exposure 各层 no_code_map 降级提示不崩（冷启动实测 exposure checked:true 走降级）
+  6. ✅ 计划一致性：task_plan.md I4-5 仍 pending（Advancer 未越权改状态）；progress 记录与 commit 内容一致
+  7. ✅ 无视觉/UI 改动；R-23 专项用真实 C++ 项目（独立 fixture）+ 真实 code-map 复测
+- **R-23 专项实测（0-trust 手动复跑，真实 C++ 项目 + 真实 code-map，.workbuddy/tmp/r23-verify-*/）**：L1 allowed 241t≤3000t / L2 Game resolved 30t≤300t / L3 deep=0 → blocked(deep_followup_required) / L3 deep=2 → allowed 39t≤500t / task_budget entries=2≤24 tokens=69≤2000 ok / 未解析 NoSuchSymbolXYZ → L2 resolved:false + L3 blocked(unresolved) 不猜 —— 全部通过
+- **验收标准核对：** ①冷启动注入不超预算（L1 241t≤3000t）✅ ②双预算守卫生效（24 条/2000t 实测）✅ ③I0~I3 既有行为不回归（eval A~W 全过）✅
+- **处置：** 判定 A —— task_plan.md I4-5 Status → complete（仅状态标记）；progress.md Test Results 追加验证行（真实数字）
+- **commit：** `verify(I4-5): 7 项 0-trust 全过 [verifier]`（仅 add task_plan.md progress.md）
+- **经验：** ①R-23 三层预算 3000/300/500 与 TAM 三重预算对齐，Q4「深入追问=2 轮」落地为 DEEP_FOLLOWUP_TURNS 常量；②exposure-guard 复用 retriever 的 resolve_symbol/load_code_map/estimate_tokens，standalone 降级 stub 与 I4-2/I4-3 同族模式（importlib 加载连字符文件名）；③cold-start 集成 exposure_layers 走「独立函数 + importlib + 异常降级」三保险，红线机检主体不受影响
+- **下轮预期：** Advancer 接手 I4-6（R-21 L0-L3 分层记忆）
