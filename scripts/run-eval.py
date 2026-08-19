@@ -754,8 +754,75 @@ def run_scenario_u():
         assert rq2.returncode == 0, "retriever crashed on semantic query: " + rq2.stderr
         assert json.loads(rq2.stdout)["ok"], "semantic query not ok"
 
+        # 3) R-19 (I4-2): knowledge-graph edges mapped onto entries (read-only reuse)
+        #    + reference-integrity (dangling dropped) + degrade when no KG.
+        # NOTE: regex fallback parser does not resolve qualified methods (Game::update)
+        # - an existing known limitation (I4-1). KG edges for such symbols or file
+        # nodes correctly count as dangling (reference-integrity drop), so this
+        # fixture only uses regex-parsable symbols (Game/helper/main).
+        kg_path = os.path.join(tmpdir, ".claude", "knowledge-graph.json")
+        os.makedirs(os.path.join(tmpdir, ".claude"), exist_ok=True)
+        kg = {
+            "nodes": [
+                {"id": "sym:Game", "name": "Game", "layer": "Core"},
+                {"id": "sym:helper", "name": "helper"},
+                {"id": "sym:main", "name": "main"},
+                {"id": "sym:ghost", "name": "ghost"},
+            ],
+            "edges": [
+                {"from": "sym:Game", "to": "sym:helper", "type": "calls", "weight": 0.8},
+                {"from": "sym:Game", "to": "sym:main", "type": "contains", "weight": 1.0},
+                {"from": "sym:ghost", "to": "sym:Game", "type": "depends_on", "weight": 0.6},
+            ],
+        }
+        with open(kg_path, "w", encoding="utf-8") as f:
+            json.dump(kg, f)
+
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "regenerate with KG failed: " + r.stderr
+        cmap2 = json.load(open(os.path.join(rpd, "code-map.json"), encoding="utf-8"))
+        meta2 = json.load(open(os.path.join(rpd, "code-map.meta.json"), encoding="utf-8"))
+
+        # 3a) meta records edge mapping + dangling drop (reference integrity)
+        ua = meta2.get("understand_anything", {})
+        assert ua.get("detected") is True, "KG should be detected: " + str(ua)
+        assert ua.get("edges_total") == 3, "expected 3 KG edges, got: " + str(ua)
+        assert ua.get("dangling_dropped") == 1, "ghost edge (no code-map target) must be dropped: " + str(ua)
+        assert ua.get("edges_mapped") == 2, "expected 2 mapped edges, got: " + str(ua)
+
+        # 3b) entry carries edges with confidence=mapped + weight from KG
+        game_h_entries = [e for e in cmap2["entries"].values() if e["name"] == "Game"]
+        assert game_h_entries, "Game class entry missing after KG regen"
+        game_entry = game_h_entries[0]
+        assert game_entry.get("edges"), "Game should carry mapped edges: " + str(game_entry)
+        edge_types = {e["type"] for e in game_entry["edges"]}
+        assert "contains" in edge_types and "calls" in edge_types, "Game edges missing: " + str(edge_types)
+        assert all(e["confidence"] == "mapped" for e in game_entry["edges"]),             "all KG-mapped edges must be confidence=mapped"
+        contains_w = next(e["weight"] for e in game_entry["edges"] if e["type"] == "contains")
+        assert contains_w == 1.0, "contains weight should be 1.0, got: " + str(contains_w)
+        calls_w = next(e["weight"] for e in game_entry["edges"] if e["type"] == "calls")
+        assert calls_w == 0.8, "calls weight should be 0.8, got: " + str(calls_w)
+
+        # 3c) layer enrichment from KG node (architecture layer query support)
+        assert game_entry.get("layer") == "Core", "layer should be Core: " + str(game_entry.get("layer"))
+
+        # 3d) entry token budget still enforced after edge attach
+        for eid, entry in cmap2["entries"].items():
+            est = (len(json.dumps(entry, ensure_ascii=False, separators=(",", ":"))) // 4)
+            assert est <= 300, "entry over 300t after edges: " + eid
+
+        # 3e) degrade path: no KG -> generator still works, no edges, no crash
+        os.remove(kg_path)
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "regen without KG failed: " + r.stderr
+        cmap3 = json.load(open(os.path.join(rpd, "code-map.json"), encoding="utf-8"))
+        assert all(e.get("edges", []) == [] for e in cmap3["entries"].values()),             "no KG -> entries must have empty edges"
+
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
+        print("  ✅ R-19 edges: KG map + dangling drop + layer enrich + budget + degrade")
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print("  ❌ FAILED: " + str(e))

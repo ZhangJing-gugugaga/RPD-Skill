@@ -236,6 +236,8 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
 | `doc` | ⭕ | 单行摘要（生成器从注释/文档提取，缺失则为空） |
 | `calls[]` | ✅（至少空数组） | 候选调用边，每边必须带 `confidence`（§3.4） |
 | `called_by[]` | ⭕ | 反向候选调用边（生成器计算，可能缺失） |
+| `edges[]` | ⭕（默认空数组） | R-19 复用 knowledge-graph 的边（类型/权重/目标 entry），每边带 `confidence: mapped`（§3.6） |
+| `layer` | ⭕ | R-19 架构层归属（从 knowledge-graph 节点可选富化，如 API/Service/Data/UI/Utility） |
 | `doc_refs[]` | ⭕ | 关联文档（README/CHANGELOG/决策文档），供 M3 定位 |
 
 ### 3.4 calls 边的对外口径（R-06，硬约束）
@@ -281,10 +283,23 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
   "understand_anything": {
     "detected": false,               // 兼容读取（R-10，§11）
     "reused": false,
-    "source_path": null
+    "source_path": null,
+    "edges_total": 0,                // R-19 边统计（有 KG 时）
+    "edges_mapped": 0,
+    "dangling_dropped": 0
   }
 }
 ```
+
+### 3.6 edges 边信息（R-19，Q2：仅复用）
+
+- **来源**：只读复用 understand-anything 的 `knowledge-graph.json`（探测路径同 §5.1，`.claude/` → `.workbuddy/` → 项目根 → `.rpd/`），**绝不写入该文件**（R-10 只读）。
+- **边类型与权重**：采用 UA 权重约定——`contains` 1.0 / `inherits`·`implements` 0.9 / `calls`·`exports` 0.8 / `imports` 0.7 / `depends_on` 0.6 / `tested_by` 0.5，其余默认 0.5；KG 自带 `weight` 字段时优先使用。
+- **映射与完整性**：KG 边源/目标经 entry id → name → 末段三级解析映射到 code-map entry；**悬挂边**（源或目标无对应 entry）**剔除**并在 meta 中计数（`dangling_dropped`），不静默。
+- **对外口径**：KG 边以 `confidence: mapped` 标注，与 calls/called_by（`resolved`/`heuristic`，§3.4）**语义隔离**；不宣称与 UA 同源等价。
+- **降级**：无 KG 或 schema 不兼容 → entry `edges` 为空数组，生成器正常完成（首条输出显式告警模板见 §5.3）。
+- **预算**：每条 entry 附加边后仍受 ≤300 token 硬约束（超限裁剪 edges）；单 entry 边数上限 24。
+- **查询能力**：层2 entry 可回答「谁调用 X / X 依赖谁 / X 属于哪个架构层」（沿 edges 邻接跳转 + layer 字段）。
 
 ---
 
@@ -669,7 +684,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-16 | 多语言 | P2 | I5（不排期） |
 | R-17 | parking-lot | P2 | I5（不排期） |
 | R-18 | 多会话并发冲突（进程级物理锁兜底） | P1 | 已落地（state-guard ProjectStateMutex） |
-| R-19 | 边信息复用（节点-边最小图：edges schema + R-10 knowledge-graph.json 映射 + 查询） | P1 | I4（2026-08-19 起草，验收后转正） |
+| R-19 | 边信息复用（节点-边最小图：edges schema + R-10 knowledge-graph.json 映射 + 查询） | P1 | 已落地（scripts/code-map-generator.py：entry.edges + layer，悬挂剔除 + 降级不崩） |
 | R-20 | PRD↔代码影响分析（impact-analyzer：changedNodes/affectedNodes/受影响层 + 风险分级） | P1 | I4（2026-08-19 起草，验收后转正） |
 | R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | I4（2026-08-19 起草，验收后转正） |
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |

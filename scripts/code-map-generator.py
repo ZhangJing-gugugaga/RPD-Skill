@@ -47,8 +47,20 @@ ROUTER_TOKEN_LIMIT = 3000          # hard: <=3k token
 ROUTER_PCT_LIMIT = 15              # hard: <=15% of codebase
 AVG_TOKENS_PER_LINE = 10           # codebase token estimate: lines * 10
 ENTRY_MAX_TOKENS = 300             # single entry <=300 token
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"           # +edges/+layer (optional fields; readers whitelist 2.0.0/2.1.0)
 GENERATOR_VERSION = "2.1.0"
+
+# --- R-19 edge info: UA weight conventions + internal defaults (Q2: reuse only) ---
+KG_EDGE_WEIGHTS = {
+    "contains": 1.0, "inherits": 0.9, "implements": 0.9,
+    "calls": 0.8, "exports": 0.8, "imports": 0.7,
+    "depends_on": 0.6, "tested_by": 0.5,
+}
+DEFAULT_EDGE_WEIGHT = 0.5
+INTERNAL_CALL_WEIGHT = 0.8
+EDGE_MAX_PER_ENTRY = 24            # per-entry edge bound (hard 300t still enforced after attach)
+SCHEMA_WHITELIST = ("2.0.0", "2.1.0")   # R-10: old maps keep working
+KG_NODE_LAYER_FIELDS = ("layer", "arch_layer", "architecture_layer", "tier")
 
 # --- Source file extensions (primary: C/C++; others treated as unindexed) ---
 C_EXTENSIONS = {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"}
@@ -370,6 +382,7 @@ def build_entries(source_files, project_root):
                 "doc": raw.get("doc", ""),
                 "calls": [],
                 "called_by": [],
+                "edges": [],
                 "doc_refs": [],
             }
             # Resolve calls against raw_by_name (within-file) -> resolved; else heuristic
@@ -615,6 +628,122 @@ def build_meta(project_root, entries, per_file, router, parser_used, head_commit
     return meta
 
 
+def _node_id(node, key):
+    """Extract a node/edge id-ish field defensively (UA schema is not public)."""
+    if not isinstance(node, dict):
+        return None
+    for k in (key, "name", "id", "key", "path"):
+        v = node.get(k)
+        if isinstance(v, str) and v:
+            return v
+    return None
+
+
+def _lookup_entry(entries, kg_id, name=None):
+    """Map a KG node reference to a code-map entry id (defensive, Q2).
+
+    Priority: exact entry id -> exact name -> bare last segment -> None.
+    """
+    if kg_id and kg_id in entries:
+        return kg_id
+    if name:
+        for eid, e in entries.items():
+            if e.get("name") == name:
+                return eid
+        seg = name.split("::")[-1]
+        hits = [eid for eid, e in entries.items() if e.get("name") == seg]
+        if hits:
+            return hits[0]
+    return None
+
+
+def load_knowledge_graph(project_root):
+    """R-19/Q2: read-only load of UA knowledge-graph.json. Returns (kg, warnings).
+
+    kg is None when not found or structurally unusable (degrade path).
+    Never writes to the file (R-10 read-only).
+    """
+    candidates = [
+        project_root / ".claude" / "knowledge-graph.json",
+        project_root / ".workbuddy" / "knowledge-graph.json",
+        project_root / "knowledge-graph.json",
+        project_root / ".rpd" / "knowledge-graph.json",
+    ]
+    warnings = []
+    for cand in candidates:
+        if not cand.is_file():
+            continue
+        try:
+            data = json.loads(smart_read(str(cand)))
+        except Exception:
+            warnings.append("knowledge-graph.json unreadable at %s" % cand)
+            continue
+        if not isinstance(data, dict) or not isinstance(data.get("edges"), list):
+            warnings.append("knowledge-graph.json schema mismatch at %s" % cand)
+            continue
+        return data, warnings
+    return None, warnings
+
+
+def attach_kg_edges(entries, kg):
+    """Map KG edges onto code-map entries (read-only, reference-integrity checked).
+
+    Dangling edges (source or target without a code-map entry) are dropped and
+    counted; edges are bounded per entry and labeled confidence=mapped
+    (R-06 calls/called_by semantics are untouched).
+    """
+    nodes = kg.get("nodes") or []
+    id2entry = {}
+    for n in nodes:
+        kid = _node_id(n, "id")
+        if kid:
+            id2entry[kid] = _lookup_entry(entries, kid, n.get("name"))
+    stats = {"edges_total": 0, "edges_mapped": 0, "dangling_dropped": 0, "dropped_by_budget": 0}
+    for e in kg.get("edges") or []:
+        if not isinstance(e, dict):
+            continue
+        stats["edges_total"] += 1
+        src = _node_id(e, "from") or _node_id(e, "source") or _node_id(e, "src")
+        dst = _node_id(e, "to") or _node_id(e, "target") or _node_id(e, "dst")
+        etype = e.get("type") or e.get("relation") or e.get("kind") or "unknown"
+        src_id = id2entry.get(src) or _lookup_entry(entries, src)
+        dst_id = id2entry.get(dst) or _lookup_entry(entries, dst)
+        if not src_id or not dst_id:
+            stats["dangling_dropped"] += 1
+            continue
+        weight = e.get("weight")
+        if not isinstance(weight, (int, float)):
+            weight = KG_EDGE_WEIGHTS.get(str(etype).lower(), DEFAULT_EDGE_WEIGHT)
+        edge = {
+            "type": str(etype).lower(),
+            "weight": round(float(weight), 2),
+            "target": dst_id,
+            "confidence": "mapped",
+        }
+        entry = entries[src_id]
+        if len(entry.get("edges", [])) >= EDGE_MAX_PER_ENTRY:
+            stats["dropped_by_budget"] += 1
+            continue
+        entry.setdefault("edges", []).append(edge)
+        stats["edges_mapped"] += 1
+    # layer assignment from KG nodes (optional enrichment)
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        kid = _node_id(n, "id")
+        eid = id2entry.get(kid) or _lookup_entry(entries, kid, n.get("name"))
+        if not eid:
+            continue
+        layer_v = None
+        for f in KG_NODE_LAYER_FIELDS:
+            if isinstance(n.get(f), str) and n[f]:
+                layer_v = n[f]
+                break
+        if layer_v and not entries[eid].get("layer"):
+            entries[eid]["layer"] = layer_v
+    return stats
+
+
 def detect_understand_any(project_root):
     """R-10: detect knowledge-graph.json (reuse/degrade, never writes it)."""
     candidates = [
@@ -723,6 +852,19 @@ def generate_map(project_root, incremental=False):
     write_atomic(root, "code-map.router.json", router)
 
     ua = detect_understand_any(root)
+    kg, kg_warnings = load_knowledge_graph(root)
+    if kg is not None:
+        kg_stats = attach_kg_edges(entries, kg)
+        # hard entry budget (R-07): trim edges until each entry <=300t
+        for eid, entry in entries.items():
+            while estimate_tokens(entry) > ENTRY_MAX_TOKENS and entry.get("edges"):
+                entry["edges"].pop()
+        ua["edges_mapped"] = kg_stats["edges_mapped"]
+        ua["edges_total"] = kg_stats["edges_total"]
+        ua["dangling_dropped"] = kg_stats["dangling_dropped"]
+        ua["kg_warnings"] = kg_warnings
+        # code-map.json was written before attach; rewrite with edges persisted
+        write_atomic(root, "code-map.json", code_map)
     meta = build_meta(root, entries, per_file, router, parser_used, head, ua)
     ts = router["budget"].get("trimmed_symbols", 0)
     tf = router["budget"].get("trimmed_files", 0)
