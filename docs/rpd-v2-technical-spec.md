@@ -300,6 +300,8 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
 - **降级**：无 KG 或 schema 不兼容 → entry `edges` 为空数组，生成器正常完成（首条输出显式告警模板见 §5.3）。
 - **预算**：每条 entry 附加边后仍受 ≤300 token 硬约束（超限裁剪 edges）；单 entry 边数上限 24。
 - **查询能力**：层2 entry 可回答「谁调用 X / X 依赖谁 / X 属于哪个架构层」（沿 edges 邻接跳转 + layer 字段）。
+  查询入口：`python retriever.py <root> --who-calls <symbol> | --deps-of <symbol> | --layer-of <symbol> [--json]`；
+  符号经 entry id → name → 末段三级解析，未解析时返回 `resolved: false` 空结果（不猜测）；每条查询结果集仍受 ≤300 token 预算守卫。
 
 ---
 

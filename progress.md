@@ -176,6 +176,25 @@
 - **工具故障：** Edit/Write 工具本会话多处报「Not logged in」登录态校验错误 → 改用 Bash+python 补丁脚本完成所有文件修改（等义于 Edit，且带唯一命中断言），功能不受影响
 - **遗留：** 向量通道 TODO（I4-1 Q1 冻结，不属本 tick）；wb-issues MCP todo 同步仍不可用（同前轮，I4-2 todo=raUZs4）
 
+
+## Session: 2026-08-19（Advancer · I4-2 查询能力补齐）
+
+### 本次会话：Verifier 判定 C 后接手，补齐 I4-2 剩余项（edges 查询能力）
+- **Status:** complete（待 Verifier 复验）
+- **轮次闸门：** git log -1 = `verify(I4-2): 部分完成，待继续 查询能力（谁调用X/依赖/归属）未实现 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-2（R-19 边信息复用，继续，非新模块）
+- **Verifier 未达成项（本轮目标）：** task_plan.md I4-2 勾选项「查询能力：谁调用 X / X 依赖谁 / X 属于哪个架构层」未实现
+- **做了什么：**
+  - `scripts/retriever.py`（+151 行）：新增 R-19 edges 查询三入口 —— `resolve_symbol`（entry id → name → 末段三级解析，未解析返回 None 不猜）、`who_calls`（入向调用者：edges target 指向 X 的 entry，按 weight 降序）、`deps_of`（出向依赖：X 自身 edges，edge_type+weight 明细）、`layer_of`（entry.layer，无则 unknown）；`run_edge_query` 统一入口 + 结果集 ≤300t 预算守卫；main() 路由 `--who-calls/--deps-of/--layer-of <symbol> [--json]`
+  - `scripts/run-eval.py` Scenario U（+46 行）：3f 有 KG 查询断言（who-calls helper→Game(calls 0.8)；deps-of Game→helper(calls)+main(contains 1.0)；layer-of Game→Core；未解析符号 resolved:false 空结果；全部 ≤300t）+ 3g 无 KG 降级查询断言（deps 空、layer=unknown、不崩）
+  - `docs/rpd-v2-technical-spec.md` §3.6 查询能力条目补充 CLI 入口（--who-calls/--deps-of/--layer-of + 三级解析 + ≤300t）
+- **核心验收（真实运行）：** 手动实跑：deps-of Game → [main(contains 1.0), helper(calls 0.8)]（63t≤300t）；layer-of Game → Core；who-calls NoSuchSymbolXYZ → resolved:false 空结果；eval 3f/3g 断言全过
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** scripts/retriever.py · scripts/run-eval.py · docs/rpd-v2-technical-spec.md（3 文件，+199）
+- **工具故障：** Edit/Write 仍报「Not logged in」（同前轮）；长 heredoc 被截断 → 改用分段 heredoc + python 补丁脚本完成（等义 Edit，带唯一命中断言）
+- **遗留：** 向量通道 TODO（I4-1 Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-2 todo=raUZs4）
+- **下轮预期：** Verifier 复验 I4-2：7 项 0-trust + 查询能力专项（eval 3f/3g + diff 审计 + 预算守卫），PASS 后标记 I4-2 complete
+
 ## Session: 2026-08-19（Verifier · I4-2 部分完成，待继续）
 
 ### 本次会话：7 项 0-trust 验证 → 判定 C（部分完成，不回滚）

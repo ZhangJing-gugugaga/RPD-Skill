@@ -14,6 +14,14 @@ Budget guard (R-07): result list truncated to <= RESULT_MAX_TOKENS.
 
 Usage:
   python retriever.py <project-root> --query "payment retry" [--top 5] [--json]
+  python retriever.py <project-root> --who-calls <symbol> [--json]   (R-19 edges)
+  python retriever.py <project-root> --deps-of  <symbol> [--json]   (R-19 edges)
+  python retriever.py <project-root> --layer-of <symbol> [--json]   (R-19 layer)
+
+R-19 edge queries answer three questions over the mapped graph:
+  - who-calls : entries whose edges point to <symbol> (incoming callers)
+  - deps-of   : <symbol> own edges (outgoing dependencies)
+  - layer-of  : <symbol> architecture layer (entry.layer, or via contains parent)
 
 Exit codes: 0 success; 1 usage error / code-map.json missing.
 NOTE: .rpd/code-map.json is READ-ONLY here.
@@ -223,6 +231,120 @@ def enforce_budget(results, limit=RESULT_MAX_TOKENS):
     return kept
 
 
+# --- R-19 edge queries (who-calls / deps-of / layer-of) ----------------------
+#
+# The three questions I4-2 must answer over the mapped graph:
+#   - "who calls X"        -> entries whose edges point AT X (incoming callers)
+#   - "X depends on whom"  -> X's own edges (outgoing dependencies)
+#   - "which layer is X in"-> entry.layer (enriched from KG node), else "unknown"
+# Query routing is by CLI flag; falls back to exact-name resolution (same 3-level
+# mapping as the generator: entry id -> name -> bare last segment).
+
+
+def resolve_symbol(entries, symbol):
+    """Map a user-supplied symbol to an entry id (exact name first, then id,
+    then bare last segment). Returns None when unresolved (degrade, no guess)."""
+    s = (symbol or "").strip()
+    if not s:
+        return None
+    for eid, e in entries.items():
+        if e.get("name") == s:
+            return eid
+    if s in entries:
+        return s
+    seg = s.split("::")[-1]
+    hits = [eid for eid, e in entries.items() if e.get("name") == seg]
+    return hits[0] if hits else None
+
+
+def who_calls(entries, symbol, top_n=24):
+    """Incoming callers: entries whose edges target the resolved symbol."""
+    eid = resolve_symbol(entries, symbol)
+    if eid is None:
+        return {"ok": True, "symbol": symbol, "resolved": False, "results": []}
+    callers = []
+    for other_id, e in entries.items():
+        if other_id == eid:
+            continue
+        for edge in e.get("edges", []):
+            if edge.get("target") == eid:
+                callers.append({
+                    "id": other_id,
+                    "name": e.get("name", ""),
+                    "kind": e.get("kind", ""),
+                    "file": e.get("file", ""),
+                    "edge_type": edge.get("type", ""),
+                    "weight": edge.get("weight", 0),
+                })
+                break
+    callers.sort(key=lambda c: (-c["weight"], c["name"]))
+    return {
+        "ok": True, "symbol": symbol, "resolved": True,
+        "entry_id": eid, "count": len(callers),
+        "results": callers[:top_n],
+    }
+
+
+def deps_of(entries, symbol, top_n=24):
+    """Outgoing dependencies: the symbol's own edges (targets it depends on)."""
+    eid = resolve_symbol(entries, symbol)
+    if eid is None:
+        return {"ok": True, "symbol": symbol, "resolved": False, "results": []}
+    entry = entries.get(eid, {})
+    deps = []
+    for edge in entry.get("edges", []):
+        tgt = entries.get(edge.get("target", ""), {})
+        deps.append({
+            "id": edge.get("target", ""),
+            "name": tgt.get("name", edge.get("target", "")),
+            "kind": tgt.get("kind", ""),
+            "file": tgt.get("file", ""),
+            "edge_type": edge.get("type", ""),
+            "weight": edge.get("weight", 0),
+        })
+    deps.sort(key=lambda d: (-d["weight"], d["name"]))
+    return {
+        "ok": True, "symbol": symbol, "resolved": True,
+        "entry_id": eid, "count": len(deps),
+        "results": deps[:top_n],
+    }
+
+
+def layer_of(entries, symbol):
+    """Architecture layer: entry.layer (KG-enriched) else 'unknown'."""
+    eid = resolve_symbol(entries, symbol)
+    if eid is None:
+        return {"ok": True, "symbol": symbol, "resolved": False, "layer": None}
+    return {
+        "ok": True, "symbol": symbol, "resolved": True,
+        "entry_id": eid,
+        "layer": entries.get(eid, {}).get("layer", "unknown"),
+    }
+
+
+def run_edge_query(project_root, qtype, symbol, top_n=24):
+    """R-19 edge query over .rpd/code-map.json. qtype in who-calls|deps-of|layer-of."""
+    entries, _ = load_code_map(project_root)
+    if entries is None:
+        return {
+            "ok": False,
+            "error": "retriever: " + CODE_MAP_FILE + " missing - run code-map-generator.py first",
+        }
+    if qtype == "who-calls":
+        payload = who_calls(entries, symbol, top_n)
+    elif qtype == "deps-of":
+        payload = deps_of(entries, symbol, top_n)
+    elif qtype == "layer-of":
+        payload = layer_of(entries, symbol)
+    else:
+        return {"ok": False, "error": "retriever: unknown edge query type: " + str(qtype)}
+    payload["budget"] = {
+        "result_max_tokens": RESULT_MAX_TOKENS,
+        "estimated_results_tokens": estimate_tokens(payload.get("results", [])),
+    }
+    return payload
+
+
 def run(project_root, query, top_n=5):
     """Hybrid retrieval over .rpd/code-map.json. Returns dict."""
     entries, index = load_code_map(project_root)
@@ -264,9 +386,38 @@ def main():
     args = sys.argv[1:]
     if len(args) < 2 or args[0] in ("-h", "--help"):
         print("Usage: python retriever.py <project-root> --query <text> [--top 5] [--json]")
+        print("       python retriever.py <project-root> --who-calls|--deps-of|--layer-of <symbol> [--json]")
         return 1
     project_root = args[0]
     as_json = "--json" in args
+
+    # R-19 edge queries: --who-calls / --deps-of / --layer-of <symbol>
+    for flag in ("--who-calls", "--deps-of", "--layer-of"):
+        if flag in args:
+            fi = args.index(flag) + 1
+            symbol = args[fi] if fi < len(args) else ""
+            if not symbol:
+                print("Error: " + flag + " requires a symbol", file=sys.stderr)
+                return 1
+            qtype = flag[2:]  # who-calls / deps-of / layer-of
+            payload = run_edge_query(project_root, qtype, symbol)
+            if not payload["ok"]:
+                print(payload["error"], file=sys.stderr)
+                return 1
+            if as_json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+            else:
+                print(qtype + ": " + symbol +
+                      ("  resolved -> " + payload.get("entry_id", "") +
+                       ("  layer=" + payload.get("layer", "") if "layer" in payload else "")
+                       if payload.get("resolved") else "  (unresolved)"))
+                for r in payload.get("results", []):
+                    print("  - " + r["name"] + " (" + r["kind"] + ") " + r["file"] +
+                          " [" + r["edge_type"] + " w=" + str(r["weight"]) + "]")
+                if payload.get("resolved") and not payload.get("results"):
+                    print("  (no " + qtype + " results)")
+            return 0
+
     query = ""
     if "--query" in args:
         qi = args.index("--query") + 1

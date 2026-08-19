@@ -812,6 +812,46 @@ def run_scenario_u():
             est = (len(json.dumps(entry, ensure_ascii=False, separators=(",", ":"))) // 4)
             assert est <= 300, "entry over 300t after edges: " + eid
 
+        # 3f) R-19 edge QUERY capability (I4-2): who-calls / deps-of / layer-of
+        #     Answers the three questions over the mapped graph (data from cmap2).
+        def _edge_q(qtype, symbol):
+            rq = subprocess.run(
+                [sys.executable, str(SCRIPTS_DIR / "retriever.py"), tmpdir, "--" + qtype, symbol, "--json"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            assert rq.returncode == 0, "edge query crashed: " + rq.stderr
+            return json.loads(rq.stdout)
+
+        # 3f-1) who-calls helper -> Game (incoming caller via calls edge)
+        wc = _edge_q("who-calls", "helper")
+        assert wc["ok"] and wc["resolved"] is True, "who-calls helper should resolve: " + str(wc)
+        wc_names = [c["name"] for c in wc["results"]]
+        assert "Game" in wc_names, "who-calls helper should include Game: " + str(wc_names)
+        game_caller = next(c for c in wc["results"] if c["name"] == "Game")
+        assert game_caller["edge_type"] == "calls" and game_caller["weight"] == 0.8, str(game_caller)
+
+        # 3f-2) deps-of Game -> helper(calls) + main(contains)
+        do = _edge_q("deps-of", "Game")
+        assert do["ok"] and do["resolved"] is True, "deps-of Game should resolve: " + str(do)
+        do_names = [d["name"] for d in do["results"]]
+        assert "helper" in do_names and "main" in do_names, "deps-of Game missing: " + str(do_names)
+        do_types = {d["edge_type"] for d in do["results"]}
+        assert "calls" in do_types and "contains" in do_types, "edge types wrong: " + str(do_types)
+        main_dep = next(d for d in do["results"] if d["name"] == "main")
+        assert main_dep["weight"] == 1.0, "contains weight should be 1.0: " + str(main_dep)
+        assert do["budget"]["estimated_results_tokens"] <= 300, "edge query over budget: " + str(do["budget"])
+
+        # 3f-3) layer-of Game -> Core (architecture layer)
+        lo = _edge_q("layer-of", "Game")
+        assert lo["ok"] and lo["layer"] == "Core", "layer-of Game should be Core: " + str(lo)
+
+        # 3f-4) unresolved symbol degrades gracefully (no guess, empty, no crash)
+        uq = _edge_q("who-calls", "NoSuchSymbolXYZ")
+        assert uq["ok"] and uq["resolved"] is False and uq["results"] == [], "unresolved should degrade: " + str(uq)
+
+        # 3f-5) budget guard on every edge query result set
+        for payload in (wc, do, lo, uq):
+            assert payload["budget"]["estimated_results_tokens"] <= 300, payload["budget"]
+
         # 3e) degrade path: no KG -> generator still works, no edges, no crash
         os.remove(kg_path)
         r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
@@ -819,6 +859,12 @@ def run_scenario_u():
         assert r.returncode == 0, "regen without KG failed: " + r.stderr
         cmap3 = json.load(open(os.path.join(rpd, "code-map.json"), encoding="utf-8"))
         assert all(e.get("edges", []) == [] for e in cmap3["entries"].values()),             "no KG -> entries must have empty edges"
+        # 3g) degrade edge queries (no KG): resolve but empty results / unknown layer, no crash
+        do3 = _edge_q("deps-of", "Game")
+        assert do3["ok"] and do3["resolved"] is True and do3["results"] == [], "no KG -> deps empty: " + str(do3)
+        lo3 = _edge_q("layer-of", "Game")
+        assert lo3["ok"] and lo3["layer"] == "unknown", "no KG -> layer unknown: " + str(lo3)
+        print("  ✅ R-19 edge queries: who-calls / deps-of / layer-of + degrade")
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
