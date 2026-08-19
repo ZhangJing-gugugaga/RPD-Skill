@@ -102,10 +102,10 @@
 
 #### Phase I4-3: R-25 依赖版本锁定
 - **涉及文件：** `code-map.meta.json`（依赖清单 + commit/指纹）、`scripts/state-guard.py` 或 `code-map-generator.py`
-- [ ] 快照绑定依赖清单 + git commit hash / 结构指纹
-- [ ] 依赖漂移检测：依赖/版本变化 → 提示重新生成图谱，禁止基于过期结构作答
-- [ ] 与三级信任（verified/unverified/stale）状态机衔接
-- **Status:** pending
+- [x] 快照绑定依赖清单 + git commit hash / 结构指纹
+- [x] 依赖漂移检测：依赖/版本变化 → 提示重新生成图谱，禁止基于过期结构作答
+- [x] 与三级信任（verified/unverified/stale）状态机衔接
+- **Status:** complete
 - **验收：** 模拟依赖漂移可被检测并提示；信任状态机不受影响；红线机检协议（§6）不回归
 
 #### Phase I4-4: R-20 PRD↔代码影响分析
