@@ -937,6 +937,83 @@ def run_scenario_u():
         assert dd4.get("checked") is False, "old meta -> degrade, checked False: " + str(dd4)
         assert dd4.get("ok") is True, "old meta -> treated as ok: " + str(dd4)
         print("  ✅ R-25 dependency lock: snapshot + composite fingerprint + drift detect + degrade")
+        # 3i) R-20 (I4-4): PRD<->code impact analysis (bidirectional + 1-hop + blast grade + degrade)
+        #     Isolated fixture: helper/main live in utils.cpp so PRD term "Game" maps
+        #     ONLY to the Game entry, keeping changed={Game} and 1-hop edges = helper/main.
+        # re-add KG so R-19 edges attach (3e removed it; 3h did not recreate)
+        kg2 = {
+            "nodes": [
+                {"id": "sym:Game", "name": "Game", "layer": "Core"},
+                {"id": "sym:helper", "name": "helper"},
+                {"id": "sym:main", "name": "main"},
+            ],
+            "edges": [
+                {"from": "sym:Game", "to": "sym:helper", "type": "calls", "weight": 0.8},
+                {"from": "sym:Game", "to": "sym:main", "type": "contains", "weight": 1.0},
+            ],
+        }
+        with open(kg_path, "w", encoding="utf-8") as f:
+            json.dump(kg2, f)
+        with open(os.path.join(tmpdir, "src", "utils.cpp"), "w", encoding="utf-8") as f:
+            f.write("void helper(float x) {}" + chr(10) + "int main() { return 0; }" + chr(10))
+        with open(os.path.join(tmpdir, "src", "game.cpp"), "w", encoding="utf-8") as f:
+            f.write("#include \"game.h\"" + chr(10) + "void Game::update(float dt) { helper(dt); }" + chr(10))
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "regen for impact failed: " + r.stderr
+
+        prd_path = os.path.join(tmpdir, "prd.md")
+        prd_text = (
+            '## 落地版 PRD\n'
+            '### 二、功能列表\n'
+            '| 模块 | 功能名称 | 子任务 | 功能说明 | 优先级 |\n'
+            '|------|----------|--------|----------|--------|\n'
+            '| 游戏 | Game | 主循环 | 玩家可进入游戏主循环 | P0 |\n'
+            '#### Game 页面\n'
+            '**页面职责：** 游戏主入口\n'
+            '```\n'
+            '[首页]\n'
+            '  └- [Game 页面]  → 主循环入口\n'
+            '```\n'
+        )
+        with open(prd_path, "w", encoding="utf-8") as f:
+            f.write(prd_text)
+
+        def _impact(args):
+            rq = subprocess.run(
+                [sys.executable, str(SCRIPTS_DIR / "impact-analyzer.py"), tmpdir] + args,
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            assert rq.returncode == 0, "impact-analyzer crashed: " + rq.stderr + " " + rq.stdout
+            return json.loads(rq.stdout)
+
+        # 3i-1) PRD -> code: changed=Game, affected(1-hop)=helper, layers=[Core], blast graded
+        ip = _impact(["--prd", prd_path, "--json"])
+        assert ip["ok"] and ip["mode"] == "prd-to-code", str(ip)
+        ip_changed = [e["name"] for e in ip["changed_nodes"]]
+        ip_affected = [e["name"] for e in ip["affected_nodes"]]
+        assert "Game" in ip_changed, "PRD feature Game should map to code: " + str(ip_changed)
+        assert "helper" in ip_affected, "1-hop (R-19 edges) should surface helper: " + str(ip_affected)
+        assert "Core" in ip["affected_layers"], "layer Core should be reported: " + str(ip["affected_layers"])
+        assert ip["blast_radius"] in ("Critical", "High", "Medium", "Low"), ip["blast_radius"]
+        assert ip["budget"]["estimated_results_tokens"] <= 300, ip["budget"]
+
+        # 3i-2) code -> PRD: symbol Game resolves and reverses to PRD feature
+        ic = _impact(["--code-to-prd", "Game", "--prd", prd_path, "--json"])
+        assert ic["ok"] and ic["resolved"] is True, str(ic)
+        ic_features = [f["term"] for f in ic["prd_features"]]
+        assert "Game" in ic_features, "code->PRD should reverse to feature Game: " + str(ic_features)
+        assert ic["budget"]["estimated_results_tokens"] <= 300, ic["budget"]
+
+        # 3i-3) unresolved symbol degrades (resolved False, empty, no crash)
+        iu = _impact(["--code-to-prd", "NoSuchSymbolXYZ", "--prd", prd_path, "--json"])
+        assert iu["ok"] and iu["resolved"] is False and iu["prd_features"] == [], str(iu)
+
+        # 3i-4) degrade: no code-map -> PRD->code falls back to direct source scan (never crash)
+        shutil.rmtree(os.path.join(tmpdir, ".rpd"))
+        idg = _impact(["--prd", prd_path, "--json"])
+        assert idg["ok"], "PRD->code must degrade when code-map missing: " + str(idg)
+        assert any("game" in e.get("file", "") for e in idg["changed_nodes"]), "degrade scan should find game files: " + str(idg["changed_nodes"])
+        print("  ✅ R-20 impact: PRD<->code bidirectional + 1-hop + blast grade + degrade")
 
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")

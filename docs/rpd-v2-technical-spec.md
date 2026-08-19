@@ -303,6 +303,13 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
   查询入口：`python retriever.py <root> --who-calls <symbol> | --deps-of <symbol> | --layer-of <symbol> [--json]`；
   符号经 entry id → name → 末段三级解析，未解析时返回 `resolved: false` 空结果（不猜测）；每条查询结果集仍受 ≤300 token 预算守卫。
 
+### 3.7 PRD↔代码影响分析（R-20，Q3：解析现有 PRD 文档）
+- **双向映射：**① PRD→代码：从现有 PRD 文档解析节点（功能列表表格、页面标题、概念版 MVP 列表），汇总 changedNodes（命中 code-map entry）+ affectedNodes（1-hop：edges/calls/called_by）+ affectedLayers + blast radius 风险分级；② 代码→PRD：解析符号后沿 1-hop 集反查命中的 PRD 功能。
+- **实现：**新增 `scripts/impact-analyzer.py`（零外部依赖，复用 retriever.py 的 code-map 加载与符号解析）；CLI：`--prd <prd.md>`（PRD→代码） / `--code-to-prd <symbol> --prd <prd.md>`（代码→PRD）。
+- **分级标准（对齐 /understand-diff）：**changed≥5 或 layers≥3 → Critical；changed≥3 或 layers≥2 → High；changed≥1 → Medium；否则 Low。
+- **降级：**无 code-map.json → PRD→代码回退为直接源文件扫描（无需图谱）；无 PRD 文件 / 符号未解析 / 代码→PRD 无 code-map → 返回 ok:false 或 resolved:false，不崩溃。
+- **预算：**结果载荷实体≤300 token（超限裁剪 affected_nodes）。
+- **依赖：**复用 R-19 edges 数据质量；无 KG 时 edges 为空，1-hop 仅依 calls/called_by（不崩溃）。
 ---
 
 ## 4. 双层落点 + 全动态路径 + 迁移备份（R-03）
@@ -687,7 +694,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-17 | parking-lot | P2 | I5（不排期） |
 | R-18 | 多会话并发冲突（进程级物理锁兜底） | P1 | 已落地（state-guard ProjectStateMutex） |
 | R-19 | 边信息复用（节点-边最小图：edges schema + R-10 knowledge-graph.json 映射 + 查询） | P1 | 已落地（scripts/code-map-generator.py：entry.edges + layer，悬挂剔除 + 降级不崩） |
-| R-20 | PRD↔代码影响分析（impact-analyzer：changedNodes/affectedNodes/受影响层 + 风险分级） | P1 | I4（2026-08-19 起草，验收后转正） |
+| R-20 | PRD↔代码影响分析（impact-analyzer：changedNodes/affectedNodes/受影响层 + 风险分级） | P1 | 已落地（scripts/impact-analyzer.py：PRD→代码 changed/1-hop/layers/blast 双向映射 + 无 code-map 直接扫描降级） |
 | R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | I4（2026-08-19 起草，验收后转正） |
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |
 | R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | I4（2026-08-19 起草，验收后转正） |

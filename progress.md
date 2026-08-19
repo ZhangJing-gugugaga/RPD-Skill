@@ -238,3 +238,21 @@
 - **技术注记：** `code-map-generator.py` 连字符文件名无法普通 import → cold-start 用 importlib.util.spec_from_file_location 加载，失败降级 no-op stub（eval 3h 断言覆盖）
 - **遗留：** wb-issues MCP todo 同步仍不可用（同前轮，I4-3 todo=rnAxRa）；向量通道 TODO（Q1 冻结）
 - **下轮预期：** Verifier 复验 I4-3：7 项 0-trust + R-25 专项（eval 3h + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-3 complete
+
+## Session: 2026-08-19（Advancer · I4-4 R-20 PRD↔代码影响分析）
+
+### 本次会话：实现 R-20 影响分析器（impact-analyzer.py 双向映射 + 1-hop + 风险分级 + 降级）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-3): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-4（R-20 PRD↔代码影响分析，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/impact-analyzer.py`（429 行）：`parse_prd`（从 RPD PRD 模板解析功能列表表格/页面标题/MVP，Q3）+ `_entry_hits`（精确名4>名子子串 3>文件 2>doc/sig 1）+ `_hop1_neighbors`（edges+calls+called_by 1-hop）+ `_grade_blast`（changed≥5/layers≥3=Critical）+ `_degrade_scan`（无 code-map 直接扫描）；双向入口 `analyze_prd_to_code` / `analyze_code_to_prd`；CLI `--prd` / `--code-to-prd`；结果载荵≤300t
+  - `scripts/run-eval.py` Scenario U 扩展（+110 行）：3i-1 PRD→code（changed=Game + affected=helper(1-hop) + layer Core + blast）；3i-2 code→PRD（Game 反查命中）；3i-3 未解析降级；3i-4 无 code-map 直接扫描降级
+  - `docs/rpd-v2-technical-spec.md`：新增 §3.7 PRD↔代码影响分析（双向/分级标准/降级/预算）+ 附录 A R-20 转正
+- **核心验收（eval 3i 真实运行）：** PRD 功能“Game”→ changed=Game；1-hop（R-19 edges）涌出 helper；层 Core 报告；blast 分级有效；c→PRD 反查命中“Game”；无 code-map 降级扫描找到 game.cpp/game.h
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0）
+- **Files modified:** scripts/impact-analyzer.py（新增）· scripts/run-eval.py· docs/rpd-v2-technical-spec.md· progress.md（本日志）
+- **技术注记：** regex 降级解析器不解析限定名方法（I4-1 已知缺陷）→ eval 3i fixture 将 helper/main 放 utils.cpp 避开；“Game”子串会命中 game.cpp 文件级入口（特征性而非 bug）
+- **工具故障：** Edit/Write 持续报「Not logged in」（同前轮）→ Bash heredoc 多层转义（`\n` 变真实换行）造成 run-eval 语法破坏→ 终于采用 **base64 包装 + chr(10) 拼接** 等义修复（经验：嵌套 heredoc 写 python 字符串一律用 chr(10) 或 base64）
+- **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-4 todo=rsO1C9）
+- **下轮预期：** Verifier 复验 I4-4：7 项 0-trust + R-20 专项（eval 3i + diff 审计 + 预算守卫 + 向后兼容降级），PASS 后标记 I4-4 complete
