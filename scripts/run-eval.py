@@ -1015,6 +1015,60 @@ def run_scenario_u():
         assert any("game" in e.get("file", "") for e in idg["changed_nodes"]), "degrade scan should find game files: " + str(idg["changed_nodes"])
         print("  ✅ R-20 impact: PRD<->code bidirectional + 1-hop + blast grade + degrade")
 
+        # 3j) R-23 (I4-5): progressive exposure guard (three layers + dual budget)
+        #     NOTE: 3i-4 removed .rpd; regenerate code-map so L1/L2/L3 can load.
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "regen for exposure failed: " + r.stderr
+
+        def _exposure(args):
+            rq = subprocess.run(
+                [sys.executable, str(SCRIPTS_DIR / "exposure-guard.py"), tmpdir] + args,
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            assert rq.returncode == 0, "exposure-guard crashed: " + rq.stderr + " " + rq.stdout
+            return json.loads(rq.stdout)
+
+        # 3j-1) L1 always-resident router: allowed, <=3000t
+        x1 = _exposure(["--l1", "--json"])
+        assert x1["ok"], x1
+        assert x1["layers"]["L1"]["allowed"] is True, "L1 should be allowed: " + str(x1["layers"]["L1"])
+        assert x1["layers"]["L1"]["estimated_tokens"] <= x1["layers"]["L1"]["limit"], x1["layers"]["L1"]
+        assert x1["budget_limits"]["router"] == 3000, x1["budget_limits"]
+        # 3j-2) L2 on-demand single entry: allowed, <=300t, symbol resolved
+        x2 = _exposure(["--entry", "Game", "--json"])
+        assert x2["layers"]["L2"]["allowed"] is True, "L2 should be allowed: " + str(x2["layers"]["L2"])
+        assert x2["layers"]["L2"]["resolved"] is True, "L2 Game should resolve"
+        assert x2["layers"]["L2"]["estimated_tokens"] <= 300, x2["layers"]["L2"]
+        # 3j-3) L3 step-up WITHOUT deep follow-up -> intercepted (blocked, degrade hint)
+        x3 = _exposure(["--summary", "Game", "--deep", "0", "--json"])
+        l3 = x3["layers"]["L3"]
+        assert l3["allowed"] is False, "L3 without deep follow-up must be blocked: " + str(l3)
+        assert l3["blocked_reason"] == "deep_followup_required", str(l3)
+        assert "R-23" in l3["degrade_hint"], "degrade hint should mention R-23: " + str(l3["degrade_hint"])
+        # 3j-4) L3 WITH deep follow-up (>=2 turns, Q4) -> allowed, <=500t
+        x4 = _exposure(["--summary", "Game", "--deep", "2", "--json"])
+        l4 = x4["layers"]["L3"]
+        assert l4["allowed"] is True, "L3 after deep follow-up should be allowed: " + str(l4)
+        assert l4["estimated_tokens"] <= x4["budget_limits"]["summary"], l4
+        assert x4["budget_limits"]["summary"] == 500, x4["budget_limits"]
+        # 3j-5) unresolved symbol degrades (no guess, never crash)
+        x5 = _exposure(["--summary", "NoSuchSymbolXYZ", "--deep", "2", "--json"])
+        assert x5["layers"]["L2"]["resolved"] is False, "unresolved L2 should degrade"
+        assert x5["layers"]["L3"]["allowed"] is False and x5["layers"]["L3"]["blocked_reason"] == "unresolved", str(x5["layers"]["L3"])
+        # 3j-6) per-task dual budget is measured and ok (entries<=24, tokens<=2000)
+        assert x4["task_budget"]["ok"] is True, x4["task_budget"]
+        assert x4["task_budget"]["entries_injected"] <= x4["task_budget"]["entry_limit"], x4["task_budget"]
+        assert x4["task_budget"]["tokens_injected"] <= x4["task_budget"]["token_limit"], x4["task_budget"]
+        # 3j-7) cold-start step04 carries the R-23 exposure report (degrade never crashes)
+        rcs = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rcs.returncode == 0, "cold-start crashed with exposure: " + rcs.stderr
+        csx = json.loads(rcs.stdout)
+        exp = csx.get("steps", {}).get("04_router", {}).get("exposure_layers", {})
+        assert exp.get("checked") is True, "exposure report missing: " + str(exp)
+        assert "L1" in exp.get("layers", {}), "L1 missing in exposure report: " + str(exp)
+        print("  ✅ R-23 exposure: 3-layer progressive + deep follow-up gate + dual budget + cold-start report")
+
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")

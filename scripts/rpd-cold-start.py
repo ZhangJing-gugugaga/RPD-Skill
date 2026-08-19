@@ -53,6 +53,49 @@ def _load_generator_fns():
 _check_drift, _dep_snapshot = _load_generator_fns()
 
 
+def _load_exposure_guard():
+    """Load R-23 run_exposure from the sibling exposure-guard.py (hyphenated
+    filename cannot be plain-imported). Returns callable; no-op degrade stub
+    when the module is unavailable (cold-start must never crash)."""
+    import importlib.util
+    eg = Path(__file__).resolve().parent / "exposure-guard.py"
+    if not eg.is_file():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("rpd_exposure_guard", eg)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.run_exposure
+    except Exception:
+        return None
+
+
+_run_exposure = _load_exposure_guard()
+
+
+def exposure_layers(project_root):
+    """R-23 progressive-exposure report (L1/L2/L3 budgets); degrades to a
+    no-op note when the module is unavailable (never crashes cold-start)."""
+    if _run_exposure is None:
+        return {"checked": False, "note": "exposure-guard module unavailable"}
+    try:
+        payload = _run_exposure(project_root)
+        return {
+            "checked": True,
+            "layers": {
+                k: {
+                    "allowed": v.get("allowed"),
+                    "limit": v.get("limit"),
+                    "estimated_tokens": v.get("estimated_tokens"),
+                }
+                for k, v in (payload.get("layers") or {}).items()
+            },
+            "task_budget": payload.get("task_budget"),
+        }
+    except Exception:
+        return {"checked": False, "note": "exposure-guard check failed (degraded)"}
+
+
 def check_dependency_drift(project_root, meta):
     """R-25 drift check (delegates to generator; degrades to no-op when unavailable)."""
     if _check_drift is None:
@@ -331,7 +374,7 @@ def cold_start(project_root, do_migrate=False):
         fresh_line += "（stale: " + ", ".join(s["file"] for s in redline["stale"][:5]) + "）"
     report["freshness"] = fresh_line
 
-    # --- Step 4: on-demand load (router) ---
+    # --- Step 4: on-demand load (router) + R-23 exposure report ---
     router_path = rpd / "code-map.router.json"
     router_loaded = router_path.exists()
     report["steps"]["04_router"] = {"loaded": router_loaded}
@@ -341,6 +384,9 @@ def cold_start(project_root, do_migrate=False):
             report["steps"]["04_router"]["budget"] = router.get("budget", {})
         except Exception:
             report["steps"]["04_router"]["budget"] = {}
+    # R-23 (I4-5): progressive exposure report (L1 resident / L2 on-demand /
+    # L3 deep-follow-up) - always present, degrade never crashes
+    report["steps"]["04_router"]["exposure_layers"] = exposure_layers(root)
 
     # --- Step 5: locate (symbol addressing) ---
     report["steps"]["05_locate"] = {"mode": "map_navigation"}

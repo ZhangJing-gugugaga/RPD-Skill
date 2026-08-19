@@ -310,6 +310,12 @@ code-map.meta.json（元数据，红线机检 + 预算守卫的数据源）
 - **降级：**无 code-map.json → PRD→代码回退为直接源文件扫描（无需图谱）；无 PRD 文件 / 符号未解析 / 代码→PRD 无 code-map → 返回 ok:false 或 resolved:false，不崩溃。
 - **预算：**结果载荷实体≤300 token（超限裁剪 affected_nodes）。
 - **依赖：**复用 R-19 edges 数据质量；无 KG 时 edges 为空，1-hop 仅依 calls/called_by（不崩溃）。
+
+### 3.8 渐进式暴露（R-23，Q4：深入追问判定 = 连续 2 轮追问同一符号）
+- **三层暴露：**L1 router 常驻（≤3k）→ L2 层2 entry 按需单条（≤300t）→ L3 语义摘要仅深入追问后注入（≤500t，Q4）。越级请求（无深入追问直接要 L3）被拦截并降级到 L2/README/代码直读，绝不静默升级。
+- **双预算守卫：**本任务注入上限 = 条目数 ≤24 条 + token 数 ≤2000t 双预算（参照 TAM 三重预算），任一超限即阻断并给降级提示；每层载荷实测 token 计数。
+- **实现：**新增 `scripts/exposure-guard.py`（零外部依赖，复用 retriever.py 的 code-map 加载与符号解析）；CLI：`--l1`（层1 常驻检查）/ `--entry <symbol>`（层2 单条）/ `--summary <symbol> --deep <N>`（层3 语义摘要，N=深入追问轮数）。冷启动 step ④ 集成 `exposure_layers` 报告（L1/L2/L3 预算状态），模块不可用时降级为 no-op 注记不崩溃。
+- **降级：**无 code-map / 符号未解析 / 模块不可用 → 返回降级提示（README/code 直读），不崩溃、不猜测。
 ---
 
 ## 4. 双层落点 + 全动态路径 + 迁移备份（R-03）
@@ -697,7 +703,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-20 | PRD↔代码影响分析（impact-analyzer：changedNodes/affectedNodes/受影响层 + 风险分级） | P1 | 已落地（scripts/impact-analyzer.py：PRD→代码 changed/1-hop/layers/blast 双向映射 + 无 code-map 直接扫描降级） |
 | R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | I4（2026-08-19 起草，验收后转正） |
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |
-| R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | I4（2026-08-19 起草，验收后转正） |
+| R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | 已落地（scripts/exposure-guard.py：L1≤3000t / L2≤300t / L3≤500t + 深入追问 2 轮闸门 + 任务级双预算 24 条/2000t；rpd-cold-start.py step04 集成 exposure_layers） |
 | R-24 | 经验资产化（parking-lot 冻结；四档触发条件评估后升级，不在排期） | P2 | I5（不排期） |
 | R-25 | 依赖版本锁定（依赖清单 + commit hash/结构指纹 + 漂移检测 → 提示重新生成） | P1 | 已落地（scripts/code-map-generator.py：dependencies 快照 + 复合 sha256 指纹；rpd-cold-start.py 红线机检依赖漂移检测） |
 
