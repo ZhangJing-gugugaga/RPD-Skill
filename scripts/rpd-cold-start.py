@@ -33,6 +33,33 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+def _load_generator_fns():
+    """Load R-25 fns from the sibling code-map-generator.py (hyphenated filename
+    cannot be plain-imported). Returns (check_dependency_drift, dependency_snapshot);
+    both become no-op degrade stubs when the generator module is unavailable."""
+    import importlib.util
+    gen = Path(__file__).resolve().parent / "code-map-generator.py"
+    if not gen.is_file():
+        return None, None
+    try:
+        spec = importlib.util.spec_from_file_location("rpd_code_map_generator", gen)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.check_dependency_drift, mod.dependency_snapshot
+    except Exception:
+        return None, None
+
+
+_check_drift, _dep_snapshot = _load_generator_fns()
+
+
+def check_dependency_drift(project_root, meta):
+    """R-25 drift check (delegates to generator; degrades to no-op when unavailable)."""
+    if _check_drift is None:
+        return {"checked": False, "ok": True, "drift": [], "note": "generator module unavailable"}
+    return _check_drift(project_root, meta)
+
+
 
 def smart_read(file_path):
     """Read file with multiple encoding attempts."""
@@ -101,6 +128,8 @@ def redline_check(project_root, meta):
     Returns dict: verified[], stale[], unverified[], git_ok, degraded_no_git.
     """
     result = {"verified": [], "stale": [], "unverified": [], "git_ok": False, "degraded_no_git": False}
+    # R-25: dependency drift check (3rd pillar of the red-line check)
+    result["dependency_drift"] = check_dependency_drift(project_root, meta)
     files_meta = meta.get("files", {})
     if not files_meta:
         return result
@@ -293,6 +322,11 @@ def cold_start(project_root, do_migrate=False):
 
     map_commit = meta.get("map_commit") or meta.get("head_commit") or "unknown"
     fresh_line = f"map 基于 commit {map_commit}，{len(redline['verified'])} 文件 verified，{len(redline['stale'])} 文件 stale"
+    dep_drift = redline.get("dependency_drift") or {}
+    dep_note = ""
+    if dep_drift.get("checked") and not dep_drift.get("ok"):
+        dep_note = "；⚠️ 依赖漂移 " + ", ".join(d["file"] for d in dep_drift["drift"][:5]) + " — 请重新生成图谱"
+    fresh_line += dep_note
     if redline["stale"]:
         fresh_line += "（stale: " + ", ".join(s["file"] for s in redline["stale"][:5]) + "）"
     report["freshness"] = fresh_line

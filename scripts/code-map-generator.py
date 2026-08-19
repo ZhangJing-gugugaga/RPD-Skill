@@ -73,6 +73,82 @@ SKIP_DIRS = {
     ".claude", ".claude-plugin", ".github",  # agent 配置/worktree 副本不应被索引
 }
 SKIP_PATH_PARTS = {"tests", "test", "generated", "gen", "external", "ext"}
+# --- R-25 dependency snapshot: zero-dep manifest fingerprinting ---
+DEPENDENCY_MANIFESTS = (
+    "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
+    "requirements.txt", "Pipfile", "pyproject.toml", "poetry.lock",
+    "Cargo.toml", "Cargo.lock", "go.mod", "go.sum", "CMakeLists.txt",
+    "Makefile", "pom.xml", "build.gradle", "settings.gradle",
+    "Gemfile", "composer.json", "pubspec.yaml",
+)
+DEP_MANIFEST_MAX_DEPTH = 2   # probe root + 2 levels max (cheap & deterministic)
+
+
+def _dependency_manifests(project_root):
+    """Yield manifest rel paths (existing) sorted & depth-bounded."""
+    root = Path(project_root)
+    hits = []
+    for p in root.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.name not in DEPENDENCY_MANIFESTS:
+            continue
+        rel = str(p.relative_to(root)).replace("\\", "/")
+        if rel.count("/") <= DEP_MANIFEST_MAX_DEPTH:
+            hits.append(rel)
+    return sorted(hits)
+
+
+def dependency_snapshot(project_root):
+    """R-25: dependency snapshot — manifest list + per-file fingerprints.
+
+    Zero-dependency design (Q1): no external parser; fingerprint each known
+    manifest and fold the sorted list into one composite sha256. Any manifest
+    change (version bump / added / removed dep) changes the composite hash,
+    which cold-start uses to declare the map stale (dependency drift).
+    """
+    root = Path(project_root)
+    files = {}
+    for rel in _dependency_manifests(root):
+        p = root / rel
+        if p.is_file():
+            files[rel] = sha256_of_file(p) or ""
+    composite = _composite_fingerprint(files)
+    return {"detected": len(files) > 0, "files": files, "fingerprint": composite}
+
+
+def _composite_fingerprint(files):
+    """Deterministic composite sha256 of {rel: sha256} sorted by rel."""
+    if not files:
+        return None
+    blob = chr(10).join("%s=%s" % (k, v) for k, v in sorted(files.items()))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def check_dependency_drift(project_root, meta):
+    """R-25: compare current manifest fingerprints vs recorded meta snapshot.
+
+    Returns {"checked": bool, "ok": bool, "drift": [...]}.
+    - No recorded snapshot (cold/old meta) -> checked False, degrade, no crash.
+    - drift entries {file, reason} for changed/missing manifests.
+    """
+    recorded = (meta or {}).get("dependencies") or {}
+    files = recorded.get("files") or {}
+    if not files:
+        return {"checked": False, "ok": True, "drift": [], "note": "no dependency snapshot recorded"}
+    root = Path(project_root)
+    drift = []
+    for rel, fp in files.items():
+        p = root / rel
+        if not p.is_file():
+            drift.append({"file": rel, "reason": "missing"})
+            continue
+        actual = sha256_of_file(p) or ""
+        if fp and actual and actual != fp:
+            drift.append({"file": rel, "reason": "fingerprint_mismatch"})
+    return {"checked": True, "ok": len(drift) == 0, "drift": drift}
+
+
 
 
 def estimate_tokens(obj):
@@ -623,6 +699,7 @@ def build_meta(project_root, entries, per_file, router, parser_used, head_commit
             "overall": "verified",
             "last_verified_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         },
+        "dependencies": dependency_snapshot(project_root),
         "understand_anything": understand_any,
     }
     return meta
@@ -876,6 +953,12 @@ def generate_map(project_root, incremental=False):
         meta["budget"]["router_pct_of_codebase"] = router["budget"]["pct_of_codebase"]
     write_atomic(root, "code-map.meta.json", meta)
 
+    # R-25: record dependency-drift check result (after meta final write)
+    meta_final = json.loads(smart_read(str(rpd / "code-map.meta.json")))
+    dep_check = check_dependency_drift(root, meta_final)
+    if not dep_check["ok"]:
+        print("[code-map] R-25 依赖漂移提示: 请重新生成图谱（依赖清单已变化）", file=sys.stderr)
+
     return {
         "project_root": str(root.resolve()),
         "source_files": len(source_files),
@@ -889,6 +972,7 @@ def generate_map(project_root, incremental=False):
         "codebase_token_estimate": codebase_tokens,
         "head_commit": head or "unknown",
         "understand_anything": ua,
+        "dependency_drift": dep_check,
     }
 
 

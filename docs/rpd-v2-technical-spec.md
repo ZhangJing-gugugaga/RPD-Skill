@@ -692,7 +692,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |
 | R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | I4（2026-08-19 起草，验收后转正） |
 | R-24 | 经验资产化（parking-lot 冻结；四档触发条件评估后升级，不在排期） | P2 | I5（不排期） |
-| R-25 | 依赖版本锁定（依赖清单 + commit hash/结构指纹 + 漂移检测 → 提示重新生成） | P1 | I4（2026-08-19 起草，验收后转正） |
+| R-25 | 依赖版本锁定（依赖清单 + commit hash/结构指纹 + 漂移检测 → 提示重新生成） | P1 | 已落地（scripts/code-map-generator.py：dependencies 快照 + 复合 sha256 指纹；rpd-cold-start.py 红线机检依赖漂移检测） |
 
 > **I4 外扩需求占位说明（2026-08-19）**：R-19~R-25 为 I4 迭代需求编号草案，依据 `docs/research-report-ua-tam-optimization.md` 第 4 章与 Key Decisions Q1~Q5 起草；状态为「草案」，待各 Phase 验收通过后转正（由 Verifier 标记）。
 

@@ -864,7 +864,80 @@ def run_scenario_u():
         assert do3["ok"] and do3["resolved"] is True and do3["results"] == [], "no KG -> deps empty: " + str(do3)
         lo3 = _edge_q("layer-of", "Game")
         assert lo3["ok"] and lo3["layer"] == "unknown", "no KG -> layer unknown: " + str(lo3)
-        print("  ✅ R-19 edge queries: who-calls / deps-of / layer-of + degrade")
+        # 3h) R-25 (I4-3): dependency version lock — snapshot + drift detection
+        #     After the KG-removed regen, meta should carry a dependencies snapshot
+        #     (zero-dep manifest fingerprint). Then mutate package.json -> drift.
+        meta3 = json.load(open(os.path.join(rpd, "code-map.meta.json"), encoding="utf-8"))
+        deps = meta3.get("dependencies", {})
+        assert deps.get("detected") is False, "fixture has no manifest: " + str(deps)
+        assert deps.get("fingerprint") is None, "no manifest -> None fingerprint: " + str(deps)
+
+        # create a manifest, regenerate -> snapshot detected + composite fingerprint
+        pkg_path = os.path.join(tmpdir, "package.json")
+        pkg = {"name": "fixture", "dependencies": {"react": "^18.0.0"}}
+        with open(pkg_path, "w", encoding="utf-8") as f:
+            json.dump(pkg, f)
+        r = subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, "regen with manifest failed: " + r.stderr
+        meta4 = json.load(open(os.path.join(rpd, "code-map.meta.json"), encoding="utf-8"))
+        deps4 = meta4.get("dependencies", {})
+        assert deps4.get("detected") is True, "manifest should be detected: " + str(deps4)
+        assert "package.json" in deps4.get("files", {}), "package.json fingerprint missing: " + str(deps4)
+        assert deps4.get("fingerprint"), "composite fingerprint missing: " + str(deps4)
+
+        # cold-start red-line check: no drift after regen
+        rs = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rs.returncode == 0, "cold-start crashed: " + rs.stderr
+        cs = json.loads(rs.stdout)
+        redline = cs.get("steps", {}).get("02_redline", {})
+        dep_check = redline.get("dependency_drift", {})
+        assert dep_check.get("checked") is True, "drift check should run after snapshot: " + str(dep_check)
+        assert dep_check.get("ok") is True, "no drift expected: " + str(dep_check)
+
+        # mutate the manifest -> drift detected (fingerprint_mismatch)
+        pkg["dependencies"]["react"] = "^19.0.0"
+        with open(pkg_path, "w", encoding="utf-8") as f:
+            json.dump(pkg, f)
+        rs2 = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rs2.returncode == 0, "cold-start crashed on drift: " + rs2.stderr
+        cs2 = json.loads(rs2.stdout)
+        redline2 = cs2.get("steps", {}).get("02_redline", {})
+        dd2 = redline2.get("dependency_drift", {})
+        assert dd2.get("checked") is True, "drift check must run: " + str(dd2)
+        assert dd2.get("ok") is False, "drift must be flagged: " + str(dd2)
+        drift_files = [d["file"] for d in dd2.get("drift", [])]
+        assert "package.json" in drift_files, "package.json drift not listed: " + str(drift_files)
+        # freshness line carries the drift warning (degrade never crashes)
+        assert "依赖漂移" in cs2.get("freshness", ""), "freshness should warn: " + cs2.get("freshness", "")
+
+        # deleting the manifest -> drift (missing)
+        os.remove(pkg_path)
+        rs3 = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rs3.returncode == 0, "cold-start crashed on missing manifest: " + rs3.stderr
+        cs3 = json.loads(rs3.stdout)
+        dd3 = cs3.get("steps", {}).get("02_redline", {}).get("dependency_drift", {})
+        assert dd3.get("ok") is False, "missing manifest should drift: " + str(dd3)
+        drift3 = [d["file"] for d in dd3.get("drift", [])]
+        assert "package.json" in drift3, "missing manifest not in drift: " + str(drift3)
+
+        # old meta without dependencies -> degrade (checked False, no crash)
+        meta_old = json.load(open(os.path.join(rpd, "code-map.meta.json"), encoding="utf-8"))
+        meta_old.pop("dependencies", None)
+        with open(os.path.join(rpd, "code-map.meta.json"), "w", encoding="utf-8") as f:
+            json.dump(meta_old, f)
+        rs4 = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rs4.returncode == 0, "cold-start crashed with old meta: " + rs4.stderr
+        cs4 = json.loads(rs4.stdout)
+        dd4 = cs4.get("steps", {}).get("02_redline", {}).get("dependency_drift", {})
+        assert dd4.get("checked") is False, "old meta -> degrade, checked False: " + str(dd4)
+        assert dd4.get("ok") is True, "old meta -> treated as ok: " + str(dd4)
+        print("  ✅ R-25 dependency lock: snapshot + composite fingerprint + drift detect + degrade")
+
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
