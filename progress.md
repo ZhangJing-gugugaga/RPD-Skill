@@ -115,6 +115,7 @@
 | README vs TRAINING eval 场景数口径 | 19 / 18 | 以 run-eval.py 实际为准 | 实际 19/19；TRAINING.md 18 为旧口径，待文档修订 | ✅ 已澄清 |
 | I4-0 Verifier 验证（a9af0b7） | 7 项 0-trust 检查 | 19/19 PASS + 仅文档改动 + 守卫在位 | eval 19/19（exit 0）· diff 仅 .gitignore/spec/progress.md 3 文件 · 预算守卫 3000/300 在位 · 三级信任+stale 在位 · SCHEMA_VERSION 2.0.0+降级在位 · 无视觉改动 | ✅ 2026-08-19 判定A |
 | I4-1 Verifier 验证（aa0bb2c） | 7 项 0-trust 检查 | 19/19 PASS + 仅涉及文件改动 + I4-1 验收达成 | eval 19/19（exit 0）· diff 仅 spec/progress/retriever.py/run-eval.py 4 文件 · 预算守卫 3000/300 在位 · 三级信任+stale 在位 · SCHEMA_VERSION 2.0.0+降级在位 · 无 UI 改动 · 验收实测：中文"支付重试逻辑"→#1 PaymentRetry(bm25) / 精确"PaymentRetry"→#1 exact / 预算 57t≤300t / 向量 TODO 在位 | ✅ 2026-08-19 判定A |
+| I4-2 Verifier 验证（68e0f4e） | 7 项 0-trust 检查 + I4-2 验收（查询能力补齐） | 19/19 PASS + 三类查询可达 + 白名单/降级不崩 | eval 19/19（exit 0，含 Scenario U 3f/3g）· diff 仅 spec(+2)/progress/retriever.py(+151)/run-eval.py(+46) 4 文件，task_plan 未动 · 预算守卫 3000/300/300+EDGE_MAX=24 在位 · 三级信任+stale 在位 · SCHEMA 2.1.0+白名单(2.0.0,2.1.0)+降级在位 · 验收实测（真实项目+KG）：who-calls helper→Game(calls 0.8) / deps-of Game→main(contains 1.0)+helper(calls 0.8) / layer-of Game→Core / 未解析→resolved:false 空结果 | ✅ 2026-08-19 判定A |
 
 ## Error Log
 

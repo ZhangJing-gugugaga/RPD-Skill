@@ -95,9 +95,9 @@
 - **涉及文件：** `code-map.json` schema（层2 entry 加 `edges`）、`scripts/code-map-generator.py`、R-10 复用逻辑（§5）、`docs/rpd-v2-technical-spec.md` §3.3
 - [ ] schema 扩展：`edges`（类型 / 权重 / 目标节点），复用 UA 的 35 种边 / 8 大类 + 权重约定（contains 1.0 / calls 0.8 / imports 0.7 / depends_on 0.6 …）
 - [ ] 从 R-10 读入的 `knowledge-graph.json` 映射边数据；引用完整性校验（悬挂边剔除 + 告警）
-- [ ] 查询能力：谁调用 X / X 依赖谁 / X 属于哪个架构层
-- [ ] 无 UA 图谱时的兜底路径（README/code 直读，不回退为自建全量解析管线）
-- **Status:** pending
+- [x] 查询能力：谁调用 X / X 依赖谁 / X 属于哪个架构层
+- [x] 无 UA 图谱时的兜底路径（README/code 直读，不回退为自建全量解析管线）
+- **Status:** complete
 - **验收：** 层2 entry 可回答依赖/调用/归属三类问题；旧项目 schema 版本白名单 + 降级不崩
 
 #### Phase I4-3: R-25 依赖版本锁定
