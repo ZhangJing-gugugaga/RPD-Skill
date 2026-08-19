@@ -119,6 +119,7 @@
 
 | Timestamp | Error | Attempt | Resolution |
 |-----------|-------|---------|------------|
+| 2026-08-19（Verifier tick） | 第 4 步 todo 同步阻塞：`mcp__wb-issues__todo_statuses` / `todo_add_comment` 本会话工具列表仍不可用（ToolSearch 精确名未命中，搜索只返回 github/issues 工具） | 1 | 记录不猜。面板映射：I4-0=rhb7Wp 已由 Verifier 判定 A（7 项全过），待具备 wb-issues MCP 的会话置 done + 写验证结论 |
 | 2026-08-19（Advancer tick） | 第 5 步 todo 同步阻塞：`mcp__wb-issues__todo_statuses` / `todo_add_comment` 本会话工具列表不可用（ToolSearch 精确名未命中，deferred tools 无 wb-issues 前缀） | 1 | 记录不猜，留待具备 wb-issues MCP 的会话补做（I4-0 todo=rhb7Wp） |
 | 2026-08-19（研究阶段） | patch 指令未被执行 | 1 | lead 直接对终稿最小化 Edit |
 | 2026-08-19（研究阶段） | Ch2 论文归属误述 | 1 | 审稿退回 → 修订 → round2 PASS |
