@@ -1069,6 +1069,110 @@ def run_scenario_u():
         assert "L1" in exp.get("layers", {}), "L1 missing in exposure report: " + str(exp)
         print("  ✅ R-23 exposure: 3-layer progressive + deep follow-up gate + dual budget + cold-start report")
 
+        # 3k) R-21 (I4-6): L0-L3 layered memory (evidence/atom/scenario/profile)
+        #     + expiry + retrieval fallback + bloat guard + cold-start integration
+        ml = [sys.executable, str(SCRIPTS_DIR / "memory-layers.py"), tmpdir]
+
+        # 3k-1) no store yet -> default fast-path degrades ok (L2+L3 empty)
+        rm = subprocess.run(ml + ["--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rm.returncode == 0, "memory-layers crashed (empty): " + rm.stderr
+        m0 = json.loads(rm.stdout)
+        assert m0["ok"] and m0["path"] == "L2+L3", m0
+        assert m0["scenarios"] == [] and m0["profile"] == [], m0
+
+        # 3k-2) import-decisions: only accepted atoms into L1, decisions.md -> L0
+        dec_md = (
+            "# 决策日志（decisions.md）" + chr(10) + chr(10)
+            + "## D-1 零依赖先行" + chr(10)
+            + "- **date**: 2026-08-19" + chr(10)
+            + "- **status**: accepted" + chr(10)
+            + "- **decision**: R-22 混合检索零外部依赖先行" + chr(10)
+            + "- **reason**: 用户务实主义" + chr(10)
+            + "- **impact**: 整个 I4" + chr(10) + chr(10)
+            + "## D-2 使用 Vue" + chr(10)
+            + "- **date**: 2026-08-20" + chr(10)
+            + "- **status**: proposed" + chr(10)
+            + "- **decision**: 前端用 Vue 3" + chr(10)
+        )
+        os.makedirs(os.path.join(tmpdir, ".rpd"), exist_ok=True)
+        with open(os.path.join(tmpdir, ".rpd", "decisions.md"), "w", encoding="utf-8") as f:
+            f.write(dec_md)
+        rmd = subprocess.run(ml + ["--import-decisions", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rmd.returncode == 0, "import-decisions crashed: " + rmd.stderr
+        mi = json.loads(rmd.stdout)
+        assert mi["ok"] and mi["imported"] == 1 and mi["total_accepted"] == 1, mi
+
+        # 3k-3) L1 atom search hits; miss returns fallback_evidence (no guess)
+        rfact = subprocess.run(ml + ["--fact", "零依赖", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rfact.returncode == 0, "fact crashed: " + rfact.stderr
+        mf = json.loads(rfact.stdout)
+        assert mf["resolved"] is True and any(x["id"] == "d1" for x in mf["matches"]), mf
+        rmiss = subprocess.run(ml + ["--fact", "不存在的事实xyz", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rmiss.returncode == 0, "fact-miss crashed: " + rmiss.stderr
+        mm = json.loads(rmiss.stdout)
+        assert mm["resolved"] is False and ".rpd/decisions.md" in mm["fallback_evidence"], mm
+
+        # 3k-4) add L2 scenario + L3 profile; fast-path serves only L2/L3
+        for al in (["--add", "--layer", "L2", "--id", "s1", "--title", "PRD 生成场景",
+                    "--text", "Game/helper/main 基础功能构建", "--scope", "prd", "--json"],
+                   ["--add", "--layer", "L3", "--id", "p1", "--title", "项目画像",
+                    "--text", "C++ 多文件", "--json"]):
+            ra = subprocess.run(ml + al, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            assert ra.returncode == 0, "add failed: " + ra.stderr
+        rfp = subprocess.run(ml + ["--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rfp.returncode == 0, "fast-path crashed: " + rfp.stderr
+        mp = json.loads(rfp.stdout)
+        assert mp["ok"] and any(p2["id"] == "p1" for p2 in mp["profile"]), mp
+        # scope=prd scenario surfaces only under --scope prd (default is project)
+        rfp2 = subprocess.run(ml + ["--list", "--layer", "L2", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rfp2.returncode == 0, "list L2 crashed: " + rfp2.stderr
+        mp2 = json.loads(rfp2.stdout)
+        l2ids = [x["id"] for x in mp2["layers"].get("L2", [])]
+        assert "s1" in l2ids, l2ids
+
+        # 3k-5) expiry: expired atom flagged, then drop-clean removes it
+        rexp = subprocess.run(ml + ["--add", "--layer", "L1", "--id", "m9", "--title", "过期原子",
+                                    "--text", "temp", "--expires", "2000-01-01", "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rexp.returncode == 0, "expired add crashed: " + rexp.stderr
+        rr = subprocess.run(ml + ["--expired", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rr.returncode == 0, "expired report crashed: " + rr.stderr
+        mr = json.loads(rr.stdout)
+        assert "m9" in mr["expired"]["L1"], mr
+        rd = subprocess.run(ml + ["--expired", "--drop-clean", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rd.returncode == 0, "drop-clean crashed: " + rd.stderr
+        md = json.loads(rd.stdout)
+        assert md["dropped"]["L1"] == 1, md
+
+        # 3k-6) L0 evidence: fingerprint re-check; file change -> content_matches False
+        rev = subprocess.run(ml + ["--evidence", ".rpd/decisions.md", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rev.returncode == 0, "evidence crashed: " + rev.stderr
+        me = json.loads(rev.stdout)
+        assert me["ok"] and me["content_matches"] is True, me
+        with open(os.path.join(tmpdir, ".rpd", "decisions.md"), "a", encoding="utf-8") as f:
+            f.write(chr(10) + "# touched by eval" + chr(10))
+        rev2 = subprocess.run(ml + ["--evidence", ".rpd/decisions.md", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rev2.returncode == 0, "evidence2 crashed: " + rev2.stderr
+        me2 = json.loads(rev2.stdout)
+        assert me2["content_matches"] is False, me2
+
+        # 3k-7) bloat guard + stats: counts/warnings present
+        rstat = subprocess.run(ml + ["--stats", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rstat.returncode == 0, "stats crashed: " + rstat.stderr
+        mst = json.loads(rstat.stdout)
+        assert mst["ok"] and "L1" in mst["counts"] and "L0" in mst["counts"], mst
+        assert isinstance(mst["warnings"], list), mst
+
+        # 3k-8) cold-start step01 carries the R-21 memory report (degrade never crashes)
+        rcs2 = subprocess.run([sys.executable, str(SCRIPTS_DIR / "rpd-cold-start.py"), tmpdir, "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rcs2.returncode == 0, "cold-start crashed with memory: " + rcs2.stderr
+        cs2 = json.loads(rcs2.stdout)
+        mem = cs2.get("steps", {}).get("01_active_context", {}).get("memory", {})
+        assert mem.get("checked") is True, "memory report missing: " + str(mem)
+        assert "counts" in mem and "fallback" in mem, str(mem)
+        print("  ✅ R-21 memory: L0-L3 layers + expiry + fallback + bloat guard + cold-start report")
+
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")

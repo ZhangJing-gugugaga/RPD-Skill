@@ -569,6 +569,47 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 
 ---
 
+## 3.9 L0-L3 分层记忆（R-21，I4-6）
+
+### 3.9.1 四层定义
+
+| 层 | 内容 | 落点 | 常驻 |
+|----|------|------|------|
+| L0 证据 | 原始决策/扫描输出（仅指纹 + 路径引用，内容不常驻） | `.rpd/memory-layers.json` 的 L0 索引 | ❌（`--evidence` 按需回退） |
+| L1 原子 | 原子决策/需求事实（每条独立可引用，如"用户要求 TypeScript"） | 同上的 L1 | ❌（`--fact` 回退） |
+| L2 场景 | 场景块（PRD 生成 / 接手半成品 / 继续开发各自的上下文包） | 同上的 L2 | ✅（默认供给单位） |
+| L3 画像 | 长期稳定项目基线（技术栈 / 红线 / 团队约定） | 同上的 L3 | ✅（与 L2 同供） |
+
+> 与 R-14 decisions.md 的关系：decisions.md 仍是权威决策日志（grill-me 写入权不变）；
+> `--import-decisions` 只**只读**提取 accepted 决策为 L1 原子 + 把 decisions.md 登记为 L0 证据，永不写回 decisions.md（Q5 硬约束不受影响）。
+
+### 3.9.2 读写与过期规则
+
+- 读：默认 fast-path = L2（scope 过滤）+ L3；`--fact <kw>` 回退 L1 原子；`--evidence <path>` 回退 L0（指纹比对 + 提示按 path 直读原文，证据不常驻）。
+- 写：`--add --layer L1|L2|L3`（L0 只由 `--evidence`/`--import-decisions` 写入，防手改指纹）。
+- 过期：条目可选 `expires`（YYYY-MM-DD）；过期条目标记 `expired:true` 仍可读，`--expired --drop-clean` 才物理删除（读不丢证据、清可收敛）。
+- 单层膨胀受控：`--stats` 对 L1>500 / L2>200 出 bloated 告警（R-21 验收"单层膨胀受控"）。
+- 预算衔接：常驻注入仍走 R-23 三层预算（L1≤3000t / L2≤300t / L3≤500t）；本工具只产引用，不整段注入原文。
+
+### 3.9.3 检索回退（R-21 核心）
+
+```
+默认（L2/L3 引导） → --fact 回退 L1 原子 → --evidence 回退 L0 证据指纹
+命中不了 → resolved:false + fallback_evidence 提示（不猜、不编造）
+```
+
+### 3.9.4 降级
+
+- 无 `memory-layers.json` / 损坏 → 空结果 + ok:true（不崩）；
+- `memory-layers.py` 不可加载 → cold-start step01 memory report `checked:false`（不崩）；
+- `decisions.md` 不存在 → import 返回 imported:0（不崩）。
+
+### 3.9.5 涉及文件
+
+- 新增 `scripts/memory-layers.py`（四层读写 / 过期 / 回退 / 膨胀守卫 / import-decisions）
+- `scripts/rpd-cold-start.py` step01 集成 `memory` 报告（importlib + 降级 stub，同 R-23 模式）
+- `scripts/run-eval.py` Scenario U 3k 断言（10 项）
+
 ## 14. Non-goals（范围外，10 条）
 
 1. **不承诺精确调用图**：calls 边是"候选调用边 + 可验证锚点"，tree-sitter 是启发式，不做真 call graph 求解（R-06 硬约束）。
@@ -701,7 +742,7 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-18 | 多会话并发冲突（进程级物理锁兜底） | P1 | 已落地（state-guard ProjectStateMutex） |
 | R-19 | 边信息复用（节点-边最小图：edges schema + R-10 knowledge-graph.json 映射 + 查询） | P1 | 已落地（scripts/code-map-generator.py：entry.edges + layer，悬挂剔除 + 降级不崩） |
 | R-20 | PRD↔代码影响分析（impact-analyzer：changedNodes/affectedNodes/受影响层 + 风险分级） | P1 | 已落地（scripts/impact-analyzer.py：PRD→代码 changed/1-hop/layers/blast 双向映射 + 无 code-map 直接扫描降级） |
-| R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | I4（2026-08-19 起草，验收后转正） |
+| R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | 已落地（scripts/memory-layers.py：L0 指纹证据 / L1 原子 / L2 场景 / L3 画像 + 过期 + fast-path→fact→evidence 回退；rpd-cold-start.py step01 集成 memory 报告） |
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |
 | R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | 已落地（scripts/exposure-guard.py：L1≤3000t / L2≤300t / L3≤500t + 深入追问 2 轮闸门 + 任务级双预算 24 条/2000t；rpd-cold-start.py step04 集成 exposure_layers） |
 | R-24 | 经验资产化（parking-lot 冻结；四档触发条件评估后升级，不在排期） | P2 | I5（不排期） |

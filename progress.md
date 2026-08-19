@@ -298,3 +298,22 @@
 - **commit：** `verify(I4-5): 7 项 0-trust 全过 [verifier]`（仅 add task_plan.md progress.md）
 - **经验：** ①R-23 三层预算 3000/300/500 与 TAM 三重预算对齐，Q4「深入追问=2 轮」落地为 DEEP_FOLLOWUP_TURNS 常量；②exposure-guard 复用 retriever 的 resolve_symbol/load_code_map/estimate_tokens，standalone 降级 stub 与 I4-2/I4-3 同族模式（importlib 加载连字符文件名）；③cold-start 集成 exposure_layers 走「独立函数 + importlib + 异常降级」三保险，红线机检主体不受影响
 - **下轮预期：** Advancer 接手 I4-6（R-21 L0-L3 分层记忆）
+
+## Session: 2026-08-20（Advancer · I4-6 R-21 L0-L3 分层记忆）
+
+### 本次会话：实现 R-21 分层记忆（memory-layers.py 四层 + 过期 + 回退 + 膨胀守卫 + cold-start 集成）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-5): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-6（R-21 L0-L3 分层记忆，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/memory-layers.py`（508 行）：四层落点 L0 证据（sha256 指纹索引，内容不常驻）/ L1 原子 / L2 场景（scope 过滤）/ L3 画像；分层读写 + 过期规则（`expires` 字段，`--expired` 标记可读、`--drop-clean` 才物理删）+ 检索回退（默认 fast-path L2+L3 → `--fact` 回退 L1 → `--evidence` 回退 L0 指纹比对；miss 返回 resolved:false + fallback_evidence 不猜）+ 单层膨胀守卫（`--stats` L1>500/L2>200 告警）+ `--import-decisions`（只读提取 accepted 决策为 L1 原子 + decisions.md 登记 L0，grill-me 写入权不受影响）；全路径降级不崩（无 store / 损坏 / 缺 decisions.md 均 ok）
+  - `scripts/rpd-cold-start.py`（+44 行）：importlib 加载 memory-layers（同 R-23 模式，失败降级 stub）；step01 增 `memory` 报告（checked/counts/expired/warnings/fallback/fast_path/scenario_count/profile_count）
+  - `scripts/run-eval.py` Scenario U 3k（+96 行）：3k-1 空库降级 / 3k-2 决策导入（只 accepted）/ 3k-3 fact 命中+miss 不猜 / 3k-4 L2/L3 供给 / 3k-5 过期+drop / 3k-6 证据指纹翻转 / 3k-7 膨胀守卫 / 3k-8 cold-start memory 报告 —— 8 组断言
+  - `docs/rpd-v2-technical-spec.md`：新增 §3.9 L0-L3 分层记忆（四层定义/读写过期/检索回退/降级/涉及文件）+ 附录 A R-21 转正
+- **核心验收（eval 3k 真实运行）：** 无 store 降级 ok（path=L2+L3 空）；import-decisions 只导入 accepted D-1（imported=1 total_accepted=1）；--fact 零依赖→命中 d1；--fact 不存在→resolved:false+fallback_evidence（不猜）；fast-path 只供 L2(scope)+L3；过期原子 m9 标记→drop-clean 删除；decisions.md 指纹变更→content_matches False；--stats counts/warnings 在位；cold-start step01 memory checked=True
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；3k 断言行实际打印 "R-21 memory: L0-L3 layers + expiry + fallback + bloat guard + cold-start report"）
+- **Files modified:** scripts/memory-layers.py（新增 508）· scripts/rpd-cold-start.py（+44）· scripts/run-eval.py（+96）· docs/rpd-v2-technical-spec.md（+56）· progress.md（本日志）
+- **工具故障：** Write/Edit 持续报 Not logged in（同前轮）→ Bash heredoc + python 补丁脚本完成（等义 Edit/Write）；heredoc 嵌套 `\n` 转义成真实换行损坏 run-eval → 用 chr(10) 等义修复（经验复用：I4-3/I4-4 已记）
+- **技术注记：** `_next_val` 解包顺序写反导致 CLI 变量错位 → 整体重写 main() 修复；`_norm_evidence_key` 最初剥掉 .rpd/ 前缀导致 L0 证据指纹校验路径错 → 改为保留前缀（key 兼作项目相对路径）；fast-path 默认 scope=project，scope=prd 的场景需 `--list --layer L2` 验证（eval 断言已对齐）
+- **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-6 todo=rZEKBI）
+- **下轮预期：** Verifier 复验 I4-6：7 项 0-trust + R-21 专项（eval 3k + diff 审计 + 预算守卫 + 膨胀控制 + 兼容降级），PASS 后标记 I4-6 complete

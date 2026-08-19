@@ -73,6 +73,48 @@ def _load_exposure_guard():
 _run_exposure = _load_exposure_guard()
 
 
+def _load_memory_layers():
+    """Load R-21 memory report fns from the sibling memory-layers.py (hyphenated
+    filename cannot be plain-imported). Returns (stats_fn, fast_path_fn) or
+    (None, None) when the module is unavailable (cold-start must never crash)."""
+    import importlib.util
+    ml = Path(__file__).resolve().parent / "memory-layers.py"
+    if not ml.is_file():
+        return None, None
+    try:
+        spec = importlib.util.spec_from_file_location("rpd_memory_layers", ml)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.stats, mod.fast_path
+    except Exception:
+        return None, None
+
+
+_mem_stats, _mem_fast = _load_memory_layers()
+
+
+def memory_report(project_root):
+    """R-21 layer-memory report (counts + fallback semantics). Degrades to a
+    no-op note when the module is unavailable (never crashes cold-start)."""
+    if _mem_stats is None:
+        return {"checked": False, "note": "memory-layers module unavailable"}
+    try:
+        st = _mem_stats(Path(project_root))
+        fp = _mem_fast(Path(project_root))
+        return {
+            "checked": True,
+            "counts": st.get("counts"),
+            "expired": st.get("expired"),
+            "warnings": st.get("warnings", []),
+            "fallback": st.get("fallback"),
+            "fast_path": fp.get("path"),
+            "scenario_count": len(fp.get("scenarios") or []),
+            "profile_count": len(fp.get("profile") or []),
+        }
+    except Exception:
+        return {"checked": False, "note": "memory report failed (degraded)"}
+
+
 def exposure_layers(project_root):
     """R-23 progressive-exposure report (L1/L2/L3 budgets); degrades to a
     no-op note when the module is unavailable (never crashes cold-start)."""
@@ -350,6 +392,8 @@ def cold_start(project_root, do_migrate=False):
     report["steps"]["01_active_context"] = {
         "found": ac_content is not None,
         "preview": (ac_content[:200] + "...") if ac_content and len(ac_content) > 200 else ac_content,
+        # R-21 (I4-6): L0-L3 layer-memory report (counts + fallback semantics)
+        "memory": memory_report(root),
     }
 
     # --- Step 2: red-line machine check ---
