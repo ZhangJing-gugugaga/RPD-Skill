@@ -79,7 +79,7 @@
 - [ ] 盘点 12 个 scripts 的职责边界（intent-router / code-map-generator / state-guard / rpd-decisions / gap-analyzer 等）
 - [ ] 起草 R-19~R-25 需求编号占位（入规格附录 A 草案，待各 Phase 验收后转正）
 - [ ] 确认 R-22 向量通道依赖取舍（见 Key Questions Q1）
-- **Status:** in_progress
+- **Status:** complete
 - **验收：** 基线测试数字落盘 progress.md（✅）；新增需求编号草案写入规格；依赖取舍有结论
 
 #### Phase I4-1: R-22 混合检索（BM25 + 向量 + RRF）

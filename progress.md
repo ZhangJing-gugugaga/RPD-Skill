@@ -113,6 +113,7 @@
 | Eval 全量基线（run-eval.py） | `python scripts/run-eval.py` | 19 场景全过 | **19/19 PASS**（A~X，exit 0） | ✅ 2026-08-19 |
 | Git 分支/状态基线 | `git status` + `git branch` | main 受保护、工作区干净 | main；6 未跟踪文件（计划三件套+研究+promo+.workbuddy）；无跟踪文件改动 | ✅ 2026-08-19 |
 | README vs TRAINING eval 场景数口径 | 19 / 18 | 以 run-eval.py 实际为准 | 实际 19/19；TRAINING.md 18 为旧口径，待文档修订 | ✅ 已澄清 |
+| I4-0 Verifier 验证（a9af0b7） | 7 项 0-trust 检查 | 19/19 PASS + 仅文档改动 + 守卫在位 | eval 19/19（exit 0）· diff 仅 .gitignore/spec/progress.md 3 文件 · 预算守卫 3000/300 在位 · 三级信任+stale 在位 · SCHEMA_VERSION 2.0.0+降级在位 · 无视觉改动 | ✅ 2026-08-19 判定A |
 
 ## Error Log
 
