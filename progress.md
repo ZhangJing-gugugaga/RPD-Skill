@@ -318,3 +318,22 @@
 - **技术注记：** `_next_val` 解包顺序写反导致 CLI 变量错位 → 整体重写 main() 修复；`_norm_evidence_key` 最初剥掉 .rpd/ 前缀导致 L0 证据指纹校验路径错 → 改为保留前缀（key 兼作项目相对路径）；fast-path 默认 scope=project，scope=prd 的场景需 `--list --layer L2` 验证（eval 断言已对齐）
 - **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-6 todo=rZEKBI）
 - **下轮预期：** Verifier 复验 I4-6：7 项 0-trust + R-21 专项（eval 3k + diff 审计 + 预算守卫 + 膨胀控制 + 兼容降级），PASS 后标记 I4-6 complete
+
+## Session: 2026-08-20（Advancer · I4-7 parking-lot 治理机制）
+
+### 本次会话：实现 parking-lot 治理（scripts/parking-lot.py 四档触发 + 升级三要素 + 承诺守卫 + eval 3l）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-6): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-7（parking-lot 治理机制，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/parking-lot.py`（348 行）：四档触发机检 —— T1 依赖就绪（探测 scripts/ 实现模块 + 事实兜底）/ T2 用户信号（≥3）/ T3 成本收益翻转（人工置位）/ T4 定期复核（review_due）；`--audit` 输出每 entry 四触发 ready 判定；升级三要素（`--id/--impact/--budget` 缺一 exit 1，无触发就绪 exit 2 拒绝，`promotion needs evidence`）；`--promise-check` 承诺守卫（冻结条目禁"已规划交付"类措辞）；`--add/--remove/--summary`；存储 `.rpd/parking-lot.json`（versioned）；**全路径降级**（无 store → 内置五条目 R-24/26/27/28/29 只读；损坏 json → builtin 不崩）
+  - `scripts/run-eval.py` Scenario U 3l（+77 行）：8 组断言 —— 3l-1 空库 builtin 5 条目 / 3l-2 audit 四触发可机检（threshold=3、R-28 因依赖 R-26 未落地 dependency_ready=False）/ 3l-3 promise-check 零违规 / 3l-4 缺 budget 拒绝 exit 1 / 3l-5 幽灵需求 R-95（deps R-99）无触发 exit 2 / 3l-6 用户信号≥3 升级成功 + 落盘 store 持久化 / 3l-7 预算 LIST_LIMIT=50 / 3l-8 损坏 store 降级 builtin
+  - `docs/rpd-v2-technical-spec.md`：附录 A R-24 转正 + 新增 R-26/27/28/29 行；新增附录 C「parking-lot 治理清单」（四档触发表 + 升级三要素 + 承诺守卫 + 登记 5 条目 + 当前 audit 实测）
+- **核心验收（eval 3l 真实运行）：** 空库降级 ok（builtin 5 条目）；--audit 四触发逐条可机检（R-28 dependency_ready=False 因缺 R-26）；--upgrade 缺要素拒绝（exit 1）/ 无触发拒绝（exit 2）/ 用户信号就绪放行并落盘；--promise-check 冻结条目零承诺违规；损坏 store 降级不崩
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；3l 断言行实际打印 "R-24/R-26~R-29 parking-lot: four-trigger audit + 3-element promotion gate + promise guard + degrade"）
+- **Files modified:** scripts/parking-lot.py（新增 348）· scripts/run-eval.py（+77）· docs/rpd-v2-technical-spec.md（+39）· progress.md（本日志）
+- **commit：** `11ee591` feat(I4-7): R-24/R-26~R-29 parking-lot 四档触发机检 + 升级三要素 + 承诺守卫 [advancer]
+- **工具注记：** 本 tick Write/Edit 恢复正常（未再报 Not logged in）；Bash heredoc 中 `'PYEOF'` 单引号内容含单引号字符串导致 bash 解析断裂 → 改用 Write 工具直接写入成功
+- **技术注记：** 内置五条目 deps 全部已落地（R-19/21/22 均已实现），因此 `--audit` 下 R-24/26/27/29 的 dependency_ready 均为 True——机检真实性依赖脚本探测（scripts/ 模块存在性），未来重命名模块需同步 IMPLEMENTING_SCRIPTS
+- **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-7 todo=r7Madr）
+- **下轮预期：** Verifier 复验 I4-7：7 项 0-trust + 四档触发专项（eval 3l + diff 审计 + 预算守卫 + 降级），PASS 后标记 I4-7 complete → 下一 Advancer 接 I4-8
