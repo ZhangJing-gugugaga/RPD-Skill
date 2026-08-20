@@ -610,6 +610,32 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 - `scripts/rpd-cold-start.py` step01 集成 `memory` 报告（importlib + 降级 stub，同 R-23 模式）
 - `scripts/run-eval.py` Scenario U 3k 断言（10 项）
 
+## 3.10 I4 出口 Gate（Q5：M1/M2 机检 + M3 观测 + 回归守卫）
+
+> I4-8（测试与验证）落地。Q5 决策：M1/M2 纳入 eval 基线作为 I4 出口 Gate；
+> M3 文档引用作为**观测项**，不阻断 Gate。
+
+### 3.10.1 机检项定义
+
+| 检查 | 类型 | 判定 | 阻断 |
+|------|------|------|------|
+| **M1 理解连续性** | A/B 机检 | arm A（有 map）：retriever 按 map 导航解析已知符号，entry ≤300t；arm B（无 map）：显式降级 source-scan，标注 `source_scan degrade (explicit, no guess)` | 是 |
+| **M2 定位成本 / PRD 变更闭环** | 机检 | `impact-analyzer` PRD feature → changed/affected(1-hop)/layers/blast（R-20 + R-19 边）；feature 命中 changed 且载荷 ≤300t | 是 |
+| **M3 文档引用** | 观测 | README / decisions.md / active-context 存在性 + map 是否在位 | 否（Q5） |
+| **回归守卫** | 机检 | 预算守卫（ROUTER_TOKEN_LIMIT + ENTRY_MAX_TOKENS）、红线机检（verified/stale + dependency_drift）、向后兼容（SCHEMA_VERSION + SCHEMA_WHITELIST）三组常量/逻辑在位 | 是 |
+
+### 3.10.2 诚实失败（非橡皮图章）
+
+- 任一硬项（M1 / M2 / 回归守卫）未过 → `pass:false` + `reason`，exit code **2**；
+- 无 code-map 时 M1 走 arm B 降级通过，但 M2 若无 map 依赖则如实 FAIL —— Gate 不因"有降级路径"而放行丢失的闭环能力；
+- 用法错误 exit 1；全部通过 exit 0。
+
+### 3.10.3 涉及文件
+
+- 新增 `scripts/i4-gate.py`（CLI：`i4-gate.py <root> --prd <prd.md> [--symbol S] [--feature F] [--json]`）
+- `scripts/run-eval.py` Scenario U 3m 断言（带 map PASS / 无 map 如实 FAIL）
+- 本规格 §3.10 + §16.2 注记
+
 ## 14. Non-goals（范围外，10 条）
 
 1. **不承诺精确调用图**：calls 边是"候选调用边 + 可验证锚点"，tree-sitter 是启发式，不做真 call graph 求解（R-06 硬约束）。
@@ -683,6 +709,8 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 | **I3** | 验收 R-05 + A/B 实测（1.5 人日） | SKILL.md ≤8KB；README 含收益边界声明；M1/M2/M3 至少各 1 组 A/B 数据；小仓阈值回代验证 |
 | **I4** | P1 R-09~R-14（7.5 人日） | 分层索引、兼容读取、符号寻址、审核视图、三级信任、decisions 日志全部验收通过 |
 | **I5** | P2（不排期） | 仅维护 parking-lot；不启动开发 |
+
+> **I4 出口 Gate（Q5，I4-8 落地）**：`python scripts/i4-gate.py <root> --prd <prd.md>` 必须 PASS（exit 0）——M1 理解连续性 A/B 机检 + M2 PRD 变更闭环机检 + 回归守卫（预算/红线/兼容）在位；M3 文档引用为观测项不阻断。机检口径见 §3.10，断言见 run-eval Scenario U 3m。
 
 ---
 

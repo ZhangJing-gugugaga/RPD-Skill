@@ -1251,6 +1251,43 @@ def run_scenario_u():
         assert pcor["ok"] and pcor["source"] == "builtin", pcor
         print("  ✅ R-24/R-26~R-29 parking-lot: four-trigger audit + 3-element promotion gate + promise guard + degrade")
 
+        # 3m) I4-8 exit gate (Q5): M1/M2 machine-checked + M3 observation + regression guard
+        #     M1 continuity A/B: arm A = map navigation resolves known symbol (<=300t);
+        #     arm B = no map -> explicit source-scan degrade. M2 = PRD change-loop via
+        #     impact-analyzer (R-20 + R-19 edges). M3 doc-ref = observation only, never
+        #     blocks. Regression guard = budget/redline/compat red lines all present.
+        gate = [sys.executable, str(SCRIPTS_DIR / "i4-gate.py"), tmpdir]
+        # 3m-1) with map + PRD: M1 arm A resolves Game, M2 maps Game, gate PASS (rc 0)
+        rg1 = subprocess.run(gate + ["--prd", prd_path, "--json"], capture_output=True,
+                             text=True, encoding="utf-8", errors="replace")
+        assert rg1.returncode == 0, "i4-gate should PASS with map: " + rg1.stdout + rg1.stderr
+        pg1 = json.loads(rg1.stdout)
+        assert pg1["pass"] is True, pg1
+        m1 = pg1["checks"]["M1_continuity"]["report"]
+        assert m1["arm"] == "A" and m1["map_resolved"] is True, m1
+        assert m1["entry_tokens"] <= 300, m1
+        m2 = pg1["checks"]["M2_prd_loop"]["report"]
+        assert m2["ok"] is True and "Game" in m2["changed"], m2
+        assert m2["budget_ok"] is True, m2
+        m3 = pg1["checks"]["M3_doc_ref"]["report"]
+        assert m3["note"] and "observation" in m3["note"], m3  # M3 never blocks
+        reg = pg1["checks"]["regression_guard"]
+        assert reg["ok"] is True and len(reg["findings"]) == 3, reg
+        assert all(f["ok"] for f in reg["findings"]), reg
+        # 3m-2) no code-map: M1 honest arm-B degrade, M2 FAILs -> gate FAIL (rc 2,
+        #       not a rubber stamp). Restore afterwards.
+        cmap_path = os.path.join(tmpdir, ".rpd", "code-map.json")
+        os.rename(cmap_path, cmap_path + ".bak")
+        rg2 = subprocess.run(gate + ["--prd", prd_path, "--json"], capture_output=True,
+                             text=True, encoding="utf-8", errors="replace")
+        assert rg2.returncode == 2, "i4-gate should FAIL without map: " + rg2.stdout + rg2.stderr
+        pg2 = json.loads(rg2.stdout)
+        assert pg2["pass"] is False, pg2
+        assert pg2["checks"]["M1_continuity"]["report"]["arm"] == "B", pg2
+        assert pg2["checks"]["M2_prd_loop"]["ok"] is False, pg2
+        os.rename(cmap_path + ".bak", cmap_path)
+        print("  ✅ I4-8 exit gate (Q5): M1 A/B continuity + M2 PRD loop + M3 observation + regression guard + honest fail")
+
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
         print("  ✅ R-19 edges: KG map + dangling drop + layer enrich + budget + degrade")

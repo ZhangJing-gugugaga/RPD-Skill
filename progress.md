@@ -338,3 +338,20 @@
 - **技术注记：** 内置五条目 deps 全部已落地（R-19/21/22 均已实现），因此 `--audit` 下 R-24/26/27/29 的 dependency_ready 均为 True——机检真实性依赖脚本探测（scripts/ 模块存在性），未来重命名模块需同步 IMPLEMENTING_SCRIPTS
 - **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-7 todo=r7Madr）
 - **下轮预期：** Verifier 复验 I4-7：7 项 0-trust + 四档触发专项（eval 3l + diff 审计 + 预算守卫 + 降级），PASS 后标记 I4-7 complete → 下一 Advancer 接 I4-8
+
+## Session: 2026-08-20（Advancer · I4-8 测试与验证 / I4 出口 Gate）
+
+### 本次会话：实现 I4 出口 Gate 机检（i4-gate.py M1/M2 + M3 观测 + 回归守卫 + eval 3m）
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-7): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-8（测试与验证，第一个非 complete）
+- **做了什么：**
+  - 新建 `scripts/i4-gate.py`（约 330 行）：I4 出口 Gate（Q5）—— **M1 理解连续性 A/B 机检**（arm A 有 map：retriever 按 map 导航解析已知符号 + entry ≤300t；arm B 无 map：显式 source-scan 降级 `degrade (explicit, no guess)`，诚实降级不猜）+ **M2 PRD 变更闭环机检**（importlib 复用 impact-analyzer.analyze_prd_to_code：PRD feature → changed/affected(1-hop)/layers/blast，feature 命中 changed 且载荷 ≤300t）+ **M3 文档引用观测**（Q5：observation only，永不阻断）+ **回归守卫**（静态检查预算 ROUTER_TOKEN_LIMIT/ENTRY_MAX_TOKENS、红线 verified/stale/dependency_drift、兼容 SCHEMA_VERSION/SCHEMA_WHITELIST 三组在位）；exit 0 PASS / 1 用法错 / **2 诚实 FAIL**（无 map 时 M2 如实失败，非橡皮图章）
+  - `scripts/run-eval.py` Scenario U 追加 **3m**（+24 行）：3m-1 带 map+PRD → gate PASS（M1 arm A 解析 Game、M2 changed 含 Game、M3 observation 注记、回归 3 findings 全 ok）+ 3m-2 移走 code-map → gate exit 2 如实 FAIL（M1 arm B 降级、M2 ok:false）后恢复
+  - `docs/rpd-v2-technical-spec.md`：新增 **§3.10 I4 出口 Gate**（机检项定义表 / 诚实失败语义 / 涉及文件）+ §16.2 追加 I4 出口 Gate 注记（Q5 落地口径）
+- **核心验收（eval 3m 真实运行）：** 带 map+PRD → exit 0 PASS（M1 arm A map_resolved=True entry 93t≤300t；M2 changed=[Game,helper,main] blast High 203t≤300t；回归 3/3 ok）；移走 map → exit 2 如实 FAIL（M1 arm B source_scan、M2 ok:false）—— Gate 不因降级路径放行丢失闭环
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；3m 断言行实际打印 "I4-8 exit gate (Q5): M1 A/B continuity + M2 PRD loop + M3 observation + regression guard + honest fail"；提交后复跑仍 19/19）
+- **Files modified:** scripts/i4-gate.py（新增）· scripts/run-eval.py（+24）· docs/rpd-v2-technical-spec.md（+38）· progress.md（本日志）
+- **技术注记：** M2 复用 impact-analyzer 的 `_entry_brief` 结构（name/kind/file/layer）与 `_enforce_budget`（budget.estimated_results_tokens）；i4-gate 静态回归守卫用源码字符串在位检查（零依赖、跨文件常量名耦合低——若未来改名需同步 i4-gate 的 needle）
+- **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-8 todo=rMym7V）；I4-8 剩余项（X 行为人工核验清单、M3 观测基线）留 I4-9 或 Verifier 判定
+- **下轮预期：** Verifier 复验 I4-8：7 项 0-trust + Q5 出口 Gate 专项（eval 3m + diff 审计 + 预算守卫 + 诚实失败语义），PASS 后标记 I4-8 complete → 下一 Advancer 接 I4-9
