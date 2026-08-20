@@ -745,10 +745,47 @@ I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-
 | R-21 | L0-L3 分层记忆（decisions 分层：证据/原子/场景/画像 + 过期规则 + 检索回退） | P1 | 已落地（scripts/memory-layers.py：L0 指纹证据 / L1 原子 / L2 场景 / L3 画像 + 过期 + fast-path→fact→evidence 回退；rpd-cold-start.py step01 集成 memory 报告） |
 | R-22 | 混合检索（BM25 词典通道 + RRF 融合；向量通道打标 TODO，零外部依赖先行） | P1 | 已落地（scripts/retriever.py：exact + BM25 + RRF + 预算 ≤300t；向量 TODO） |
 | R-23 | 渐进式暴露（三层注入：router 常驻→层2 按需→语义摘要 ≤500 token；双预算守卫） | P1 | 已落地（scripts/exposure-guard.py：L1≤3000t / L2≤300t / L3≤500t + 深入追问 2 轮闸门 + 任务级双预算 24 条/2000t；rpd-cold-start.py step04 集成 exposure_layers） |
-| R-24 | 经验资产化（parking-lot 冻结；四档触发条件评估后升级，不在排期） | P2 | I5（不排期） |
+| R-24 | 经验资产化（parking-lot 冻结；四档触发条件评估后升级，不在排期） | P2 | 已落地（scripts/parking-lot.py：四档触发机检 + 升级三要素 + 承诺守卫；仍冻结，见附录 C） |
 | R-25 | 依赖版本锁定（依赖清单 + commit hash/结构指纹 + 漂移检测 → 提示重新生成） | P1 | 已落地（scripts/code-map-generator.py：dependencies 快照 + 复合 sha256 指纹；rpd-cold-start.py 红线机检依赖漂移检测） |
+| R-26 | ACL 访问控制（先过滤后检索；依赖 R-21） | P2 | parking-lot 冻结（scripts/parking-lot.py 登记；依赖就绪触发，见附录 C） |
+| R-27 | 全图影响分析（2-hop+；依赖 R-19） | P2 | parking-lot 冻结（scripts/parking-lot.py 登记；依赖就绪触发，见附录 C） |
+| R-28 | 团队记忆（依赖 R-21 + R-26；组织级组合 L3 阶段 C） | P2 | parking-lot 冻结（scripts/parking-lot.py 登记；依赖就绪触发，见附录 C） |
+| R-29 | 多语言支持（依赖 R-22；R-16 同族） | P2 | parking-lot 冻结（scripts/parking-lot.py 登记；依赖就绪触发，见附录 C） |
 
 > **I4 外扩需求占位说明（2026-08-19）**：R-19~R-25 为 I4 迭代需求编号草案，依据 `docs/research-report-ua-tam-optimization.md` 第 4 章与 Key Decisions Q1~Q5 起草；状态为「草案」，待各 Phase 验收通过后转正（由 Verifier 标记）。
+
+## 附录 C：parking-lot 治理清单（I4-7，四档触发机制）
+
+> 落地：`scripts/parking-lot.py`（零依赖 CLI，存储 `.rpd/parking-lot.json`，全路径降级不崩）。
+
+### 四档触发条件（机检可查）
+
+| 触发 | 判定 | 机检命令 |
+|------|------|----------|
+| T1 依赖就绪 | 条目 `deps` 全部已落地（探测 `scripts/` 实现模块，事实兜底） | `python scripts/parking-lot.py <root> --audit` |
+| T2 用户信号 | `signal_count ≥ 3`（用户明确询问 ≥3 次） | 同上（`threshold_user_signal=3`） |
+| T3 成本收益翻转 | 人工显式置位 `cost_benefit_flip` | 同上 |
+| T4 定期复核 | `review_due` 日期已过（每迭代末复核） | 同上 |
+
+### 升级三要素（杜绝"顺手混入"）
+
+`--upgrade --id <R-XX> --impact <影响范围> --budget <预算评估>` 三者缺一 → 拒绝（exit 1）；无任一触发就绪 → 拒绝（exit 2，promotion 需要证据而非便利）。升级成功后条目置 `status: upgraded` 并落 `promotion` 快照（impact/budget/trigger_snapshot/upgraded_at）。
+
+### 承诺守卫（对外口径）
+
+冻结条目不得宣称"已规划交付 / 即将交付"类承诺；`--promise-check` 机检 title/notes，命中即违规（`ok:false` + 违规清单）。
+
+### 登记条目（5）
+
+| 编号 | 需求 | 依赖 | 触发 |
+|------|------|------|------|
+| R-24 | 经验资产化 | R-21 | dependency_ready / review_due |
+| R-26 | ACL 访问控制 | R-21 | dependency_ready |
+| R-27 | 全图影响分析（2-hop+） | R-19 | dependency_ready |
+| R-28 | 团队记忆 | R-21, R-26 | dependency_ready |
+| R-29 | 多语言支持 | R-22 | dependency_ready |
+
+> 当前 `--audit` 实测：R-19/20/21/22/23/25 已落地；R-28 因依赖 R-26（未落地）dependency_ready 不触发 → 机检可见、按证据升级。
 
 ## 附录 B：试点项目基线（I0/I3 引用）
 

@@ -1173,6 +1173,83 @@ def run_scenario_u():
         assert "counts" in mem and "fallback" in mem, str(mem)
         print("  ✅ R-21 memory: L0-L3 layers + expiry + fallback + bloat guard + cold-start report")
 
+        # 3l) R-24/R-26~R-29 (I4-7): parking-lot governance
+        #     four-trigger machine check + 3-element promotion gate + promise guard
+        pl = [sys.executable, str(SCRIPTS_DIR / "parking-lot.py"), tmpdir]
+
+        # 3l-1) no store yet -> builtin five entries degrade, nothing crashes
+        rpl = subprocess.run(pl + ["--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rpl.returncode == 0, "parking-lot crashed (empty): " + rpl.stderr
+        pd0 = json.loads(rpl.stdout)
+        assert pd0["ok"] and pd0["source"] == "builtin" and pd0["count"] == 5, pd0
+        builtin_ids = [e["id"] for e in pd0["entries"]]
+        assert set(builtin_ids) == {"R-24", "R-26", "R-27", "R-28", "R-29"}, builtin_ids
+
+        # 3l-2) --audit: four triggers machine checkable per entry, threshold=3
+        rau = subprocess.run(pl + ["--audit", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rau.returncode == 0, "audit crashed: " + rau.stderr
+        pau = json.loads(rau.stdout)
+        assert pau["ok"] and pau["threshold_user_signal"] == 3, pau
+        assert "R-19" in pau["landed"] and "R-21" in pau["landed"], pau["landed"]
+        trig_ids = [t["trigger"] for t in pau["items"][0]["triggers"]]
+        assert trig_ids == ["dependency_ready", "user_signal", "cost_benefit_flip", "review_due"], trig_ids
+        r28 = [it for it in pau["items"] if it["id"] == "R-28"][0]
+        dep28 = [t for t in r28["triggers"] if t["trigger"] == "dependency_ready"][0]
+        assert dep28["ready"] is False and "R-26" in dep28["reason"], dep28  # R-28 deps R-26 not landed
+
+        # 3l-3) --promise-check: frozen entries must not claim scheduled delivery
+        rpc = subprocess.run(pl + ["--promise-check", "--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rpc.returncode == 0, "promise-check crashed: " + rpc.stderr
+        ppc = json.loads(rpc.stdout)
+        assert ppc["ok"] and ppc["scanned"] == 5 and ppc["violations"] == [], ppc
+
+        # 3l-4) --upgrade without the three mandatory elements -> refused (exit 1)
+        rup1 = subprocess.run(pl + ["--upgrade", "--id", "R-27", "--impact", "scope-only", "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rup1.returncode == 1, "upgrade missing budget should exit 1: " + rup1.stdout
+        pup1 = json.loads(rup1.stdout)
+        assert pup1["ok"] is False and "budget" in pup1["missing"], pup1
+
+        # 3l-5) --upgrade with a never-landed dep -> no trigger ready -> refused (exit 2)
+        radd = subprocess.run(pl + ["--add", "--id", "R-95", "--title", "幽灵需求", "--deps", "R-99",
+                                    "--triggers", "dependency_ready", "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert radd.returncode == 0, "add crashed: " + radd.stderr
+        rup2 = subprocess.run(pl + ["--upgrade", "--id", "R-95", "--impact", "scope", "--budget", "1d", "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rup2.returncode == 2, "upgrade w/o trigger should exit 2: " + rup2.stdout
+        pup2 = json.loads(rup2.stdout)
+        assert pup2["ok"] is False and "no trigger ready" in pup2["error"], pup2
+
+        # 3l-6) --upgrade with user_signal>=3 -> allowed; promotion snapshot persisted
+        radd2 = subprocess.run(pl + ["--add", "--id", "R-96", "--title", "热门需求", "--signals", "4",
+                                     "--triggers", "user_signal", "--deps", "R-21", "--json"],
+                               capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert radd2.returncode == 0, "add R-96 crashed: " + radd2.stderr
+        rup3 = subprocess.run(pl + ["--upgrade", "--id", "R-96", "--impact", "scope", "--budget", "2d", "--json"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rup3.returncode == 0, "upgrade R-96 should pass: " + rup3.stdout + rup3.stderr
+        pup3 = json.loads(rup3.stdout)
+        assert pup3["ok"] and pup3["status"] == "upgraded", pup3
+        assert pup3["promotion"]["impact"] == "scope" and pup3["promotion"]["budget"] == "2d", pup3
+        # persisted: store now exists and carries the upgraded entry
+        rsum = subprocess.run(pl + ["--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        psum = json.loads(rsum.stdout)
+        assert psum["source"] == "store", psum
+        r96 = [e for e in psum["entries"] if e["id"] == "R-96"]
+        assert r96 and r96[0]["status"] == "upgraded", psum
+
+        # 3l-7) budget guard: summary list capped at LIST_LIMIT
+        assert len(psum["entries"]) <= 50, psum
+
+        # 3l-8) corrupted store -> degrade to builtin, never crashes
+        with open(os.path.join(tmpdir, ".rpd", "parking-lot.json"), "w", encoding="utf-8") as f:
+            f.write("{ broken json")
+        rcor = subprocess.run(pl + ["--json"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert rcor.returncode == 0, "corrupted store should degrade, got: " + rcor.stderr
+        pcor = json.loads(rcor.stdout)
+        assert pcor["ok"] and pcor["source"] == "builtin", pcor
+        print("  ✅ R-24/R-26~R-29 parking-lot: four-trigger audit + 3-element promotion gate + promise guard + degrade")
 
         print("  ✅ code-map generator: budget + confidence + 3-part ids + fingerprints")
         print("  ✅ retriever (R-22): exact + BM25 + RRF + budget + vector TODO")
