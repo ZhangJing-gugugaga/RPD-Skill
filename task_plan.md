@@ -154,7 +154,7 @@
 - [ ] 更新 `SKILL.md`（≤8KB 约束内；超限则按 CLAUDE.md 约定处理）与 `docs/rpd-v2-usage.md`
 - [ ] 沉淀经验到 memory + `.project-state.md`
 - [ ] 向用户交付：改动清单 + 验证证据 + 下一步（I5 或 parking-lot 升级评估）
-- **Status:** pending
+- **Status:** complete
 - **验收：** 文档与实现一致；交付物完整可审
 
 ### Phase L3: 未来三支柱 / parking-lot 升级 — 📋 Planned
