@@ -698,6 +698,17 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 | **R-16 多语言**（P2） | 不排期；主语言外走未索引→按需 Read |
 | **R-17 parking-lot**（P2） | 需求池新增/暂缓需求记录到 `docs/parking-lot.md`，不丢失 |
 | **R-18 多会话并发冲突**（P1 兜底） | 进程级物理锁（ProjectStateMutex）包裹写入事务；原子写 + fingerprint 兜底 |
+| **R-19 边信息复用**（P1，I4-2） | 层2 entry 可回答依赖/调用/归属三类查询（`retriever.py --who-calls/--deps-of/--layer-of`）；旧项目 schema 版本白名单（2.0.0/2.1.0）+ 降级不崩（无 KG → edges 空数组） |
+| **R-20 PRD↔代码影响分析**（P1，I4-4） | 双向映射均可演示：PRD→代码输出 changed/affected(1-hop)/layers/blast 分级（Critical/High/Medium/Low）；代码→PRD 反查命中功能；无 code-map 回退直接扫描；未解析返回 ok:false/resolved:false 不猜；载荷 ≤300t |
+| **R-21 L0-L3 分层记忆**（P1，I4-6） | 四层读写（L0 指纹证据/L1 原子/L2 场景/L3 画像）+ 过期（`--expired` 标记 / `--drop-clean` 删除）+ 检索回退（fast-path→fact→evidence，miss 返回 resolved:false + fallback_evidence 不猜）+ `--stats` 单层膨胀告警；冷启动 step01 记忆报告在位 |
+| **R-22 混合检索**（P1，I4-1） | 中文语义查询 "支付重试逻辑" 可定位层2 entry（BM25）；精确词命中不劣于 R-11 符号寻址；单条注入 ≤300t；向量通道打标 TODO（Q1 零依赖先行） |
+| **R-23 渐进式暴露**（P1，I4-5） | L1 router 常驻 ≤3000t → L2 entry 按需 ≤300t → L3 语义摘要 ≤500t（Q4）；越级注入被拦（DEEP_FOLLOWUP_TURNS=2）；任务级双预算（24 条/2000t）任一超限阻断；无 code-map 降级提示不崩 |
+| **R-24 经验资产化**（P2，parking-lot） | 冻结：`parking-lot.py --promise-check` 禁承诺措辞；四档触发（T1 依赖就绪/T2 用户信号≥3/T3 成本翻转/T4 定期复核）可机检；升级需三要素 |
+| **R-25 依赖版本锁定**（P1，I4-3） | 依赖清单变化（增/改/删）→ `dependency_drift` 检测并提示重新生成图谱；信任状态机不受影响；无清单/旧 meta 降级 checked:False 不崩 |
+| **R-26 ACL 访问控制**（P2 parking-lot） | 冻结登记：依赖 R-21，`--audit` 显示 dependency_ready 触发状态 |
+| **R-27 全图影响 2-hop+**（P2 parking-lot） | 冻结登记：依赖 R-19，`--audit` 显示 dependency_ready 触发状态 |
+| **R-28 团队记忆**（P2 parking-lot） | 冻结登记：依赖 R-21 + R-26（未落地 → 不触发），L3 阶段 C 评估 |
+| **R-29 多语言支持**（P2 parking-lot） | 冻结登记：依赖 R-22，`--audit` 显示 dependency_ready 触发状态 |
 
 ### 16.2 迭代出口 Gate（I0–I5）
 
@@ -721,9 +732,10 @@ git diff <map_commit>..HEAD --stat      # 变更文件集合（若 map_commit ==
 ```
 I0 校准（R-01） → I1 生成器（R-02/R-06） → I2 骨架（R-03/R-04/R-07/R-08）
 → I3 验收（R-05 + A/B） → I4 P1（R-09~R-14） → I5 P2（不排期）
+→ I4-外扩（R-22→R-19→R-25→R-20→R-23→R-21 → parking-lot → 出口 Gate → 交付）
 ```
 
-依赖关系：I0 的 S/m/k 反解结果供 I1 生成器调参；I1 的产物是 I2 骨架的输入；I2 跑通冷启动 7 步后才能做 I3 A/B 实测；I4 依赖 I2 的信任体系与 I1 的索引能力。
+依赖关系：I0 的 S/m/k 反解结果供 I1 生成器调参；I1 的产物是 I2 骨架的输入；I2 跑通冷启动 7 步后才能做 I3 A/B 实测；I4 依赖 I2 的信任体系与 I1 的索引能力；I4 外扩顺序按 Key Decisions Q1~Q5（零依赖先行 / KG 复用 / PRD 解析 / 追问闸门 / 出口 Gate 口径），出口 Gate 见 §3.10。
 
 ### 17.2 启动指引（Checklist）
 

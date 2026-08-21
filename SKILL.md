@@ -93,18 +93,24 @@ C1 查 `.project-state.md`（无→提示先「分析项目」或「新建项目
 ## Script Toolbox / 脚本工具箱
 | Script | Purpose / 用途 |
 |--------|---------|
-| `intent-router.py` | 确定性意图路由（每次对话开始） |
-| `security-scanner.py` | 8 SEC + 注入 + 流式扫描（Flow B/C 开始） |
+| `intent-router.py` | 意图路由（每次对话开始） |
+| `security-scanner.py` | 8 SEC + 注入扫描（Flow B/C 开始） |
 | `project-scanner.py` | 技术栈/组件/路由（Flow B） |
 | `gap-analyzer.py` | PRD vs 代码 + 决策漂移（Flow C） |
-| `state-validator.py` | 状态文件 Schema 校验（状态变更后） |
-| `state-guard.py` | 备份 + 原子写 + 分支锁（状态更新前） |
-| `prd-validator.py` | PRD 完整性 + `--ai-mode`（PRD 生成后） |
-| `rpd-cold-start.py` | v2 冷启动 7 步 + v1 兼容（新会话接手） |
-| `code-map-generator.py` | v2 code-map 三件套（功能完成/收尾） |
-| `rpd-decisions.py` | decisions.md 决策日志（决策确认前） |
-| `rpd-metrics.py` | M1/M2/M3 指标采集（会话观测） |
-| `run-eval.py` | eval 场景（19 个，开发/CI） |
+| `state-validator.py` | 状态文件 schema 校验（变更后） |
+| `state-guard.py` | 备份 + 原子写 + 分支锁（更新前） |
+| `prd-validator.py` | PRD 完整性 + `--ai-mode` |
+| `rpd-cold-start.py` | v2 冷启动 7 步 + v1 兼容 |
+| `code-map-generator.py` | code-map 三件套 + 边 + 依赖锁定 |
+| `rpd-decisions.py` | decisions.md 决策日志（grill-me） |
+| `rpd-metrics.py` | M1/M2/M3 指标采集 |
+| `run-eval.py` | 19 eval 场景（开发/CI） |
+| `retriever.py` | 混合检索 + R-19 边查询（≤300t） |
+| `impact-analyzer.py` | PRD↔代码影响 + 风险分级 |
+| `exposure-guard.py` | 三层渐进暴露 + 双预算 |
+| `memory-layers.py` | L0-L3 分层记忆 + 回退 |
+| `parking-lot.py` | 治理：四档触发 + 升级要素 |
+| `i4-gate.py` | I4 出口 Gate（M1/M2 机检） |
 
 ## Failure Modes / 故障处理
 脚本不可用 → 按降级表手动继续，绝不静默终止；状态损坏 → 尝试修复或提示重新生成；概念版 PRD 改 >3 次 → 建议先用户调研；状态与代码严重不一致 → 提示用户确认。

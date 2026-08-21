@@ -356,3 +356,20 @@
 - **技术注记：** M2 复用 impact-analyzer 的 `_entry_brief` 结构（name/kind/file/layer）与 `_enforce_budget`（budget.estimated_results_tokens）；i4-gate 静态回归守卫用源码字符串在位检查（零依赖、跨文件常量名耦合低——若未来改名需同步 i4-gate 的 needle）
 - **遗留：** 向量通道 TODO（Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-8 todo=rMym7V）；I4-8 剩余项（X 行为人工核验清单、M3 观测基线）留 I4-9 或 Verifier 判定
 - **下轮预期：** Verifier 复验 I4-8：7 项 0-trust + Q5 出口 Gate 专项（eval 3m + diff 审计 + 预算守卫 + 诚实失败语义），PASS 后标记 I4-8 complete → 下一 Advancer 接 I4-9
+
+## Session: 2026-08-21（Advancer · I4-9 文档与交付）
+
+### 本次会话：I4-9 收尾 — spec 验收补齐 / usage 速查 / SKILL 工具箱对齐 / 状态文件初始化
+- **Status:** complete（待 Verifier 验证）
+- **轮次闸门：** git log -1 = `verify(I4-8): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **模块：** I4-9（文档与交付，第一个非 complete；I4-0~I4-8 均 complete）
+- **做了什么：**
+  - `docs/rpd-v2-technical-spec.md`：§16.1 需求池验收表补齐 R-19~R-29 验收行（R-19~R-25 转正·R-26~R-29 parking-lot 冻结，口径与 progress Test Results Verifier 实测一致）；§17.1 实施顺序追加 I4 外扩顺序 + Q1~Q5 依赖说明
+  - `docs/rpd-v2-usage.md`：新增 §11「I4 外扩能力速查」——6 个新脚本 CLI 入口（retriever/impact-analyzer/exposure-guard/memory-layers/parking-lot/i4-gate）+ 冷启动 memory/exposure 集成报告 + 诚实失败语义
+  - `SKILL.md`：Script Toolbox 由 12 行扩到 18 行（补 retriever/impact-analyzer/exposure-guard/memory-layers/parking-lot/i4-gate），压缩既有描述保持 ≤8KB —— 实测 **8116 B ≤ 8192 B（R-05 不破）**
+  - `.project-state.md`（新建）：按 state-file-spec 初始化 RPD-skill 自身状态（frontmatter + 功能进度/决策/诊断/阻塞/变更日志），`state-validator.py` **Validation PASSED exit 0**
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；X 行为级提示维护者手动核验属正常旁注）
+- **Files modified:** docs/rpd-v2-technical-spec.md（+11 验收行 + 顺序链）· docs/rpd-v2-usage.md（+§11）· SKILL.md（工具箱 +6 行）· .project-state.md（新建）· progress.md（本日志）
+- **commit：** 待 Verifier 复验后写入下方 Test Results
+- **遗留：** 向量通道 TODO（R-22 Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-9 todo=rDdzl2）；SKILL.md 版本史未动（CLAUDE.md 版本表由用户在发布时更新）
+- **下轮预期：** Verifier 复验 I4-9：7 项 0-trust + 文档一致性（spec/usage/SKILL 与实现对齐 + SKILL ≤8KB + 状态文件可校验）+ diff 审计，PASS 后标记 I4-9 complete → I4 收官

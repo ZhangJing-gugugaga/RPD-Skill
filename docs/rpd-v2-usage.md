@@ -130,3 +130,73 @@ python scripts/rpd-decisions.py <root> list
 3. 审核视图把 gap 归入「漂移」区块。
 
 **严禁**：不拷问用户就把决策标为 accepted；静默覆盖既有决策。
+
+## 11. I4 外扩能力速查（R-19~R-25 + parking-lot + 出口 Gate）
+
+> I4 六个 P1 能力 + parking-lot 治理 + I4 出口 Gate（2026-08-19~20 落地，eval 19/19 持续在位）。全部零外部依赖（Q1），向量通道仅打标 TODO。技术细节见 `docs/rpd-v2-technical-spec.md` §3.6~3.10。
+
+### 11.1 混合检索（R-22，`retriever.py`）
+
+| 命令 | 用途 |
+|------|------|
+| `retriever.py <root> --query <text> [--top N] [--json]` | 混合检索：exact（R-11 兼容）+ BM25（CJK bigram）+ RRF 融合；向量通道 TODO |
+| `retriever.py <root> --who-calls <symbol>` | R-19 入向：谁调用 X（沿 edges target，按 weight 降序） |
+| `retriever.py <root> --deps-of <symbol>` | R-19 出向：X 依赖谁（edge_type + weight 明细） |
+| `retriever.py <root> --layer-of <symbol>` | R-19 归属：X 属于哪个架构层（无则 unknown） |
+
+预算守卫：结果集 ≤300 token；未解析符号返回 `resolved: false` 空结果，不猜测。
+
+### 11.2 PRD↔代码影响分析（R-20，impact-analyzer.py）
+
+```bash
+impact-analyzer.py <root> --prd <prd.md> [--json]                    # PRD→代码
+impact-analyzer.py <root> --code-to-prd <symbol> --prd <prd.md> [--json]  # 代码→PRD
+```
+
+- 输出 `changedNodes` / `affectedNodes`（1-hop：edges/calls/called_by）/ `affectedLayers` / blast 分级（changed≥5 或 layers≥3=Critical；≥3 或 ≥2=High；≥1=Medium；否则 Low）。
+- 降级：无 code-map → 直接源文件扫描；无 PRD/符号未解析 → `ok:false`/`resolved:false` 不崩。
+
+### 11.3 渐进式暴露（R-23，exposure-guard.py）
+
+```bash
+exposure-guard.py <root> --l1          # L1 router 常驻检查（≤3000t）
+exposure-guard.py <root> --entry <符号>  # L2 层2 单条（≤300t）
+exposure-guard.py <root> --summary <符号> --deep <N>  # L3 语义摘要（≤500t；N=deep 追问轮数）
+```
+
+- 深层追问闸门：未满足 2 轮追问 → `blocked_reason: deep_followup_required`；任务级双预算（24 条 / 2000t）任一超限阻断；无 code-map 降级提示不崩。
+
+### 11.4 L0-L3 分层记忆（R-21，memory-layers.py）
+
+```bash
+memory-layers.py <root> --list [--layer L0|L1|L2|L3] [--scope project|prd]
+memory-layers.py <root> --fact <关键词>            # 回退查询（fast-path→L1→L0 证据指纹）
+memory-layers.py <root> --import-decisions         # 只读导入 decisions.md 中 accepted 决策为 L1
+memory-layers.py <root> --expired / --drop-clean / --stats
+```
+
+- 四层：L0 证据指纹 / L1 原子 / L2 场景 / L3 画像；过期只标记不物理删（`--drop-clean` 才删）；`--stats` 单层膨胀（L1>500 / L2>200）告警。
+
+### 11.5 parking-lot 治理（R-24/R-26~R-29，parking-lot.py）
+
+```bash
+parking-lot.py <root> --audit            # 四档触发机检（T1 依赖就绪/T2 用户信号≥3/T3 成本翻转/T4 定期复核）
+parking-lot.py <root> --upgrade --id R-XX --impact <范围> --budget <预算评估>  # 升级三要素缺一拒绝
+parking-lot.py <root> --promise-check    # 承诺守卫：冻结条目禁"已规划交付"措辞
+parking-lot.py <root> --add/--remove/--summary [--json]
+```
+
+- 存储 `.rpd/parking-lot.json`（versioned）；无 store/损坏 → 内置 5 条目降级不崩。
+
+### 11.6 I4 出口 Gate（Q5，i4-gate.py）
+
+```bash
+i4-gate.py <root> --prd <prd.md>   # exit 0=PASS / 1=用法错 / 2=诚实 FAIL
+```
+
+- M1 理解连续性 A/B 机检（arm A map 导航解析 ≤300t；arm B 无 map 显式 source-scan 降级）+ M2 PRD 变更闭环（feature 命中 changed）+ M3 文档引用观测（不阻断）+ 回归守卫（预算/红线/兼容三组常量在位）。
+- **诚实失败语义**：无 map 时 M2 如实 FAIL（exit 2），Gate 不因降级路径放行丢失闭环。
+
+### 11.7 冷启动集成（rpd-cold-start.py）
+
+`rpd-cold-start.py <root>` step ① 增 `memory` 报告（R-21：counts/expired/warnings/fallback）；step ④ 增 `exposure_layers` 报告（R-23：L1/L2/L3 预算状态 + 任务级双预算）；红线机检增 `dependency_drift` 支柱（R-25）并显式告警，⚠️ 依赖漂移请重新生成图谱。
