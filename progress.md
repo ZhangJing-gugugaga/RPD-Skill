@@ -139,11 +139,11 @@
 
 | Question | Answer |
 |----------|--------|
-| Where am I? | L2 — I4 外扩迭代 Phase I4-0（基线核对），处于整体生命周期计划框架下 |
-| Where am I going? | I4-1 R-22 → I4-2 R-19 → I4-3 R-25 → I4-4 R-20 → I4-5 R-23 → I4-6 R-21 → I4-7 parking-lot → I4-8 测试 → I4-9 交付 → L3 未来三支柱 |
+| Where am I? | L2 — I4 外扩迭代 **已收官**（I4-0~I4-9 全部 complete，本 tick 已写 I4 收官报告），处于整体生命周期计划框架下 |
+| Where am I going? | L3 未来三支柱（阶段 A 补漏 → B 资产化/隔离 → C 组织级组合），按 parking-lot 四档触发升级；当前无活跃排期 |
 | What's the goal? | RPD-skill 整体生命周期管理：在红线之下按版本阶段推进能力交付 |
-| What have I learned? | 见 findings.md（资产台账 + UA/TAM 研究 + R-19~R-29 + 三支柱） |
-| What have I done? | 资产全量盘点 + 生命周期计划重构 + I4 计划升级保留 + 资产台账落盘 |
+| What have I learned? | 见 findings.md（资产台账 + UA/TAM 研究 + R-19~R-29 + 三支柱）+ 本文件 I4 收官报告（10 模块交付清单与验证证据） |
+| What have I done? | L0/L1 历史阶段 + L2 I4 外扩全模块交付（6 新脚本 + 文档 + eval 19/19）+ 收官报告落盘 |
 
 ---
 
@@ -374,3 +374,43 @@
 - **commit：** 待 Verifier 复验后写入下方 Test Results
 - **遗留：** 向量通道 TODO（R-22 Q1 冻结）；wb-issues MCP todo 同步仍不可用（I4-9 todo=rDdzl2）；SKILL.md 版本史未动（CLAUDE.md 版本表由用户在发布时更新）
 - **下轮预期：** Verifier 复验 I4-9：7 项 0-trust + 文档一致性（spec/usage/SKILL 与实现对齐 + SKILL ≤8KB + 状态文件可校验）+ diff 审计，PASS 后标记 I4-9 complete → I4 收官
+
+---
+
+## Session: 2026-08-21（Advancer · I4 收官报告）
+
+### 本次会话：I4 全部模块 complete 后的收官报告（交付清单 + 验证证据 + 下一步建议）
+- **Status:** complete（I4 外扩迭代收官）
+- **轮次闸门：** git log -1 = `verify(I4-9): 7 项 0-trust 全过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **触发：** task_plan.md Phase I4-0~I4-9 全部 complete → 按第2步规则，本 tick 写 I4 收官报告
+- **eval 真实结果：** `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，exit 0；I4 专项断言行 R-19~R-25 + exit gate 全部实际打印 ✅）
+
+### 📦 I4 交付清单（10 模块，6 新脚本 + 4 文档/SKILL 改动）
+| 模块 | 交付 | commit | Verifier 判定 |
+|------|------|--------|--------------|
+| I4-0 | 基线核对：eval 基线 19/19 + R-19~R-25 草案入规格附录 A + Q1~Q5 拍板 | a9af0b7（docs） | ✅ A（2026-08-19） |
+| I4-1 | `retriever.py` R-22 混合检索（exact + BM25 + RRF，零依赖，向量 TODO） | aa0bb2c | ✅ A |
+| I4-2 | R-19 边信息：edges schema 2.1.0 + KG 只读映射 + 悬挂剔除 + who-calls/deps-of/layer-of 查询 | 68e0f4e | ✅ A（含补查轮） |
+| I4-3 | R-25 依赖锁定：清单快照 + 复合指纹 + 漂移检测 + 冷启动第 3 支柱 | 61908d4+eb9f56c | ✅ A |
+| I4-4 | `impact-analyzer.py` R-20 PRD↔代码双向映射 + 1-hop + blast 分级 | 4076938 | ✅ A |
+| I4-5 | `exposure-guard.py` R-23 三层渐进暴露 + 追问闸门 + 双预算 | 56076ca+d8e713a | ✅ A |
+| I4-6 | `memory-layers.py` R-21 L0-L3 分层记忆 + 过期 + 回退 + 膨胀守卫 | 94220bf | ✅ A |
+| I4-7 | `parking-lot.py` 四档触发机检 + 升级三要素 + 承诺守卫 + R-24/26~29 登记 | 11ee591+ad76b15 | ✅ A |
+| I4-8 | `i4-gate.py` Q5 出口 Gate（M1 连续性 A/B + M2 PRD 闭环 + M3 观测 + 回归守卫 + 诚实失败） | 79ad7b6 | ✅ A |
+| I4-9 | 文档交付：spec 验收补齐 + usage §11 速查 + SKILL 工具箱 18 行 ≤8KB + .project-state.md | 4c40084 | ✅ A（2026-08-21） |
+
+### 🧪 验证证据（全部真实运行，0-trust）
+- eval 基线：**19/19 PASS，exit 0**（本 tick 复跑确认；I4 专项断言行 R-19~R-25 + exit gate 实际打印）
+- 预算守卫全程未破：router 3000t / 单条 entry 300t / L3 摘要 500t（Q4）/ 任务双预算 24 条 2000t / edges 单 entry 24 上限；专项实测载荷 30~246t 均 ≤ 上限
+- R-10 向后兼容：SCHEMA 2.1.0 + 白名单(2.0.0, 2.1.0) + 全路径降级（无 KG / 无 code-map / 无 store / 损坏 store / 缺 decisions.md 均不崩）
+- 红线机检：三级信任 + stale + dependency_drift 三支柱持续在位（rpd-cold-start.py:141/211-255）
+- 每模块 diff 审计均「仅预期文件」；task_plan.md 结构全程未动；无视觉/UI 改动故无截图需求
+
+### 🔭 下一步建议（L3 未来三支柱 / parking-lot 升级）
+1. **parking-lot 四档触发持续机检**：`python scripts/parking-lot.py --audit` 定期跑（R-26/28 依赖就绪后可评估升级）
+2. **L3 阶段 A（补漏）候选**：R-24 经验资产化（依赖 R-21 记忆层已就绪，dependency_ready=True 实测）；向量通道 TODO（需外部 embedding 依赖，触发 T3 成本收益翻转后再议）
+3. **L3 阶段 B/C**：ACL（R-26）/ 全图影响 2-hop（R-27）/ 团队记忆（R-28）/ 多语言（R-29）—— 均冻结在 parking-lot，按用户信号 ≥3 或成本收益翻转升级
+4. **收尾事项**：wb-issues MCP 恢复后同步 10 条 I4 todo 状态（I4-0~I4-9 各 todo id 见 2026-08-19 会话）；SKILL.md 版本史由用户在发布时更新 CLAUDE.md 版本表
+- **Files modified:** progress.md（5-Question Reboot Check 更新 + 本收官报告）
+- **commit：** 本 tick 仅文档报告，commit 信息见下方实际值
+- **交棒：** 本 tick 结束，I4 收官；后续 tick 无需 Advancer 推进（L3 无排期），由 automation 管理员决定是否停用本自动化或转为 L3 观察任务
