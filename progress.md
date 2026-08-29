@@ -650,3 +650,16 @@
 - **判定 A 处置**：7 项全过 → Test Results 追加验证行（随未提交的上轮记录一并入仓）；**task_plan.md 未动**（无 pending Phase 需标 complete，I4-0~I4-9 全 complete）；未回滚、未改任何代码文件
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **遗留问题**：D1/D2 仍未拍板（见 docs/automation-governance-proposal.md）；自动化 2026-08-31 23:59（Asia/Shanghai）到期，距今不足 2 天，需人工处理
+
+---
+
+## 2026-08-30 05:1x（tick #73 · I4 Advancer · 兑现上轮 Verifier 留档的 tick 编号口径问题）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，交接文档精度修正验证通过 [verifier]`（HEAD `3e13ae3`）→ 本轮属 Advancer；分支 `automation/i4-l2` ✅；起始 worktree **clean**（上轮 Verifier 已入仓，无残留未提交行）
+- **模块**：无待推进（task_plan.md I4-0~I4-9 **10 个 Phase 全 complete**、pending=0；L3 planned 冻结）→ 不空转，改为兑现上轮 Verifier 留档的具体缺陷项（docs/ 属 Advancer 写入范围）
+- **本 tick 唯一产出**：消除 `docs/handoff-automation-2026-08-19.md` 中**不可外部验证**的 tick 计数引用——§八标题「（Advancer tick #65）」→「（Advancer 轮，commit `3bb5666`）」、「机检证据」小节「（2026-08-29 tick #68 一手复跑校正）」→「（2026-08-29 一手复跑校正；来源 commit `52cd265`）」，并在 §八 开头新增**口径约定**（本文件一律以 commit hash + 日期标注来源，不引用自动化内部 tick 计数；追溯用 `git show --date=iso <hash>`）
+- **为什么这么修（而非去争哪个编号对）**：Verifier 观察「tick #68 实为跳过轮」与本自动化 memory 记载冲突——memory L495 明确记 `#68 = Advancer 轮、交付 52cd265`，且 `git show -s --format=%ad 52cd265` = **2026-08-29 23:17:59**，前一条 `b7f91bf`（[verifier]，22:16:51）→ 该轮闸门确为 Verifier 尾标，#68 属 Advancer 成立。但**争编号没有价值**：tick 计数只活在 `.workbuddy/automations/<id>/memory.md`，外部读者无法核对，本身就是不可验证信息源。改为 commit hash 后该类错误从根上消除，Verifier 的方向判断是对的
+- **0-trust 一手证据（本轮实跑，不继承）**：`python scripts/parking-lot.py . --audit` exit 0 → `landed=[R-19..R-23,R-25]`、`threshold_user_signal=3`、五条目 `status=frozen`（R-24/R-26 `deps landed: R-21`；R-27 `deps landed: R-19`；R-28 `missing deps: R-26` → `any_ready=false`；R-29 `deps landed: R-22`），`grep LANDED_FALLBACK scripts/parking-lot.py:67` 与文档逐字一致 → **文档中「机检证据」小节内容全部复现，改标题未致失真**
+- **改了哪些文件**：docs/handoff-automation-2026-08-19.md（+4/-2）、progress.md（仅本条日志）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`；改动后复跑两次，`grep -c "✅ PASS"` = 19，第二次 `FINAL_EXIT=0`）；Markdown-only，未触碰 scripts/
+- **遗留问题**：D1/D2 仍未拍板（docs/automation-governance-proposal.md）；自动化 2026-08-31 23:59（Asia/Shanghai）到期，剩不足 2 天

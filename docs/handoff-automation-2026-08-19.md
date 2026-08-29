@@ -203,9 +203,11 @@ Advancer 置 running + 评论 commit hash；Verifier 按判定 A/B/C 分别置 d
 
 ---
 
-## 八、2026-08-29 状态校正（Advancer tick #65）
+## 八、2026-08-29 状态校正（Advancer 轮，commit `3bb5666`）
 
-> 本文件自 2026-08-19 起一直是未跟踪文件（`??`），随时可能因工作区清理丢失，故本 tick 入仓；同时校正第一/二/七节中已过期的信息。
+> 本文件自 2026-08-19 起一直是未跟踪文件（`??`），随时可能因工作区清理丢失，故该轮入仓；同时校正第一/二/七节中已过期的信息。
+>
+> **口径约定**：本文件一律以 **commit hash + 日期** 标注来源，不引用自动化内部 tick 计数——tick 编号只存在于 `.workbuddy/automations/<id>/memory.md`，外部读者无法核对。需要追溯时用 `git show --date=iso <hash>`。
 
 | 项 | 本文件原文（已过期） | 2026-08-29 实际 |
 |---|---|---|
@@ -217,7 +219,7 @@ Advancer 置 running + 评论 commit hash；Verifier 按判定 A/B/C 分别置 d
 | valid_until | 2026-09-19 | **2026-08-31 23:59（Asia/Shanghai）**，到期自动停止 |
 | eval 基线 | 19/19 PASS | 19/19 PASS，exit 0（2026-08-29 23:1x 复跑确认） |
 
-#### 机检证据：已落地 vs parking-lot 冻结（2026-08-29 tick #68 一手复跑校正）
+#### 机检证据：已落地 vs parking-lot 冻结（2026-08-29 一手复跑校正；来源 commit `52cd265`）
 
 > 上一版写「Q1~Q5 全部落地（R-19~R-29）」，把 parking-lot 条目误记为已交付。以下为实跑结果，可复现：
 
