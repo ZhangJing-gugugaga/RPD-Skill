@@ -78,6 +78,8 @@
 
 给出选项字母即可（例：「A + 授权压缩」），我下一 tick 执行。
 
+> ⏳ **时效性**：Advancer 与 Verifier 两个自动化的 `validUntil` 均为 **2026-08-31 23:59:59.999（Asia/Shanghai）**。**到期不拍板也有默认结果，但语义不完整** —— 见 §七 到期处置预案（2026-08-30 新增）。
+
 ---
 
 ## 五、已执行的自我改进（tick #63，无需授权）
@@ -100,3 +102,60 @@
 
 - tick #62：除新建本文档外，**未改动任何仓库文件、未 commit、未 push、未触碰 main**。
 - tick #63：仅 commit 本文档（`git diff --cached --stat` = 1 file changed, 102 insertions，无其他文件入 diff），eval 19/19 PASS 后提交；`progress.md` 的历史空转日志**未**纳入本次提交（待 D2 授权后统一处理），未 push、未触碰 main。
+
+---
+
+## 七、到期（valid_until）处置预案【2026-08-30 新增 · Advancer 轮】
+
+> 来源：2026-08-30 07:1x（Asia/Shanghai），I4 Advancer 轮；追溯用 `git log --oneline -- docs/automation-governance-proposal.md`（不引用自身 commit hash，避免自引用悖论）
+> 口径：本小节所有数字均 `automation_update(mode="view")` + git / date **一手实跑**，不继承任何历史转述；沿用交接文档约定，不引用自动化内部 tick 计数
+> ⏱️ 时效：validUntil 前有效；到期后本章事实自动失效（默认路径见 7.2）
+
+### 7.1 到期事实（实查）
+
+| 项 | Advancer | Verifier |
+|---|---|---|
+| ID | `automation-1787109094822` | `automation-1787109023265` |
+| name | I4-推进（Advancer）：按计划实现下一模块 | I4-验证（Verifier）：0-trust 独立检验 |
+| status | ACTIVE | ACTIVE |
+| rrule | `FREQ=HOURLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU` | 同左 |
+| validFrom | 2026-08-18T16:00:00.000Z | 同左 |
+| **validUntil** | **2026-08-31T15:59:59.999Z** | **2026-08-31T15:59:59.999Z（同一时刻）** |
+| 折算本地 | 2026-08-31 23:59:59.999（Asia/Shanghai） | 同左 |
+
+**剩余窗口**：自 2026-08-30 07:13:28（Asia/Shanghai，`date` 实跑）起约 **40 小时 46 分钟**。
+
+**关键点**：两个自动化共用同一到期时刻，会**同时停**，不会出现「Advancer 停了、Verifier 空转」或反之的错配。
+
+### 7.2 不拍板的默认路径：等效 A，但语义不完整
+
+到期后两个自动化不再触发，产出上等价于选项 A（停用）。但 status 字段仍是 `ACTIVE` —— 系统只是在有效期外不调度，并不会把它改成 `PAUSED`：
+
+| | 显式 PAUSED（选项 A） | 到期自然失效（不拍板） |
+|---|---|---|
+| 是否停跑 | 是 | 是 |
+| status 字段 | `PAUSED` | 仍为 `ACTIVE` |
+| 若有效期被延长 | 保持停用 | **立即复活，恢复每小时空转** |
+| 可读性 | 一眼看出是主动停的 | 需查 validUntil 才知道为什么没跑 |
+| 成本 | 一句话 | 零 |
+
+**结论**：不拍板不会造成损失（到期即停，等于 A 生效），但把「明确停」留在了含糊状态。若你本就倾向 A，多说一句显式 PAUSED 成本近乎零、语义干净。
+
+### 7.3 到期不会自动处理的事（4 项，均需人工）
+
+| # | 事项 | 当前一手值 | 为什么不能自动 |
+|---|---|---|---|
+| **H1** | 两个自动化显式 `status="PAUSED"` | 均 ACTIVE | Advancer 无权改自动化配置（本文档只提方案，不擅自改） |
+| **H2** | D2 授权压缩 progress.md | **692 行**（`wc -l` 实跑），其中空转日志约 300+ 行 | 属历史改写，需你明确授权 |
+| **H3** | 分支 `automation/i4-l2` 归宿 | 相对 `origin/main` **0 behind / 38 ahead**；`git ls-remote --heads origin` **仅 `refs/heads/main`** → 该分支纯本地、远端无副本 | agent 禁止自动 merge main、禁止 push，须你授权 |
+| **H4** | 到期前确认无未落盘成果 | 2026-08-30 07:13 `git status --porcelain` **输出为空（clean）** | 仅作基线留档，供你判断 |
+
+**H3 的两个去向**：
+- ① **合并进 main**（推荐）——38 个提交是 I4-0~I4-9 的全部交付，只躺在本地分支上，换机/清工作区即失，风险过高
+- ② 保留为归档分支 —— 成果在本地 `git log` 随时可查，代价是远端没有副本
+
+### 7.4 一句话最小行动（三选一）
+
+- **最省事**：什么都不做 → 2026-08-31 23:59 后自动停（A 生效，status 字段留含糊）
+- **推荐**：「H1 两个都 PAUSED + 授权 H2 压缩 + 授权 H3 开 PR 合并进 main」→ 我下一 tick 按序执行并 commit
+- **想保留巡检**：选项 B（rrule 改 `FREQ=WEEKLY;BYDAY=MO;BYHOUR=10`，prompt 同步改 Monitor 口径）—— ⚠️ **Verifier 必须一起改**，否则 Advancer 周更一次、Verifier 仍每小时审计，成本不降反错配

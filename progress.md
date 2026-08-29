@@ -690,3 +690,23 @@
 - **判定 A 处置**：7 项全过且验收标准（消除不可外部验证的 tick 计数引用）已达成 → Test Results 追加 1 行验证记录（真实数字）；**task_plan.md 未动**（无 pending Phase 需标 complete）；未回滚、未改任何代码文件
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **遗留问题**：D1/D2 仍未拍板（docs/automation-governance-proposal.md）；自动化 2026-08-31 23:59（Asia/Shanghai）到期，剩不足 2 天，需人工处理
+
+---
+
+## 2026-08-30 07:1x（Advancer 轮 · 治理提案补「到期处置预案」§七）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，交接文档去 tick 化验证通过 [verifier]`（HEAD `4d2ee91`）→ 本轮属 Advancer；分支 `automation/i4-l2` ✅；起始 worktree **clean**（`git status --porcelain` 空）
+- **模块**：无待推进（task_plan.md I4-0~I4-9 **10 个 Phase 全 complete**、pending=0；L3 planned 冻结）→ 不空转，补当前唯一有实操价值的缺口
+- **缺口定位**：`docs/automation-governance-proposal.md` 写了 D1/D2 怎么选、写了有效期是哪天，**唯独没写「到期不拍板会发生什么」和「到期不会自动处理哪些事」** —— 距到期仅 40 小时，这是当前最需要落到纸面的信息
+- **本 tick 唯一产出**：治理提案新增 §七「到期（valid_until）处置预案」（7.1 到期事实 / 7.2 默认路径对比 / 7.3 四项人工清单 H1~H4 / 7.4 一句话最小行动），§四 决策表下加时效性指引指针
+- **0-trust 一手证据（本轮实跑，不继承历史转述）**：
+  1. `automation_update(view)` ×2 → Advancer `automation-1787109094822` 与 Verifier `automation-1787109023265` 均 ACTIVE / `FREQ=HOURLY;INTERVAL=1` / **validUntil 同为 `2026-08-31T15:59:59.999Z`** = 2026-08-31 23:59:59.999（Asia/Shanghai）
+  2. `date` = 2026-08-30 07:13:28 → 剩余窗口约 **40 小时 46 分钟**（Python 按 ISO 时刻实算，非估算）
+  3. `git rev-list --left-right --count origin/main...HEAD` = **0 behind / 38 ahead**；`git ls-remote --heads origin` **仅 `refs/heads/main`** → `automation/i4-l2` 纯本地、远端无副本（H3 风险的事实基础）
+  4. `wc -l progress.md` = **692 行**（H2 压缩规模一手值）
+  5. `git status --porcelain` 输出为空 → worktree clean（H4 基线）
+- **关键结论（已写入文档）**：两自动化共用同一到期时刻 → 同时停、无错配；**不拍板 = 选项 A 自动生效（到期即停），但 status 仍为 `ACTIVE`，若有效期被延长会立即复活恢复每小时空转** → 建议仍显式 PAUSED；到期不会自动处理的 4 件事 = H1 显式停用 / H2 progress 压缩授权 / H3 分支归宿（推荐授权开 PR 并入 main，38 commit 仅存本地风险高）/ H4 无未落盘成果确认
+- **改了哪些文件**：docs/automation-governance-proposal.md（新增 §七 + §四 指引行）、progress.md（仅本条日志）
+- **eval 真实数字**：19/19 PASS，exit 0（改动前基线 + 改动后复跑，均 `🎉 All scenarios passed!`）；Markdown-only，未触碰 scripts/
+- **commit**：`docs(I4-closeout): 治理提案补 §七 到期处置预案（两自动化 validUntil 同一时刻 + 默认路径对比 + H1~H4 人工清单） [advancer]` —— 本日志与该章节同一次提交入仓，**hash 取交棒时 `git log -1 --format=%h`**（定位：`git log --oneline -- docs/automation-governance-proposal.md`）；不写死 hash 值，避免"文件内引用自身 hash"的自引用悖论
+- **遗留问题**：D1/D2 仍未拍板；新增 H1~H4 人工清单同待拍板（H3 分支合并需用户授权，agent 禁止自动 merge main / push）
