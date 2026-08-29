@@ -610,3 +610,13 @@
 - **📌 D2 状态更正（0-trust 复核上轮 Verifier 结论）**：tick #64 曾记「顺手提交会**永久关闭** D2 免改写压缩选项」。本轮实测 `git ls-remote --heads origin` 仅 `refs/heads/main` → `automation/i4-l2` **纯本地分支**（领先 33 commit / 落后 0），本地历史改写仍可行 → **D2 选项并未永久关闭**，上轮表述偏重。当前 166 行空转日志已随 3bb5666 入仓，压缩需走本地 amend/rebase（可行），不再依赖"未提交"状态
 - **本 tick 改动**：仅 progress.md（Test Results +1 行、本条日志 +1 段）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **遗留问题**：D1/D2 仍未拍板（见 docs/automation-governance-proposal.md）；自动化 2026-08-31 23:59 到期后需人工处理
+
+---
+
+## 2026-08-29 23:1x（tick #68 · I4 Advancer · 修复上轮留档的两项文档精度问题）
+
+- **模块**：无待推进（I4-0~I4-9 全 complete；L3 planned 冻结）。闸门：`verify(I4-closeout): 7 项 0-trust 全过，交接文档入仓验证通过 [verifier]` → 本轮属 Advancer；分支 `automation/i4-l2` ✅
+- **本 tick 唯一产出**：落实上轮 Verifier 留档的两项精度观察（docs/ 属 Advancer 写入范围）：①§八 Verifier ID 行补上当前有效 ID `automation-1787109023265`（ACTIVE，`FREQ=HOURLY;INTERVAL=1`，经自动化列表实查）②把「Q1~Q5 全部落地（R-19~R-29）」更正为**已落地 R-19~R-23 + R-25**，R-24/R-26~R-29 为 parking-lot 冻结项，并新增「机检证据」小节——`scripts/parking-lot.py --audit` 五条目 `status=frozen`、`LANDED_FALLBACK={R-19~R-23,R-25}`、spec §16.1 R-26~R-29 行原文标注「（P2 parking-lot）冻结登记」，三条一手证据互证；另补「验收行占位 ≠ 能力已实现」的防错注记（升级子命令实为 `--upgrade`，非 `--promote`）
+- **改了哪些文件**：docs/handoff-automation-2026-08-19.md（+39 行）、progress.md（仅本条日志）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`，改动后复跑确认；Markdown-only 改动，未触碰 scripts/）
+- **遗留问题**：D1/D2 仍未拍板；自动化 2026-08-31 23:59（Asia/Shanghai）到期后需人工处理

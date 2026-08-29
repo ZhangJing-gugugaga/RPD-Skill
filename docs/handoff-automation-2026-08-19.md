@@ -210,12 +210,38 @@ Advancer 置 running + 评论 commit hash；Verifier 按判定 A/B/C 分别置 d
 | 项 | 本文件原文（已过期） | 2026-08-29 实际 |
 |---|---|---|
 | I4 进度 | I4-0 部分完成，其余待开始 | **I4-0~I4-9 全部 complete**；收官报告 `27f7fd5`，Verifier `5aebe97` 复验通过 |
-| Key Decisions | Q1~Q5 已拍板待执行 | Q1~Q5 **全部落地**（R-19~R-29 + Q5 出口 Gate） |
+| Key Decisions | Q1~Q5 已拍板待执行 | Q1~Q5 **全部落地**；已落地需求 = **R-19~R-23 + R-25**（+ Q5 出口 Gate）。**R-24 / R-26~R-29 是 parking-lot 冻结项，不是已交付能力**，见下方「机检证据」 |
 | 最新 commit | `854a67f` | 见 `git log -1`（收官后仅治理提案类提交） |
 | Advancer 自动化 ID | `5867270` | **`automation-1787109094822`**（第七节的两个 ID 已不存在，勿按 ID 找） |
-| Verifier 自动化 ID | `5867281` | 已不存在；轮次仍靠第七节的 git log 尾标推导，机制不变 |
+| Verifier 自动化 ID | `5867281` | 旧 ID 已不存在，**当前有效 ID = `automation-1787109023265`**（「I4-验证（Verifier）：0-trust 独立检验」，ACTIVE，`FREQ=HOURLY;INTERVAL=1`）。轮次判定仍走第七节的 git log 尾标推导，机制不变 |
 | valid_until | 2026-09-19 | **2026-08-31 23:59（Asia/Shanghai）**，到期自动停止 |
-| eval 基线 | 19/19 PASS | 19/19 PASS，exit 0（2026-08-29 21:1x 复跑确认） |
+| eval 基线 | 19/19 PASS | 19/19 PASS，exit 0（2026-08-29 23:1x 复跑确认） |
+
+#### 机检证据：已落地 vs parking-lot 冻结（2026-08-29 tick #68 一手复跑校正）
+
+> 上一版写「Q1~Q5 全部落地（R-19~R-29）」，把 parking-lot 条目误记为已交付。以下为实跑结果，可复现：
+
+```bash
+python scripts/parking-lot.py --audit
+# count=5，五条目 status 全部 "frozen"：
+#   R-24 经验资产化      deps=[R-21]           signals=0
+#   R-26 ACL 访问控制    deps=[R-21]           signals=0
+#   R-27 全图影响分析    deps=[R-19]           signals=0
+#   R-28 团队记忆        deps=[R-21, R-26]     signals=0  ← 因 R-26 未落地，T1 依赖就绪=False
+#   R-29 多语言支持      deps=[R-22]           signals=0
+
+grep -n "LANDED_FALLBACK" scripts/parking-lot.py
+# LANDED_FALLBACK = {"R-19","R-20","R-21","R-22","R-23","R-25"}
+```
+
+**结论口径（请以本段为准）**
+
+| 类别 | 需求编号 | 说明 |
+|---|---|---|
+| 已落地 | R-19 / R-20 / R-21 / R-22 / R-23 / R-25 | 由 `landed_set()` 机检确认；Q5 出口 Gate（`scripts/i4-gate.py`）同时落地 |
+| parking-lot 冻结 | R-24 / R-26 / R-27 / R-28 / R-29 | `status=frozen`，**对外不得宣称"已规划交付"**；升级需 `scripts/parking-lot.py <root> --upgrade --id R-26 --impact "..." --budget "..."` 三要素齐全（缺一 exit 1）且四档触发之一命中 |
+
+**为什么这条容易写错**：I4-9「文档交付」曾把 R-19~R-29 的**验收行**一次性补进 `docs/rpd-v2-technical-spec.md` §16.1——那是验收标准占位，不等于能力已实现。看需求是否落地，以 `parking-lot.py --audit` 与 `scripts/` 实际模块为准，不要以 spec 验收行的存在与否为准。
 
 ### 第二节 10 条 todo 的注意事项
 
