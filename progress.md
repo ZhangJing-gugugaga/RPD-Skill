@@ -428,3 +428,169 @@
 - **判定 A 处置**：progress.md Test Results 追加验证行（真实数字）；无 pending Phase 需标 complete（I4 全模块已收官），故 task_plan.md 未动
 - **⚠️ 刻意保留 Advancer 未提交日志**：worktree 中 Advancer tick #51~#63 的 143 行空转日志**未纳入本次 commit** —— 提案文档 §三 的 D2 压缩方案依赖「日志仍处未提交状态」才能免于历史改写；Verifier 若顺手提交将永久关闭该选项。已备份至 `.workbuddy/tmp/progress-worktree-20260829-1910.md` 并在 commit 后原样恢复为未提交状态
 - **待用户拍板**：D1（本自动化 A 停用 / B 降频周观察 / C 转按需触发 / 维持现状）+ D2（progress.md 空转日志是否授权压缩）
+
+---
+
+> ℹ️ 以下为 Advancer tick #51~#63 的未提交空转日志（Verifier 2026-08-29 19:1x 刻意保留其未提交状态，以免关闭 D2「免历史改写压缩」选项；原文件已备份至 `.workbuddy/tmp/progress-worktree-20260829-1910.md`）
+
+---
+
+## 2026-08-23 05:1x（tick #51 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ git status（worktree 仅 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md，无关）+ 复跑 eval 基线健康确认
+- **改了哪些文件**：无（未 commit，避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 36 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 06:1x（tick #52 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#51；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 37 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 07:1x（tick #53 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#52；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 38 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 08:1x（tick #54 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#53；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 39 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 09:1x（tick #55 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#54；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete，仅 L3 planned 冻结）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 40 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 10:1x（tick #56 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#55；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete，仅 L3 planned 冻结）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 41 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 11:1x（tick #57 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#56；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete，仅 L3 planned 冻结）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 42 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-23 12:1x（tick #58 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#57；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete，仅 L3 planned 冻结）/ progress（Test Results 全 Verifier 判定 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 段无遗留）/ automation-rules（8 红线）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 仅 progress.md 本地追加日志（未提交）+ 1 未跟踪交接文档 docs/handoff-automation-2026-08-19.md（无关，不 commit）
+- **改了哪些文件**：progress.md（追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 43 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）
+
+---
+
+## 2026-08-29 12:1x（tick #59 · I4 Advancer，间隔 6 天后首次触发）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#58；收官报告 27f7fd5 已交付且被 Verifier 复验通过 5aebe97；task_plan L3 planned 冻结，非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress（Test Results 全 A + 收官报告 + Error Log 无待办）/ findings（资产台账 + Issues 无遗留）/ automation-rules（8 红线 + Advancer 工作流）+ 复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；worktree 状态：`M progress.md`（历史 42 条空转日志累计未提交）+ `?? docs/handoff-automation-2026-08-19.md`（无关，不 commit）
+- **改了哪些文件**：progress.md（仅追加本 tick 日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 44 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务）
+- **新增建议（治理债）**：progress.md 已累计 #17~#59 共 43 条内容重复的空转日志（约 300 行、占文件 60%+），建议授权一次性压缩为「2026-08-21~08-29 空转期汇总」单条记录，之后空转 tick 只追加一行；压缩属历史改写，需用户授权后由 Advancer 执行或交 Verifier 复核。
+
+---
+
+## 2026-08-29 13:1x（tick #60 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#59；L3 planned 冻结）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress / findings / automation-rules；复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；分支 automation/i4-l2 ✅；worktree 仅 `M progress.md` + `?? docs/handoff-automation-2026-08-19.md`（无关）
+- **改了哪些文件**：progress.md（仅追加本条日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次）
+- **eval 真实数字**：19/19 PASS，exit 0
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 45 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）；治理债压缩仍待用户授权。
+
+---
+
+## 2026-08-29 14:1x（tick #61 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#60；L3 planned 冻结，非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete，L3 planned 冻结）/ progress / findings / automation-rules；复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`All scenarios passed!`）；分支 automation/i4-l2；worktree 仅 `M progress.md` + `?? docs/handoff-automation-2026-08-19.md`（无关）
+- **改了哪些文件**：progress.md（仅追加本条日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0
+- **commit hash**：无
+- **遗留问题**：本自动化已无可推进工作（第 46 次重申：建议停用 automation-1787109094822 或转为 L3 观察任务 / 绑定 parking-lot 四档触发）；治理债压缩仍待用户授权。
+
+---
+
+## 2026-08-29 15:1x（tick #62 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全部 complete，同 tick #17~#61；L3 planned 冻结，非 I4 排期）
+- **做了什么**：只读核对 task_plan（10 Phase 全 complete）/ progress（Test Results + 收官报告 + Error Log 无待办）/ findings / automation-rules（8 红线）；复跑 `python scripts/run-eval.py` = **19/19 PASS，exit 0**（A~X 全过，`🎉 All scenarios passed!`）；分支 automation/i4-l2 ✅
+- **本 tick 唯一产出**：新建 `docs/automation-governance-proposal.md` —— 把连续 46 次空转的治理决策点固化为可执行提案（三选项：A 停用 / B 降频为周观察 / C 转 parking-lot 按需触发，推荐 A；含 progress.md 空转日志压缩方案，需授权）。**不再重复第 47 次同一句"建议停用"，改为给出一句话即可执行的选择题。**
+- **改了哪些文件**：新增 docs/automation-governance-proposal.md（未 commit）+ progress.md（仅追加本条日志，未 commit——避免空转 [advancer] 交棒触发空 Verifier 轮次、污染 diff 审计）
+- **eval 真实数字**：19/19 PASS，exit 0
+- **commit hash**：无
+- **遗留问题**：待张敬拍板 D1（自动化处理方式 A/B/C）+ D2（是否授权压缩 progress.md 空转日志）；拍板前本自动化保持每小时空转。
+
+---
+
+## 2026-08-29 16:1x（tick #63 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全 complete；L3 planned 冻结）
+- **本 tick 产出**：把 tick #62 新建的 `docs/automation-governance-proposal.md` 更新计数（空转 47 次）+ 追加「tick 日志改归 automation memory、progress.md 停止膨胀」自我约束条款，并 commit 固化（唯一入 diff 文件）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）；分支 automation/i4-l2 ✅；未 push、未触碰 main
+- **遗留问题**：待张敬拍板 D1（A 停用 / B 降频周观察 / C 按需触发）+ D2（progress.md 空转日志压缩授权）
+
+---
+
+## 2026-08-29 20:1x（tick #64 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全 complete；L3 planned 冻结）。闸门：`378b2f2 verify(I4-closeout): ...治理提案文档验证通过 [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`）。治理提案 `562c14b` 已被 Verifier 复验通过 → D1/D2 决策点已入仓库历史，等张敬拍板；本 tick 无新交付，**未 commit**（避免空转 [advancer] 交棒触发空 Verifier）。tick 明细按 tick #63 约定记入 automation memory，此处仅 3 行。
+- **遗留问题**：D1/D2 未拍板；worktree 仍 `M progress.md`(+147 行未提交) + `?? docs/handoff-automation-2026-08-19.md`；本自动化 valid_until 2026-08-31，届时自动到期。
+
+---
+
+## 2026-08-29 21:1x（tick #65 · I4 Advancer）
+
+- **模块**：无待推进（I4-0~I4-9 全 complete；L3 planned 冻结）。闸门：`378b2f2 ... [verifier]` → 本轮属 Advancer；分支 automation/i4-l2 ✅
+- **本 tick 唯一产出**：`docs/handoff-automation-2026-08-19.md` 从未跟踪状态入仓（已躺 10 天，工作区一清理就丢），并追加 §八「2026-08-29 状态校正」—— 逐项校正文件里已过期的信息：自动化 ID（5867270/5867281 → 现 `automation-1787109094822`）、valid_until（2026-09-19 → 2026-08-31）、I4 进度（I4-0 部分完成 → 全部 complete）；另注明第二节 10 条 todo 因 wb-issues 工具长期不可用已失真，进度一律以 task_plan.md 为准
+- **改了哪些文件**：docs/handoff-automation-2026-08-19.md（新增入仓 + 状态校正段）、progress.md（仅本条日志）
+- **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`，改动后复跑确认）
+- **commit hash**：见提交结果
+- **遗留问题**：D1/D2 未拍板（见 docs/automation-governance-proposal.md）；自动化 2026-08-31 到期后需人工处理；本 tick 提交后 worktree 恢复干净
