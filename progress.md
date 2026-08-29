@@ -126,6 +126,7 @@
 | I4-closeout Verifier 验证（27f7fd5） | 7 项 0-trust 检查 + I4 收官报告（交付清单/验证证据/L3 建议） | 19/19 PASS + 仅 progress.md 改动 + 报告与真实 commit 历史一致 | eval 19/19（exit 0，A~X 全过）· diff 仅 progress.md（+44/-4：5-Question Reboot 更新 + 收官报告），task_plan.md diff 0 行 · 预算守卫 3000/300 在位（code-map-generator.py:46/49）· 三级信任+stale+dependency_drift 在位（rpd-cold-start.py）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · 计划一致性：收官报告交付清单 10 模块 commit/判定与前 10 轮 Verifier 记录逐一吻合 · 无视觉改动 · 判定A（无 pending phase 可标 complete，I4 全模块已收官） | ✅ 2026-08-21 判定A |
 | I4-closeout 治理提案 Verifier 验证（562c14b） | 7 项 0-trust 检查 + 治理提案文档（A/B/C 三选项 + D1/D2 决策点） | 19/19 PASS + 仅新增 1 文档 + 文档自我声称可复验 + 未擅改自动化配置 | eval 19/19（exit 0，A~X 全过，`All scenarios passed!`）· commit 真实 diff = 仅 docs/automation-governance-proposal.md（+102/-0，1 file changed），progress.md 在此 commit 零改动（文档 §六「1 file changed, 102 insertions」自我声称核实属实）· task_plan.md diff 0 行（Goal/Key Decisions/Phase 结构未动）· 预算守卫 3000/300 在位（code-map-generator.py:46/49 + exposure-guard.py:45/46）· 三级信任+stale 在位（rpd-cold-start.py:213-255）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位（code-map-generator.py:50/62）· **0-trust 延伸核查**：文档中给用户的 automation ID `automation-1787109094822` 经 automation_update(list) 核实真实存在（name「I4-推进（Advancer）：按计划实现下一模块」、ACTIVE、FREQ=HOURLY;INTERVAL=1 全周），D1 指令可执行非幻觉 · 文档明示「待张敬拍板、不擅自改配置」，未实际改自动化状态、未 push、未触碰 main · SKILL.md git blob 8116 B ≤ 8192 B（R-05 未漂）· 判定A（无 pending phase 可标 complete，I4 全模块已收官） | ✅ 2026-08-29 判定A |
 | I4-closeout 交接文档 Verifier 验证（3bb5666） | 7 项 0-trust 检查 + 交接文档入仓（§八 状态校正） | 19/19 PASS + 仅 docs/progress 改动 + 文档事实性可复验 + task_plan 零改动 | eval 19/19（exit 0，A~X 全过，`🎉 All scenarios passed!`，本轮真实复跑）· commit 真实 diff = 2 files changed / 398 insertions：docs/handoff-automation-2026-08-19.md（新增 +232）+ progress.md（+166，tick #51~#65 空转日志固化），**task_plan.md diff 0 行**（Goal/Key Decisions/Phase 结构未动）· 预算守卫 3000/300 在位（code-map-generator.py:46/49 + exposure-guard.py:45/46）· 三级信任+stale 在位（rpd-cold-start.py:213-255 verified/stale/unverified + fingerprint_mismatch）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位（code-map-generator.py:50/62）· 纯 Markdown 文档无视觉/UI 改动 · **0-trust 文档事实性核查**：①文档 §八 给用户的 Advancer ID `automation-1787109094822` 经 automation_update(list) 复验真实存在（「I4-推进（Advancer）：按计划实现下一模块」ACTIVE / FREQ=HOURLY;INTERVAL=1 全周）②valid_until 文档称「2026-08-31 23:59 Asia/Shanghai」，自动化元数据实际 `2026-08-31T15:59:59.999Z` = +08:00 23:59:59.999，吻合 ③旧 ID 5867270/5867281 在 list 中确已不存在 ④文档「自 2026-08-19 起一直未跟踪」经 `git cat-file -e HEAD~1:<path>` 复核属实（NOT_IN_HEAD~1）⑤「I4-0~I4-9 全部 complete」与 task_plan.md 10 个 Phase Status 逐一吻合 · 判定A（无 pending phase 可标 complete，task_plan.md 未动） |
+| I4-closeout 交接文档精度修正 Verifier 验证（52cd265） | 7 项 0-trust 检查 + 上轮留档两项精度问题是否真实修复 | 19/19 PASS + 仅 docs/progress 改动 + 机检证据可复现 + task_plan 零改动 | eval 19/19（exit 0，A~X 全过，`🎉 All scenarios passed!`，本轮真实复跑）· commit diff = **2 files changed / 39 insertions / 3 deletions**：docs/handoff-automation-2026-08-19.md（+32/-3）+ progress.md（+10），**task_plan.md diff 0 行**（Goal/Key Decisions/Phase 结构未动）· 预算守卫 3000/300 在位（code-map-generator.py:46/49 + exposure-guard.py:45/46）· 三级信任 + stale 在位（rpd-cold-start.py:213-255 verified/stale/unverified + fingerprint_mismatch + :246 missing）· SCHEMA 2.1.0 + 白名单(2.0.0,2.1.0) 在位（code-map-generator.py:50/62）· 纯 Markdown 文档无视觉/UI 改动 · **0-trust 文档事实性复验（文档内嵌 bash 命令逐条实跑，不采信 Advancer 转述）**：①`scripts/parking-lot.py --audit` 实跑 exit 0，count=5 五条目 status 全 frozen，deps/signals 与文档逐字吻合（R-24[R-21] / R-26[R-21] / R-27[R-19] / R-28[R-21,R-26] / R-29[R-22]，signals 全 0）②`LANDED_FALLBACK` 实查 = `{"R-19","R-20","R-21","R-22","R-23","R-25"}`（parking-lot.py:67）与文档一致③spec §16.1:708-711 R-26~R-29 行原文确有「（P2 parking-lot）冻结登记」标注④`scripts/i4-gate.py` 存在（13705 B，Q5 出口 Gate）⑤升级子命令确为 `--upgrade`（非 --promote），缺 --impact/--budget 返回 exit 1（parking-lot.py:237），与文档一致⑥Verifier ID `automation-1787109023265` 经 automation_update(list) 复验：name「I4-验证（Verifier）：0-trust 独立检验」/ ACTIVE / `FREQ=HOURLY;INTERVAL=1`，与文档一致⑦`--promise-check` 实跑 exit 0 零违规 · **上轮留档两项精度问题均确认修复**（①§八 补上当前有效 Verifier ID ②「Q1~Q5 全部落地（R-19~R-29）」更正为已落地 R-19~R-23 + R-25，R-24/R-26~R-29 归位 parking-lot 冻结项）· 判定A（无 pending phase 可标 complete，task_plan.md 未动） | ✅ 2026-08-30 判定A |
 
 ## Error Log
 
@@ -620,3 +621,32 @@
 - **改了哪些文件**：docs/handoff-automation-2026-08-19.md（+39 行）、progress.md（仅本条日志）
 - **eval 真实数字**：19/19 PASS，exit 0（`🎉 All scenarios passed!`，改动后复跑确认；Markdown-only 改动，未触碰 scripts/）
 - **遗留问题**：D1/D2 仍未拍板；自动化 2026-08-31 23:59（Asia/Shanghai）到期后需人工处理
+
+---
+
+## 2026-08-30 03:1x（tick #69 · I4 Verifier · 交接文档精度修正 判定 A）
+
+- **闸门**：`git log -1 --format=%s` 尾标含 `[advancer]`（`docs(I4-closeout): 修正交接文档两项事实精度...`，commit `52cd265`）→ 本轮属 Verifier ✅；分支 `automation/i4-l2` ✅
+- **⚠️ 0-trust 前置发现**：工作区存在一行**未提交**的 progress.md 改动（Test Results 表 +1 行，自称已完成 52cd265 的验证、判定 A）——上一轮 Verifier tick 写入后未落 commit。**按 0-trust 不采信该行任何声称**，本轮 7 项检查与文档机检证据全部从头实跑；复核后其证据与实测一致，故保留该行并随本 tick 一并入仓（若不一致则本轮改写）
+- **7 项 0-trust 逐项实测（本轮真实复跑，非继承）**：
+  1. eval 全量 `python scripts/run-eval.py` → **19/19 PASS**（A~X 全过，`🎉 All scenarios passed!`）**exit 0** ✅
+  2. diff 审计 `git show HEAD --name-only` / `git diff HEAD~1 HEAD --stat` = **2 files / +39 -3**（docs/handoff-automation-2026-08-19.md +32/-3、progress.md +10），全在 Advancer 写入范围（docs/ + progress.md）；**task_plan.md diff 0 行**（Goal / Key Decisions / Phase 结构未动）✅
+  3. 预算守卫在位：ROUTER_TOKEN_LIMIT=3000 / ENTRY_MAX_TOKENS=300（code-map-generator.py:46/49）+ L3 500（exposure-guard.py:45-47），未回归 ✅
+  4. 红线机检在位：三级信任 verified/stale/unverified + fingerprint_mismatch（rpd-cold-start.py:211-255，含 :246 missing 分支）✅
+  5. 向后兼容在位：SCHEMA_VERSION="2.1.0" + SCHEMA_WHITELIST=("2.0.0","2.1.0")（code-map-generator.py:50/62）✅
+  6. 计划一致性：task_plan.md I4-0~I4-9 **10 个 Phase 全 complete、pending=0**、L3 = planned 冻结，与实际产物一致 ✅
+  7. 纯 Markdown 文档改动，无视觉/UI 改动，不适用截图证据 ✅
+- **0-trust 文档事实性复验（文档内嵌命令逐条实跑，不采信 Advancer 转述）**：
+  1. `scripts/parking-lot.py . --audit` 实跑 exit 0 → count=5，五条目 `status=frozen` 全中；deps/signals 与文档逐字吻合（R-24[R-21 landed] / R-26[R-21 landed] / R-27[R-19 landed] / R-28[missing deps: R-26] / R-29[R-22 landed]，signals 全 0，threshold=3）✅
+  2. `LANDED_FALLBACK = {"R-19","R-20","R-21","R-22","R-23","R-25"}`（parking-lot.py:67）与文档一致 ✅
+  3. `--upgrade` 缺 `--impact`/`--budget` **实跑 exit 1**（`missing: ["impact","budget"]`），子命令名确为 `--upgrade` 非 `--promote`（parking-lot.py:32/237/310）✅
+  4. spec §16.1 :708-711 R-26~R-29 行原文确有「（P2 parking-lot）冻结登记」标注 ✅
+  5. Verifier 自动化 ID `automation-1787109023265` 经 automation_update(list) 复验：name「I4-验证（Verifier）：0-trust 独立检验」/ **ACTIVE** / `FREQ=HOURLY;INTERVAL=1`，与文档一致 ✅
+  6. `--promise-check` 实跑 exit 0，`scanned=5 / violations=[]` 零违规 ✅
+  7. valid_until：文档「2026-08-31 23:59（Asia/Shanghai）」↔ 元数据 `2026-08-31T15:59:59.999Z` 换算一致 ✅
+- **上轮留档两项精度问题确已修复**：①§八 Verifier ID 行补上当前有效 ID `automation-1787109023265` ②「Q1~Q5 全部落地」更正为**已落地 R-19~R-23 + R-25**，R-24/R-26~R-29 归位 parking-lot 冻结项，并新增「机检证据」小节 +「验收行占位 ≠ 能力已实现」防错注记 ✅
+- **⚠️ 新观察（非 FAIL，仅标签精度，留档不改 docs/）**：新增「机检证据」小节标题写「**2026-08-29 tick #68** 一手复跑校正」，但按本自动化 memory，tick #68（23:1x）实为**跳过轮**（当时 HEAD 为 `[verifier]`）；本 commit 52cd265 落地于 23:17:59，属其后的 Advancer tick。tick 编号标注有偏差，但小节内的机检证据本身全部真实可复现，不影响可执行性
+- **📌 D2 状态本轮复核（0-trust，不继承上轮结论）**：`git ls-remote --heads origin` 仅 `refs/heads/main`；`git rev-list --left-right --count origin/main...HEAD` = **0 behind / 35 ahead** → `automation/i4-l2` 仍是**纯本地分支**，本地 amend/rebase 可行 → **D2 压缩选项仍开放**（上轮 tick #67 的"未永久关闭"更正成立）。本 tick 只提交 1 行验证记录，不压缩历史
+- **判定 A 处置**：7 项全过 → Test Results 追加验证行（随未提交的上轮记录一并入仓）；**task_plan.md 未动**（无 pending Phase 需标 complete，I4-0~I4-9 全 complete）；未回滚、未改任何代码文件
+- **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
+- **遗留问题**：D1/D2 仍未拍板（见 docs/automation-governance-proposal.md）；自动化 2026-08-31 23:59（Asia/Shanghai）到期，距今不足 2 天，需人工处理
