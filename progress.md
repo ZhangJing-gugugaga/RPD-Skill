@@ -124,6 +124,7 @@
 | I4-8 Verifier 验证（79ad7b6） | 7 项 0-trust 检查 + I4-8 验收（Q5 出口 Gate 机检） | 19/19 PASS + M1 A/B 连续性/M2 PRD 闭环/M3 观测/回归守卫/诚实失败均实测 + 预算守卫/兼容不回归 | eval 19/19（exit 0，含 Scenario U 3m 两断言）· diff 仅 i4-gate.py(新增344)/run-eval(+37)/spec(+28)/progress(+17) 4 文件，task_plan 未动 · 预算守卫 3000/300 未回归（code-map-generator.py:46/49）+ gate 内 M1 93t/M2 176t ≤300t 实测 · 三级信任+stale+dependency_drift 在位（rpd-cold-start.py:141/213）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · I4-8 专项实测（真实 C++ 项目+KG+PRD）：带 map+PRD → exit 0 PASS（M1 arm A map_resolved=True entry 93t≤300t / M2 changed=[Game] affected=[helper,main] blast Medium 176t≤300t / M3 observation 注记不阻断 / 回归 3/3 ok）；移走 code-map → exit 2 如实 FAIL（M1 arm B source_scan degrade (explicit, no guess) / M2 ok:false）—— Gate 不因降级路径放行丢失闭环 | ✅ 2026-08-20 判定A |
 | I4-9 Verifier 验证（4c40084） | 7 项 0-trust 检查 + I4-9 验收（文档与交付） | 19/19 PASS + 仅文档改动 + SKILL ≤8KB + 状态文件可校验 | eval 19/19（exit 0，A~X 全过）· diff 仅 .project-state.md(新增67)/SKILL.md(26)/spec(+14)/usage(+70)/progress(+17) 5 文件，task_plan 未动 · 预算守卫 3000/300 在位 · 三级信任+stale 在位（rpd-cold-start.py:211-255）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · I4-9 验收实测：SKILL.md git blob 8116 B ≤ 8192 B（R-05 不破，119 行 LF↔CRLF 差异恰 119 B）· .project-state.md state-validator Validation PASSED exit 0 · spec §16.1 R-19~R-29 验收行 + §17.1 顺序链在位 · usage §11 速查 6 脚本 CLI 在位 · SKILL 工具箱 12→18 行与 6 新脚本对齐 | ✅ 2026-08-21 判定A |
 | I4-closeout Verifier 验证（27f7fd5） | 7 项 0-trust 检查 + I4 收官报告（交付清单/验证证据/L3 建议） | 19/19 PASS + 仅 progress.md 改动 + 报告与真实 commit 历史一致 | eval 19/19（exit 0，A~X 全过）· diff 仅 progress.md（+44/-4：5-Question Reboot 更新 + 收官报告），task_plan.md diff 0 行 · 预算守卫 3000/300 在位（code-map-generator.py:46/49）· 三级信任+stale+dependency_drift 在位（rpd-cold-start.py）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位 · 计划一致性：收官报告交付清单 10 模块 commit/判定与前 10 轮 Verifier 记录逐一吻合 · 无视觉改动 · 判定A（无 pending phase 可标 complete，I4 全模块已收官） | ✅ 2026-08-21 判定A |
+| I4-closeout 治理提案 Verifier 验证（562c14b） | 7 项 0-trust 检查 + 治理提案文档（A/B/C 三选项 + D1/D2 决策点） | 19/19 PASS + 仅新增 1 文档 + 文档自我声称可复验 + 未擅改自动化配置 | eval 19/19（exit 0，A~X 全过，`All scenarios passed!`）· commit 真实 diff = 仅 docs/automation-governance-proposal.md（+102/-0，1 file changed），progress.md 在此 commit 零改动（文档 §六「1 file changed, 102 insertions」自我声称核实属实）· task_plan.md diff 0 行（Goal/Key Decisions/Phase 结构未动）· 预算守卫 3000/300 在位（code-map-generator.py:46/49 + exposure-guard.py:45/46）· 三级信任+stale 在位（rpd-cold-start.py:213-255）· SCHEMA 2.1.0+白名单(2.0.0,2.1.0) 在位（code-map-generator.py:50/62）· **0-trust 延伸核查**：文档中给用户的 automation ID `automation-1787109094822` 经 automation_update(list) 核实真实存在（name「I4-推进（Advancer）：按计划实现下一模块」、ACTIVE、FREQ=HOURLY;INTERVAL=1 全周），D1 指令可执行非幻觉 · 文档明示「待张敬拍板、不擅自改配置」，未实际改自动化状态、未 push、未触碰 main · SKILL.md git blob 8116 B ≤ 8192 B（R-05 未漂）· 判定A（无 pending phase 可标 complete，I4 全模块已收官） | ✅ 2026-08-29 判定A |
 
 ## Error Log
 
@@ -415,3 +416,15 @@
 - **Files modified:** progress.md（5-Question Reboot Check 更新 + 本收官报告）
 - **commit：** 本 tick 仅文档报告，commit 信息见下方实际值
 - **交棒：** 本 tick 结束，I4 收官；后续 tick 无需 Advancer 推进（L3 无排期），由 automation 管理员决定是否停用本自动化或转为 L3 观察任务
+
+---
+
+## 2026-08-29 19:1x（Verifier tick · 治理提案复验）
+
+- **轮次闸门**：`git log -1` = `docs(I4-closeout): 自动化治理提案... [advancer]` → 属 Verifier 轮次 ✅；分支 `automation/i4-l2` ✅
+- **验证对象**：commit `562c14b`（Advancer tick #63 固化治理提案）
+- **7 项 0-trust**：1.eval 19/19 PASS exit 0 ✅ · 2.commit 真实 diff 仅 `docs/automation-governance-proposal.md`（+102/-0），task_plan.md 零改动 ✅ · 3.预算守卫 3000/300 在位 ✅ · 4.三级信任+stale 在位 ✅ · 5.SCHEMA 2.1.0+白名单在位 ✅ · 6.计划一致性：I4-0~I4-9 全 complete，无 pending，本 commit 未越权改状态 ✅ · 7.纯文档无视觉改动 ✅
+- **0-trust 延伸核查**：提案文档 §二 给用户的 `automation_update(mode="update", id="automation-1787109094822", status="PAUSED")` 指令 → 用 automation_update(list) 核实该 ID **真实存在**（「I4-推进（Advancer）」ACTIVE），指令可执行；文档亦明示「待张敬拍板，不擅自改配置」，未实际执行 ✅
+- **判定 A 处置**：progress.md Test Results 追加验证行（真实数字）；无 pending Phase 需标 complete（I4 全模块已收官），故 task_plan.md 未动
+- **⚠️ 刻意保留 Advancer 未提交日志**：worktree 中 Advancer tick #51~#63 的 143 行空转日志**未纳入本次 commit** —— 提案文档 §三 的 D2 压缩方案依赖「日志仍处未提交状态」才能免于历史改写；Verifier 若顺手提交将永久关闭该选项。已备份至 `.workbuddy/tmp/progress-worktree-20260829-1910.md` 并在 commit 后原样恢复为未提交状态
+- **待用户拍板**：D1（本自动化 A 停用 / B 降频周观察 / C 转按需触发 / 维持现状）+ D2（progress.md 空转日志是否授权压缩）
