@@ -736,3 +736,19 @@
 - **判定 A 处置**：7 项全过且 §七 验收目标（到期事实准确、默认路径可判、人工清单可执行）已达成 → Test Results 追加 1 行验证记录（真实数字，含上述复验证据）；**task_plan.md 未动**（无 pending Phase 需标 complete，I4-0~I4-9 全 complete）；未回滚、未改任何代码文件
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **遗留**：D1（A 停用 / B 降频周观察 / C 按需触发 / 维持现状）+ D2（progress 压缩授权）+ 新增 H1~H4 全部待张敬拍板；**到期窗口剩约 39 小时**（自 2026-08-30 08:22 起算）
+
+---
+
+## 2026-08-30 09:1x（Advancer 轮 · 治理提案数字口径整改：§三 重写 + §7.3 自引用漂移）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，治理提案 §七 到期处置预案验证通过 [verifier]`（HEAD `3099912`，08-24-28）→ 本轮属 Advancer；分支 `automation/i4-l2` ✅；起始 worktree **clean**（`git status --porcelain` 空）
+- **模块**：无待推进（task_plan.md I4-0~I4-9 **10 个 Phase 全 complete**、pending=0；L3 planned 冻结）→ 不空转，兑现上轮 Verifier 留档的「H2/H3 数字自引用漂移」观察
+- **根因（实测推翻初稿，非标签精度问题）**：顺着 Verifier 的漂移线索追查，发现 `docs/automation-governance-proposal.md` §三 的量级描述**本身是错的**——
+  - `539 = 417（已入库，`git show 5aebe97:progress.md | wc -l`）+ 122（当时未提交的 #51~#61 空转段）` → 行数对得上 ✅
+  - 但「tick #17~#62 共 **46 条**空转日志约 **300+ 行**占 **~60%**」**对不上**：progress.md 里实际只有 **11 条 / 122 行 / 占 23%**。46 是 `.workbuddy/automations/<id>/memory.md` 的 tick 计数，其日志自 §五 起**根本不进 progress.md** → **混淆两个计数源，高估约 2.5 倍**
+  - 后果：D2（压缩授权）的收益预期被虚高（宣称 539→250，实测 738→约 605）→ 直接影响张敬的待拍板决策，必须改
+- **本 tick 产出**：§三 全量重写为可复现口径（3.1 根因对照表 / 3.2 当前实测 + 复现命令 / 3.3 修订后压缩方案，明确**保留** #62 治理提案、#65 交接文档入仓、全部 Verifier 日志）；§7.3 H2/H3 硬编码数字 → 「实测时刻 + 复现命令」，新增自引用漂移说明（判断依据不依赖精确值：H2 看是否持续增长、H3 看 ahead>0 且远端无副本）；H3 去向「38 个提交」→ ahead 计数口径
+- **0-trust 一手证据（本轮实跑，文档内每条复现命令均验证可用）**：`wc -l progress.md` = **738**；`sed -n '442,603p' progress.md | wc -l` = **162**（#51~#65）；`sed -n '442,563p;576,592p' progress.md | wc -l` = **139**（纯空转 #51~#61=122 / #63=9 / #64=8）；`git show 5aebe97:progress.md | wc -l` = **417**；`git rev-list --left-right --count origin/main...HEAD` = **0 behind / 40 ahead**；`git ls-remote --heads origin` 仅 `refs/heads/main`
+- **改了哪些文件**：docs/automation-governance-proposal.md（+34/-12）、progress.md（仅本条日志）
+- **eval 真实数字**：19/19 PASS，exit 0（改动前基线 + 改动后复跑，均 `🎉 All scenarios passed!`）；Markdown-only，未触碰 scripts/
+- **遗留问题**：D1/D2 + H1~H4 仍待拍板；**§一/§五/§六 仍引用自动化 tick 计数（如「47 次零产出」）——本轮未动**：该计数源确为 automation memory（本轮已证明 progress.md 与 tick 计数是两个源），属历史记录且不影响可执行性，留待后续评估是否统一到 commit hash 口径
