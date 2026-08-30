@@ -818,3 +818,22 @@
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **留档观察（非 FAIL，Verifier 禁改 docs/）**：①§一「13 个提交」与 §三 3.2「785 行」现读分别为 14 / 799 —— **这正是 §零 R-1 所描述并已声明接受的自引用漂移**，公约生效后按 R-3 不再追更，属预期内、不建议再改 ②§三 3.1 的 `tick #17~#62`/`46 条` 按 R-2 刻意保留作为整改证据，与 §一 已废弃 tick 口径并存，读者需借 §零 的「历史遗留标注读法」一节理解，略增阅读成本但换取了证据完整性
 - **遗留**：D1/D2 + H1~H4 仍待张敬拍板；自动化 2026-08-31 23:59:59（Asia/Shanghai）到期，**剩约 34.7 小时**
+
+---
+
+## 2026-08-30 14:1x（I4 Advancer · H3 合并前风险审计：44 commits 收敛为 4 文件 / 14 处删改）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，治理提案 §零 口径公约验证通过 [verifier]`（HEAD `089c8ce`）→ 本轮属 Advancer ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**（`git status --porcelain` 输出 0 行）
+- **模块**：无待推进（I4-0~I4-9 十个 Phase 全 complete，pending=0；L3 planned 冻结）→ 不空转，补 H3 缺失的一环
+- **为什么做这个**：H3 的推荐去向是「开 PR 合并进 main」，但此前**从未有人量化过合并面**——「44 ahead」听起来风险高，可能正是它迟迟未拍板的原因之一。§七 只讲了「要不要合并」，没讲「合并会动到什么」
+- **做了什么**：`docs/automation-governance-proposal.md` 新增 **§八 H3 合并前风险审计**（8.1 合并面实测 / 8.2 14 处删改逐条核实 / 8.3 执行顺序建议 / 8.4 拍板后可复制命令）
+- **三条审计结论（均可一条命令复验）**：
+  1. **合并面近似为零** —— 21 个涉及文件中 **17 个是纯新增**（`progress.md`/`task_plan.md`/`findings.md`/6 个 I4 脚本/3 篇新文档在 main 上**根本不存在**，`git show origin/main:progress.md` 直接报 does not exist，numstat deletions 列全 0）→ 不可能冲突
+  2. **真正需人工审视的只有 4 文件 / 14 处删改** —— 判定依据 `git diff --numstat origin/main...HEAD | awk '$2>0'` 恰输出 4 行：SKILL.md(10) / rpd-v2-technical-spec.md(2) / code-map-generator.py(1) / rpd-cold-start.py(1)。**逐条实跑核实：无一处功能丢失**——code-map 的 `SCHEMA_VERSION 2.0.0` 删除是 R-10 升级，白名单 `("2.0.0","2.1.0")` 在位（:62）；cold-start 的 Step 4 仍在（:421，标题随 R-23 扩展）；SKILL.md 旧表 10 行全部有对应新条目并新增 I4 三脚本；spec 两行为文档演进
+  3. **唯一需正眼看的**是 code-map schema 升级（红线 7，唯一可能影响 main 既有产物的改动）→ 白名单在位且被 `i4-gate.py:101-105` 实际消费，**向后兼容成立**
+- **🔑 本轮新发现（影响决策顺序，非文档精度问题）**：**必须先 D2 压缩、后 H3 合并**。因为 `progress.md` 在 main 上不存在 → 它是随本次合并**首次进入 main**；若先合并，139 行纯空转日志**一次性永久写入 main 提交历史**，之后再压缩也只多一个删除提交、历史痕迹不可消除；先压缩则 main 从一开始就只看到 681 行（820−139）。**这是 D2/H3 存在先后依赖的第一个硬理由**（此前文档中两者是并列的独立决策点）
+- **0-trust 一手证据（14:14 Asia/Shanghai 实跑，文档内每条复现命令均已验证可用）**：`git rev-list --left-right --count origin/main...HEAD` = **0 behind / 44 ahead**；`git log --oneline origin/main..HEAD | wc -l` = **44**；`git diff --name-only origin/main...HEAD | sort -u | wc -l` = **21**；`awk '$2>0'` = 4 行（与文档表逐字一致）；`git ls-files scripts/ | grep -c "\.pyc$"` = **0**；`wc -l progress.md` = **820**；`sed -n '442,563p;576,592p' | wc -l` = **139**（与 09:16 测量**第三次一致**，稳定量判断再获证实）；820−139=**681**；`git show origin/main:progress.md` = `fatal: path 'progress.md' ... not in 'origin/main'`；`automation_update(mode="view")` 两个 ID（…9094822 / …9023265）**均为 ACTIVE、validUntil 2026-08-31T15:59:59.999Z**，与 §7.1 表逐字吻合（未做任何修改性调用）
+- **顺带证伪一个我自己的怀疑**：起初按红线怀疑 `.workbuddy/` 混入 main，实查 `.gitignore` 第 20-22 行有显式例外 `!.workbuddy/automation-rules.md`（注释：「自动化任务依赖的规则文件，需保留在版本库」）→ **有意保留，非污染**；`promo/` 与 `*.pyc` 均已被忽略
+- **eval 真实数字**：19/19 PASS，exit 0（改动后实跑，`🎉 All scenarios passed!`，A~X 全绿）；Markdown-only，未触碰 scripts/
+- **改了哪些文件**：docs/automation-governance-proposal.md（+约 62）、progress.md（仅本条日志）
+- **遗留**：D1/D2 + H1~H4 待拍板；**D2 与 H3 现存在先后依赖（见上）**，拍板时请连顺序一起给；自动化 2026-08-31 23:59:59（Asia/Shanghai）到期，剩约 **34 小时**

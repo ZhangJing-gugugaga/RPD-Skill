@@ -205,4 +205,66 @@
 
 - **最省事**：什么都不做 → 2026-08-31 23:59 后自动停（A 生效，status 字段留含糊）
 - **推荐**：「H1 两个都 PAUSED + 授权 H2 压缩 + 授权 H3 开 PR 合并进 main」→ 我下一 tick 按序执行并 commit
+
+---
+
+## 八、H3 合并前风险审计【2026-08-30 新增 · Advancer 轮】
+
+> 缘起：H3 的推荐去向是「开 PR 合并进 main」，但此前从未有人**量化过这 44 个提交的合并面有多大**——「44 ahead」听起来风险很高，可能正是它迟迟未被拍板的原因之一。本节把合并面从「44 个提交」收敛为「4 个文件 / 14 处删改」，让拍板有据。
+> 口径：全部 `git diff --numstat` / `git ls-files` / `grep` **一手实跑**（2026-08-30 14:14 Asia/Shanghai），按下文 §零 R-1 附复现命令；按 R-2 不引用 tick 计数。
+
+### 8.1 合并面实测
+
+| 项 | 值 | 复现命令 |
+|---|---|---|
+| ahead / behind | **0 behind / 44 ahead** | `git rev-list --left-right --count origin/main...HEAD` |
+| 提交数 | **44** | `git log --oneline origin/main..HEAD \| wc -l` |
+| 涉及文件数 | **21** | `git diff --name-only origin/main...HEAD \| sort -u \| wc -l` |
+| 远端分支 | 仅 `refs/heads/main`（本地分支无远端副本） | `git ls-remote --heads origin` |
+| 工作区 | **clean**（`git status --porcelain` 输出 0 行） | `git status --porcelain` |
+
+**审计结论一：21 个文件里 17 个是纯新增，冲突面近似为零。** `progress.md` / `task_plan.md` / `findings.md` / 6 个 I4 新脚本 / 3 篇新文档在 main 上**根本不存在**（`git show origin/main:progress.md` 报 `does not exist`；numstat 的 deletions 列全为 0）→ 它们不可能与 main 冲突。
+
+**审计结论二：整个合并真正需要人工审视的，只有 4 个文件、14 处删除行。** 判定依据：`git diff --numstat origin/main...HEAD` 中 deletions 列 > 0 的文件恰为 4 个（SKILL.md 10 / docs/rpd-v2-technical-spec.md 2 / scripts/code-map-generator.py 1 / scripts/rpd-cold-start.py 1）。
+
+### 8.2 14 处删改逐条核实（0-trust，逐条实跑，非推测）
+
+| 文件 | 删除内容 | 核实结论 | 证据 |
+|---|---|---|---|
+| `scripts/code-map-generator.py` | `SCHEMA_VERSION = "2.0.0"` | ✅ **非功能丢失**，是 R-10 版本升级（2.0.0→2.1.0）；向后兼容由白名单承载 | 实跑 `grep -n "SCHEMA_WHITELIST" scripts/code-map-generator.py` = `:62 SCHEMA_WHITELIST = ("2.0.0", "2.1.0")` → **旧版 code-map 仍被接受** |
+| `scripts/rpd-cold-start.py` | `# --- Step 4: on-demand load (router) ---` | ✅ **非功能丢失**，Step 4 仍在，注释标题随 R-23 扩展 | 实跑 `grep -n "Step 4" scripts/rpd-cold-start.py` = `:421 # --- Step 4: on-demand load (router) + R-23 exposure report ---`，`:422-427` 逻辑完整 |
+| `SKILL.md` | 工具箱表格旧版 10 行 | ✅ **非内容丢失**，整表重写为新表（条目更全） | 实跑 `sed -n '94,110p' SKILL.md` → 新表 15 行，旧 10 个脚本**逐个有对应条目**，并新增 `retriever.py`/`impact-analyzer.py`/`exposure-guard.py` 等 I4 新脚本 |
+| `docs/rpd-v2-technical-spec.md` | `"source_path": null` 一行 + I0~I4 依赖关系描述一段 | ✅ 文档演进（前者为示例字段调整，后者为阶段描述替换） | 该文件为说明文档，不参与 eval，无回归面 |
+
+> **唯一需要正眼看的**：`code-map-generator.py` 的 schema 升级。它是**唯一一处可能影响 main 上既有产物**的改动（main 上若有按 2.0.0 生成的 code-map，合并后由谁读取）。核实结果：白名单 `("2.0.0","2.1.0")` 在位（:62），且被 `scripts/i4-gate.py:101-105` 回归守卫实际消费 → **红线 7（R-10 向后兼容）成立**。
+
+**审计结论三：`.workbuddy/automation-rules.md` 进 main 是有意为之，不是污染。** `.gitignore` 第 20-22 行显式写有 `# 例外：自动化任务（Advancer/Verifier）依赖的规则文件，需保留在版本库` + `!.workbuddy/automation-rules.md`；其余 `.workbuddy/*` 全部忽略。另：`promo/` 与 `*.pyc` 均已被忽略（`git ls-files scripts/ \| grep -c "\.pyc$"` = 0）。
+
+### 8.3 ⚠️ 执行顺序建议（本轮新发现，影响 D2/H3 的先后）
+
+**必须先 D2（压缩），后 H3（合并）**。理由：
+
+- `progress.md` 在 main 上**不存在** → 它是随本次合并**首次进入 main** 的文件
+- 若先合并：139 行纯空转日志（§三 3.2 实测，该值为稳定量）**一次性永久写入 main 的提交历史**；之后再压缩，只会让 main 上多一个「删除 139 行」的提交，历史痕迹不可消除
+- 若先压缩：main 上从一开始就只看到 ~681 行的干净日志（820 − 139 = 681，按 14:14 实测；请自跑 `wc -l progress.md` 代入当前值）
+
+**窗口**：D2 授权 + 执行约需 1 个 tick；自动化 2026-08-31 23:59 到期，剩约 **34 小时**（14:14 实跑 `date`）。到期只影响自动化触发，**不影响人工授权后的执行**——即便到期，你仍可让任意会话按本清单执行。
+
+### 8.4 拍板后可直接复制的命令（H1 两项需你执行或授权）
+
+```bash
+# H1 —— 两个自动化显式停用（需张敬执行或明确授权；Advancer 无权自改自动化配置）
+#   工具：automation_update(mode="update", id="automation-1787109094822", status="PAUSED")
+#   工具：automation_update(mode="update", id="automation-1787109023265", status="PAUSED")
+#   本轮已实跑 mode="view" 确认两个 ID 真实存在、status=ACTIVE、validUntil=2026-08-31T15:59:59.999Z
+
+# H3 —— 合并前复核（只读，随时可跑）
+git status --porcelain                                   # 期望 0 行
+git rev-list --left-right --count origin/main...HEAD      # 期望 0 / N
+git diff --numstat origin/main...HEAD | awk '$2>0'        # 期望仅上表 4 个文件
+
+# H2 —— 压缩（需授权后执行；先备份，再删除 442-563 与 576-592 两个区间）
+#   备份：.workbuddy/tmp/ 下已有 progress-worktree-20260829-1910.md（2026-08-29 快照），执行前另存一份当前版
+#   压缩：sed -i '442,563d;576,592d' progress.md   （删 139 行；区间边界见 §三 3.2 复现命令，执行前须重验）
+```
 - **想保留巡检**：选项 B（rrule 改 `FREQ=WEEKLY;BYDAY=MO;BYHOUR=10`，prompt 同步改 Monitor 口径）—— ⚠️ **Verifier 必须一起改**，否则 Advancer 周更一次、Verifier 仍每小时审计，成本不降反错配
