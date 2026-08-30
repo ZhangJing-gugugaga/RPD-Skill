@@ -21,6 +21,8 @@ Regression guard (red lines, all must be present, else gate FAILs):
     rpd-cold-start (R-04/R-13/R-25)
   - backward compat: SCHEMA_VERSION + SCHEMA_WHITELIST in code-map-generator
     (R-10)
+  - skill size: SKILL.md <= 8KB (R-05), measured in LF caliber (CRLF is
+    normalized away; see _lf_size for why raw on-disk bytes must not be used)
 
 Zero external deps (Q1). Every failure path degrades to a structured report
 (ok:false + reason), never a crash. Exit codes:
@@ -38,6 +40,8 @@ from pathlib import Path
 ROUTER_LIMIT = 3000
 ENTRY_LIMIT = 300
 M3_BLOCK = False  # Q5: M3 is observation only, never blocks the gate
+SKILL_LIMIT = 8192        # R-05 hard cap: SKILL.md <= 8KB
+SKILL_WARN_MARGIN = 512   # non-blocking advisory: headroom below this is tight
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -69,6 +73,21 @@ def _read(path):
 
 def _has(src, needle):
     return needle in src
+
+
+def _lf_size(path):
+    """Byte size of a text file with CRLF normalized to LF; None if unreadable.
+
+    R-05 must be measured in LF caliber. On a Windows checkout with
+    core.autocrlf=true the on-disk SKILL.md carries 119 CR bytes (8235 B raw)
+    while the committed blob is 8116 B. Measuring raw on-disk bytes would fail
+    a file that is genuinely within the 8192 B budget -- the guard would be
+    wrong on exactly the platform it is meant to protect. Normalize first.
+    """
+    try:
+        return len(Path(path).read_bytes().replace(b"\r\n", b"\n"))
+    except Exception:
+        return None
 
 
 def check_regression_guard(scripts_dir):
@@ -104,6 +123,27 @@ def check_regression_guard(scripts_dir):
         "check": "compat:schema",
         "detail": "SCHEMA_VERSION + SCHEMA_WHITELIST in code-map-generator (R-10)",
     })
+    # 4) skill size guard (R-05): SKILL.md <=8KB, LF caliber, blocking
+    skill_path = scripts_dir.parent / "SKILL.md"
+    skill_size = _lf_size(skill_path)
+    if skill_size is None:
+        findings.append({
+            "ok": False,
+            "check": "budget:skill_size",
+            "detail": f"SKILL.md missing or unreadable at {skill_path}",
+        })
+    else:
+        margin = SKILL_LIMIT - skill_size
+        findings.append({
+            "ok": margin >= 0,
+            "check": "budget:skill_size",
+            "detail": (
+                f"SKILL.md {skill_size}B (LF caliber) <= {SKILL_LIMIT}B, "
+                f"headroom {margin}B"
+            ),
+            # advisory only: never flips ok, but surfaces a shrinking budget
+            "warn": margin < SKILL_WARN_MARGIN,
+        })
     return findings
 
 

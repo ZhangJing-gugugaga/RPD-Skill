@@ -1272,7 +1272,15 @@ def run_scenario_u():
         m3 = pg1["checks"]["M3_doc_ref"]["report"]
         assert m3["note"] and "observation" in m3["note"], m3  # M3 never blocks
         reg = pg1["checks"]["regression_guard"]
-        assert reg["ok"] is True and len(reg["findings"]) == 3, reg
+        assert reg["ok"] is True, reg
+        # Contract-based, not count-based: require the named red-line checks to be
+        # present and all ok. A hard-coded `len(...) == 3` breaks every time the
+        # gate legitimately gains a check (R-05 skill size was added as a 4th).
+        # Naming them is strictly stronger: a dropped check now fails by name
+        # instead of silently passing on an unrelated count.
+        _reg_checks = {f["check"] for f in reg["findings"]}
+        assert _reg_checks >= {"budget:router_entry", "redline:trust",
+                               "compat:schema", "budget:skill_size"}, reg
         assert all(f["ok"] for f in reg["findings"]), reg
         # 3m-2) no code-map: M1 honest arm-B degrade, M2 FAILs -> gate FAIL (rc 2,
         #       not a rubber stamp). Restore afterwards.

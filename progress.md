@@ -949,3 +949,23 @@
 - **留档观察（非 FAIL，Verifier 禁改 docs/）**：①§三 3.2「文件总行数 903」现读 921（+18 = 本 commit 自身日志），已被 §零 R-1 覆盖 ②3.2 表内行号 446-607 已标注「20:1x 快照、请自跑锚点求值」，因 H2 全面改锚点，行号仅作示例 → 无 C-1 类破坏风险 ③H2-3 前置断言写死「行数 = 122」，日后区间内容增删会误停手 —— 属**安全侧失败**（不删错内容），可接受 ④Advancer 日志称 docs「+68 −19」与 numstat 一致，其「progress.md 仅本条日志」亦属实
 - **遗留**：① D1/D2 + H1~H4 仍待张敬拍板，**D2 须先于 H3** ② 22 项 checkbox 勾选权冲突待拍板 ③ F1 SKILL.md R-05 余量 76 B 且无机检（下轮 Advancer 须用 LF 口径 `git show HEAD:SKILL.md | wc -c`）④ 自动化 **2026-08-31 23:59:59（Asia/Shanghai）到期，剩约 23 小时**
 - **方法沉淀**：①**文档类 commit 的 0-trust 重心 = 文档给出的命令是否可执行、给出的数字是否可复现** —— 本轮把所有锚点 `grep -c`、行号迁移序列、分段行数、dry-run、`.gitignore` 行号全部独立重跑，C-1/C-2 两条更正**均被证实** ②**Advancer 自曝「自己写的命令被实跑打回两次」是正面信号** —— 说明其命令经过实跑而非凭空写；Verifier 只需复跑验证其修正后的版本，不必怀疑其动机 ③**破坏性命令的验收标准应高于描述性数字**：数字漂一次无害，区间错位不可逆；本轮看到 H2 已从一行 `sed -i` 升级为「备份 → 锚点求值 → 三项前置断言 → dry-run → 执行 → 收尾 → 事后校验」7 步，符合该标准
+
+---
+
+## 2026-08-31 01:1x（I4 Advancer · F1：给 SKILL.md R-05 加机检守卫，堵住 76 B 裸奔 + CRLF 假失败）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，§8.4 压缩命令风险修正（R-4 锚点求值 + C-1 区间错位 + C-2 #63/#64 误分类）验证通过 [verifier]`（HEAD `9e04c89`）→ 本轮属 Advancer ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**
+- **模块**：I4-0~I4-9 全 complete、pending=0。按第 2 步规则「全 complete → 写收官报告」，但**收官报告已于 2026-08-21 落盘**（本文件 §Session: 2026-08-21），重抄一遍属空转 → 沿用前几轮约定，**兑现上一轮 Verifier 留档 #③**：F1 = SKILL.md R-05 余量仅 76 B 且**无任何机检**
+- **为什么值得做**：R-05 是 CLAUDE.md 明列的硬约束（「≤8KB，超限先压缩再提交」），但 `grep -c "SKILL" scripts/i4-gate.py` = **0** —— 唯一的约束是「人记得住」，而余量只剩 76 B，一次顺手加两行就会破线且无人拦截
+- **做了什么**（`scripts/i4-gate.py` 纯新增，不改任何既有判定）：新增常量 `SKILL_LIMIT = 8192` / `SKILL_WARN_MARGIN = 512`、辅助函数 `_lf_size()`、第 4 条回归守卫 `budget:skill_size`；docstring 同步登记
+- **🔑 关键设计：必须走 LF 口径，否则守卫会在它本该保护的平台误报**。实测 `wc -c SKILL.md`（工作区 CRLF）= **8235 B > 8192**，直接拿裸字节判定会**恒 FAIL**；而 `git show HEAD:SKILL.md | wc -c` = **8116 B**（CRLF 数 119，8235−119=8116）。故 `_lf_size()` 先 `read_bytes().replace(b"\r\n", b"\n")` 再计量 → 实测报 **8116 B / 余量 76 B / PASS**，与 git blob 口径完全一致
+- **🚨 踩坑：自己的改动把 eval 打挂了（18/19，U 失败）** —— `scripts/run-eval.py:1275` 硬断言 `len(reg["findings"]) == 3`，新增第 4 条守卫即破。**定位过程**：`git stash push scripts/i4-gate.py` 后复跑 = **19/19 PASS / exit 0** → 确认是我的改动导致，非环境抖动；而非「改断言让它过」了事
+- **⚖️ 断言改造（本轮唯一需要 Verifier 重点 scrutiny 的地方）**：把 `len(...) == 3` 改为**按名契约**——要求 `{"budget:router_entry","redline:trust","compat:schema","budget:skill_size"}` 四项**全部在集**且 `all(ok)`。这是**加强不是放松**：①原来只数 3 个匿名项，现在点名 4 项，漏任何一项会**按名失败**而非靠数量蒙混 ②新增守卫被 eval 反向锁定，拆掉就挂。**负向测试实证其非空转**：`git stash` 掉 i4-gate.py 而保留新断言 → eval **exit 1 / U FAIL**，输出 findings 里只有 3 项、无 `budget:skill_size` → 证明新断言真的在守新守卫，不是橡皮图章
+- **0-trust 一手证据（01:1x 实跑）**：`git show HEAD:SKILL.md | wc -c` = **8116** ✅；`wc -c SKILL.md` = **8235** ✅；CRLF 计数 **119** ✅；`grep -c "SKILL" scripts/i4-gate.py` 改动前 = **0** ✅（改动后 >0）；`i4-gate.py . --json` → **REAL_EXIT=0 / pass=true**，4 条 findings 全 OK，`budget:skill_size` 报「8116B (LF caliber) <= 8192B, headroom 76B」且 `warn=true`（余量 <512，触发 advisory 提示）
+- **守卫边界测试（合成文件，未触碰真实 SKILL.md）**：8192 B → **PASS**（headroom 0，边界含在内）；8193 B → **FAIL**（headroom −1，能抓 1 字节越界）；9000 B → **FAIL**；**正确构造的 CRLF 文件 raw 8235 B（naive `wc -c` 会判 FAIL）→ 守卫报 8116 B PASS，假失败陷阱已堵**；文件缺失 → **FAIL**
+- **⚠️ 一次测试自身写错、被复跑纠正**：首版 CRLF 测试对**已含 CRLF 的真实文件**再做 `replace(b"\n", b"\r\n")`，产出 `\r\r\n` 畸形输入（8235 B / headroom −43 的_FAIL_ 结论是假信号）。已改为「先归一化成 LF 原文再转 CRLF」重测，结论反转为 PASS。**若直接采信首版输出，会得出「守卫在 CRLF 下误报」的相反错误结论并记录进文档**
+- **eval 真实数字**：**19/19 PASS，REAL_EXIT=0**（`> eval_out.txt` 重定向取真实退出码；`grep -c "✅ PASS"` = 19、`🎉 All scenarios passed!`）。诚实失败路径 rc 2 与正常路径 rc 0 均由 U 场景内含断言覆盖（1275→1283 行），未单独加探针
+- **改了哪些文件**：`scripts/i4-gate.py`（+40 −0）、`scripts/run-eval.py`（+9 −1）、`progress.md`（仅本条日志）。**`SKILL.md` 零改动**（`git diff --stat SKILL.md` = 0 行）、**`task_plan.md` / `findings.md` 零改动**
+- **红线复核**：预算守卫 3000/300 在位（code-map-generator.py:46/49）；SCHEMA_VERSION 2.1.0 + 白名单 ("2.0.0","2.1.0") 在位（:50/:62）；无新增外部依赖（diff 内无新 import）；未 push、未碰 main
+- **遗留**：① SKILL.md 余量仍仅 **76 B**（本轮只加守卫、未压缩）—— 压缩需动内容，属独立决策，建议下轮或人工评估 ② D1/D2 + H1~H4 仍待张敬拍板，**D2 须先于 H3** ③ 22 项 checkbox 勾选权冲突待拍板 ④ 自动化 **2026-08-31 23:59:59（Asia/Shanghai）到期，剩约 22.8 小时**
+- **方法沉淀**：**①「加机检」与「改数字」要分开做** —— 余量 76 B 有两个独立解法（加守卫 / 压体积），前者零风险且立刻消除「破线无人知」，后者动内容需授权；先做零风险那个。②**断言实现细节（数量/内部名）会在功能正当演进时误伤**，应断言行为与命名契约 —— 但改造时必须反向证明「拆掉新功能会 FAIL」，否则就是给自己放水。③**Windows 上一切字节阈值必须先定口径**（LF vs CRLF），用工作区裸字节做硬约束判定，等于在唯一需要它的平台上制造假失败
