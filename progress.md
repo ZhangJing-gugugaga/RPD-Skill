@@ -858,3 +858,22 @@
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **留档观察（非 FAIL，Verifier 禁改 docs/）**：①§八 8.2 结论三称「`.gitignore` 第 20-22 行有显式例外」，实查该文件**共 19 行**，例外实际在**第 16-18 行**（`.workbuddy/*` → 注释 → `!.workbuddy/automation-rules.md`）→ **行号引用偏差 4 行，但实质结论成立**（`git ls-files .workbuddy/` 确仅 1 文件、promo/ 与 *.pyc 确被忽略）。与 §零 R-1 已声明接受的自引用漂移同属文档精度级问题，非造假，建议下次触碰该节时顺手修正 ②§三 3.2 把 tick #63 / #64 归类为「纯空转」并纳入压缩区间 576-592，但这两段实际上记录了真实交付（#63 治理提案更新+commit、#64 引用 verifier commit 378b2f2）；§三 3.3 已明示「保留 #62 / #65」，两者口径自洽，但 D2 执行前建议再确认这两段是否值得保留 ③§8.1「44 ahead / 820 行」现读 45 / 839，同属 R-1 覆盖的自引用漂移
 - **遗留**：D1/D2 + H1~H4 仍待张敬拍板；**D2 须先于 H3**（否则 139 行空转日志永久写入 main 历史）；自动化 2026-08-31 23:59:59（Asia/Shanghai）到期，**剩约 32.8 小时**
+
+---
+
+## 2026-08-30 16:1x（I4 Advancer · 交付完整性审计：27 个未勾 checkbox 三重对账，排除「假 complete」，发现 R-05 临界）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，治理提案 §八 H3 合并前风险审计验证通过 [verifier]`（HEAD `709a6fe`）→ 本轮属 Advancer ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**
+- **模块**：无待推进（I4-0~I4-9 全 complete、pending=0；L3 planned 冻结）→ 不空转，补一个**此前无人查过的审计面**
+- **为什么做这个**：`.workbuddy/automation-rules.md` 的 0-trust 第 6 项「计划一致性」只核对 `Status:` 字段，从未核对 Phase 下的**逐条 checkbox**。实测 **27 个 checkbox 未勾**，而其所属 Phase 全部标 `complete`。这两种情况对 H3（合并进 main）含义完全相反 —— 要么「清单滞后」（安全），要么「假 complete」（把缺口带进 main），必须分清
+- **做了什么**：新建 `docs/i4-delivery-completeness-audit.md`（5 节），对 27 项做**三重对账**（代码符号 `file:line` / eval 断言行 / spec 章节），不采信 Status 与任何自述
+- **结论**：**22 项已实现（清单滞后）+ 1 项临界 + 4 项流程纪律，无一项「未实现」** → **I4 的 complete 不是假的，是清单没跟上实现**；§八 的合并面结论（17 纯新增 / 4 文件 14 处删改）不受影响
+- **🔑 本轮最有价值发现（F1，差点误报）**：工作区 `wc -c SKILL.md` = **8235 B > 8192**，初判「违反 R-05 硬约束」。深挖是**行尾口径**问题 —— `core.autocrlf=true` 且无 `.gitattributes`，检出时 119 行各加 1 个 CR（8116+119=8235；`grep -c $'\r'` = 119 = `wc -l` = 119 完全对得上）。**Git 对象内仍是 LF 的 8116 B，R-05 并未违反，但余量只剩 76 字节（0.93%）** ≈ 2~3 行中文。引入点 `4c40084`（2026-08-21）自称「SKILL 工具箱 18 行 ≤8KB」，按 LF 口径**成立、非造假**。而 `grep -c "SKILL" scripts/i4-gate.py` = **0** → **没有任何机检会拦住下一次「顺手加一行」**
+- **⚠️ 加守卫有陷阱（顺序依赖）**：若给 `i4-gate.py` 加体积守卫，**必须用 LF 口径 `git show HEAD:SKILL.md | wc -c`，不能用 `wc -c SKILL.md`** —— 后者在 Windows 上恒定 8235，会直接让 eval FAIL，反过来卡死红线 3「19/19 才 commit」
+- **另两项发现**：F2 task_plan 称「12 个 scripts」，实测 **18**（I4 新增 6 个），接手 agent 按 12 盘点会漏掉全部 I4 主力脚本；F3 I4-8①「每 fix 独立 type/scope 分支」与实际不符 —— I4 的 45 个提交全在 `automation/i4-l2` 单分支（自动化串行节奏的既定约定），须加注例外
+- **0-trust 一手证据（16:15 Asia/Shanghai 实跑）**：`grep -c '^\- \*\*Status:\*\* complete' task_plan.md` = **10**；未勾 checkbox = **27**（4+3+2+4+3+3+4+4）；`git show HEAD:SKILL.md | wc -c` = **8116**；`wc -c SKILL.md` = **8235**；`grep -c $'\r' SKILL.md` = **119**；`wc -l SKILL.md` = **119**；`wc -m SKILL.md` = 5341；`ls scripts/*.py | wc -l` = **18**；`grep -c "SKILL" scripts/i4-gate.py` = **0**；`git log -1 --format=%ad --date=iso 4c40084` = 2026-08-21 12:24:36 +0800；`.project-state.md` 4659 B（08-21 12:23）；spec §16.1 R-19~R-25 在 `:701–711`
+- **自查（诚实记录）**：文档初稿把 8 个分组的和误算成 23（实为 27），复核复现命令时自曝并已修正为 27 —— 修正后总数自洽（22+1+4=27）
+- **eval 真实数字**：19/19 PASS，**EXIT=0**（`python scripts/run-eval.py > /tmp/eval_i4_audit.out` 取真实退出码，非管道退出码；`grep -c "✅ PASS"` = 19，`🎉 All scenarios passed!`）。新增文档为纯 Markdown，未触碰 `scripts/`
+- **改了哪些文件**：`docs/i4-delivery-completeness-audit.md`（新建）、`progress.md`（仅本条日志）
+- **遗留**：① 22 项勾选权在 Verifier（Advancer 禁改 `task_plan.md`）② I4-9② 暂不勾 —— R-05 临界，建议「先压缩腾出 ≥200 B，再加 LF 口径守卫」，需张敬授权 ③ D1/D2 + H1~H4 待拍板，**D2 须先于 H3** ④ 上轮 Verifier 留档的 §三 3.2 误删区间问题（#63/#64 实为真实交付 17 行，若按 §8.4 命令执行会误删）本轮未处理，建议下轮 Advancer 优先修
+- **方法沉淀**：「Status complete」是**结论字段**，「checkbox」是**证据字段**。只看结论字段的审计会漏掉「结论与证据不一致」这类问题（本轮 27 项）。审计应查证据，不查结论
