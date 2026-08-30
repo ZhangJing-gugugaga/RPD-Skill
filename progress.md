@@ -783,3 +783,17 @@
 - **判定 A 处置**：7 项全过且本轮声明范围内（§三 量级描述重写 + §7.3 硬编码数字改实测时刻+复现命令）已全部达成 → Test Results 追加 1 行验证记录（真实数字 + 复算证据）；**task_plan.md 未动**（无 pending Phase 需标 complete，I4-0~I4-9 全 complete）；未回滚、未改任何代码文件
 - **本 tick 改动**：仅 progress.md（Test Results 1 行 + 本条日志）；未触碰 scripts/ docs/ references/ eval/ task_plan.md；未 push、未碰 main
 - **遗留**：D1（A 停用 / B 降频周观察 / C 按需触发 / 维持现状）+ D2（progress 压缩授权，需授权）+ H1~H4 全部待张敬拍板；**自动化 2026-08-31 23:59（Asia/Shanghai）到期，剩约 37.5 小时**
+
+---
+
+## 2026-08-30 12:1x（I4 Advancer · 治理提案加「§零 口径公约」，一次性终结数字漂移与 tick 计数两类缺陷）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，治理提案数字口径整改验证通过 [verifier]`（HEAD `1edb4b2`，08-30 10:26:39）→ 本轮属 Advancer ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**（`git status --porcelain` 空）
+- **模块**：无待推进（I4-0~I4-9 十个 Phase 全 complete，pending=0；L3 planned 冻结）→ 不空转，兑现上轮 Verifier 留档的两项观察（Verifier 禁改 docs/，属 Advancer 写入范围）
+- **做了什么**：`docs/automation-governance-proposal.md` 新增 **§零 口径公约**（R-1 当前值=快照 / R-2 来源=commit hash+日期 / R-3 修订触发条件 + 历史遗留 tick 标注读法）→ **不再逐条改数字，改为一次性约定，终结「改一次漂一次」的循环**；§一 两行整改（废弃「47 次零产出」tick 口径，换成仓库内可核对的 commit 口径；「tick #15」→ commit hash）；§三 3.2 更新实测时刻与总行数并补「行号范围不漂、总行数会漂」的稳定性说明；3.3 预期效果改为公式表达
+- **🔑 本轮最有价值的发现（超出 Verifier 观察范围）**：比「47 次零产出」强得多的可核对事实是——自 I4 收官 commit `27f7fd5`（2026-08-21）起 **13 个提交全部为 docs/progress 类，`scripts/` 改动 0 条**；`git diff --name-only 27f7fd5..HEAD | sort -u` 仅 3 个文件（`docs/automation-governance-proposal.md` / `docs/handoff-automation-2026-08-19.md` / `progress.md`）。这是**任何人一条命令即可验证**的零产出证据，而 tick 计数只在自动化运行日志里、仓库外无法核对
+- **0-trust 一手证据（均实跑，时刻 2026-08-30 12:13:22）**：`wc -l progress.md` = **785**；`sed -n '442,603p' progress.md | wc -l` = **162**（与 09:16 测量**完全一致**）；`sed -n '442,563p;576,592p' progress.md | wc -l` = **139**（同样一致）→ 证实「空转段在中段、新日志追加到尾部，故待压缩量稳定、只有总行数漂移」；`git log --oneline 27f7fd5..HEAD | wc -l` = **13**；`git log --oneline 27f7fd5..HEAD -- scripts/ | wc -l` = **0**；`git diff --stat 27f7fd5..HEAD -- scripts/ | wc -l` = **0**；`git rev-list --left-right --count origin/main...HEAD` = 0 behind / **42** ahead；`git log -1 --format=%ad --date=iso 562c14b` = 2026-08-29 16:15:37（与文档「固化 16:1x」吻合）；`git log -1 --format=%ad --date=iso 27f7fd5` = 2026-08-21 14:13:45
+- **eval 真实数字**：19/19 PASS，exit 0（改动后实跑，`🎉 All scenarios passed!`）；Markdown-only，未触碰 scripts/
+- **改了哪些文件**：docs/automation-governance-proposal.md（+约 45/-8）、progress.md（仅本条日志）
+- **遗留问题**：D1/D2 + H1~H4 仍待张敬拍板；§三 3.1 的 `tick #17~#62`/`46 条` 按 R-2 **刻意保留**（是「计数源混淆」错误的当事数值，抹掉等于销毁整改证据）；自动化 2026-08-31 23:59（Asia/Shanghai）到期，剩约 35.8 小时
+- **方法沉淀**：文档缺陷若反复以同一形态出现（本例连续两轮「数字漂移」），正确做法不是再修一次数字，而是**写一条公约让该类缺陷不再产生**——§零 R-3 明确「不因数值变旧而更新」，从规则层面关闭了逐 tick 追更这条成本通道
