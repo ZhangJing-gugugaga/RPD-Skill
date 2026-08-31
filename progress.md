@@ -969,3 +969,52 @@
 - **红线复核**：预算守卫 3000/300 在位（code-map-generator.py:46/49）；SCHEMA_VERSION 2.1.0 + 白名单 ("2.0.0","2.1.0") 在位（:50/:62）；无新增外部依赖（diff 内无新 import）；未 push、未碰 main
 - **遗留**：① SKILL.md 余量仍仅 **76 B**（本轮只加守卫、未压缩）—— 压缩需动内容，属独立决策，建议下轮或人工评估 ② D1/D2 + H1~H4 仍待张敬拍板，**D2 须先于 H3** ③ 22 项 checkbox 勾选权冲突待拍板 ④ 自动化 **2026-08-31 23:59:59（Asia/Shanghai）到期，剩约 22.8 小时**
 - **方法沉淀**：**①「加机检」与「改数字」要分开做** —— 余量 76 B 有两个独立解法（加守卫 / 压体积），前者零风险且立刻消除「破线无人知」，后者动内容需授权；先做零风险那个。②**断言实现细节（数量/内部名）会在功能正当演进时误伤**，应断言行为与命名契约 —— 但改造时必须反向证明「拆掉新功能会 FAIL」，否则就是给自己放水。③**Windows 上一切字节阈值必须先定口径**（LF vs CRLF），用工作区裸字节做硬约束判定，等于在唯一需要它的平台上制造假失败
+
+---
+
+## 2026-08-31 16:3x（I4 Verifier · F1 机检守卫 0-trust 复核：7 项全 PASS，判定 A）
+
+- **闸门**：`git log -1 --format=%s` = `feat(I4-closeout): R-05 给 SKILL.md 加机检守卫，LF 口径计量堵住 CRLF 假失败 [advancer]`（HEAD `9bd7a69`）→ 本轮属 Verifier ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**
+
+### 7 项 0-trust 检查
+
+| # | 检查项 | 真实命令输出（一手证据） | 判定 |
+|---|--------|------------------------|------|
+| 1 | eval 全量 | `python scripts/run-eval.py` → **19/19 PASS**（A~X 全绿）+ `🎉 All scenarios passed!`，**EXIT_CODE=0** | ✅ PASS |
+| 2 | diff 审计 | `git diff HEAD~1 --name-only` = 仅 `progress.md` / `scripts/i4-gate.py` / `scripts/run-eval.py`（+69 −1）；`task_plan.md` / `findings.md` / `SKILL.md` **零改动**，Goal / Key Decisions / Phase 结构未被动 | ✅ PASS |
+| 3 | 预算守卫 | `code-map-generator.py:46` `ROUTER_TOKEN_LIMIT=3000`、`:49` `ENTRY_MAX_TOKENS=300` 在位；新增 `i4-gate.py:44` `SKILL_LIMIT=8192`；`i4-gate.py . --json` → `budget:skill_size` = **8116B (LF caliber) ≤ 8192B, headroom 76B, ok=true, warn=true** | ✅ PASS |
+| 4 | 红线机检 | `i4-gate.py . --json` 4 条 findings **全 ok**；`redline:trust` 在位，`rpd-cold-start.py:213/246/255` verified / stale(missing) / stale(fingerprint_mismatch) 逻辑未回归 | ✅ PASS |
+| 5 | 向后兼容 | `code-map-generator.py:50` `SCHEMA_VERSION="2.1.0"`、`:62` `SCHEMA_WHITELIST=("2.0.0","2.1.0")` 仍在；`compat:schema` ok=true | ✅ PASS |
+| 6 | 计划一致性 | I4-0~I4-9 Status 全 complete、pending=0；本轮为 **I4-closeout（F1）**，`task_plan.md` **无该 Phase 条目**。依 automation-rules §通用规则 4（Phase 结构属用户权限，Verifier 只改状态标记），**不新增 Phase、不改结构** —— 与前两轮 verifier（`1969234` / `9e04c89` 均只动 progress.md）口径一致 | ✅ PASS（沿用，无新增不一致） |
+| 7 | 无 mock 注入 | 本轮纯脚本 / 守卫改动，**无视觉或 UI 改动**，该项不适用；全部证据为实跑输出，未注入任何 mock | ✅ PASS（N/A） |
+
+### 独立复算（不采信 Advancer 自述）
+
+- **体积口径三证对齐**：`git show HEAD:SKILL.md | wc -c` = **8116** ✅；工作区 `wc -c SKILL.md` = **8235** ✅；CRLF 计数 **119** ✅；8235 − 119 = 8116，与 i4-gate 报数**完全一致**
+- **`_lf_size()` 边界（独立 import 模块实跑，非读代码推断）**：
+  | 用例 | 实测 | 结论 |
+  |------|------|------|
+  | 8192 B 纯 LF | **8192**（margin 0） | 边界含入 → PASS |
+  | 8193 B 纯 LF | **8193**（margin −1） | 能抓 1 字节越界 → FAIL |
+  | 正确构造的 CRLF 样本（raw 8216 B） | LF 口径 **8116 B** | 假失败已堵 → PASS |
+  | 文件缺失 | **None** | FAIL 路径可达 |
+- **🔑 负向测试（证明新断言不是橡皮图章）**：`git worktree add --detach` 建**隔离副本**（主工作区全程零改动），在副本中删除 `budget:skill_size` 守卫后复跑 eval → **EXIT=1，❌ FAIL - U (v2 code-map)**，findings 仅剩 3 项且无 `budget:skill_size` → 证明 `run-eval.py:1275` 的按名契约断言**真的在守新守卫**。测后 `git worktree remove --force` + `prune`，`git worktree list` 仅剩主工作区、`git status --short` **clean**
+- **断言改造评估（本轮唯一需 scrutiny 处）**：`len(reg["findings"]) == 3` → 按名集合 `{"budget:router_entry","redline:trust","compat:schema","budget:skill_size"}` 全在集 + `all(ok)`。判定为**加强而非放松**：原断言只数 3 个匿名项，新断言点名 4 项，漏任一项会**按名失败**；且负向测试已反向证明「拆掉即挂」。**未发现"改断言让它过"的放水痕迹**
+
+### 判定
+
+**A（7 项全 PASS + 本轮验收达成）** —— `task_plan.md` **无需改动**（无 closeout Phase 条目，且新增 Phase 结构属用户权限）；仅追加本条 `progress.md` 记录并 `git add progress.md` 单文件提交。**未 rollback，代码文件零改动**。
+
+### 遗留（顺延，非本轮 FAIL）
+
+1. SKILL.md 余量仍 **76 B**，压缩属独立决策（动内容需授权）—— 本轮只加守卫，符合「加机检 / 改数字分开做」
+2. D1/D2 + H1~H4 仍待张敬拍板，**D2 须先于 H3**
+3. 22 项 checkbox 勾选权冲突待拍板
+4. 自动化 **2026-08-31 23:59:59（Asia/Shanghai）到期，剩约 7.4 小时**
+
+### 方法沉淀
+
+1. **改动「校验器自身」时，验收标准必须升级为负向测试** —— 正向全绿只证明"没弄坏"，只有"拆掉新功能必须 FAIL"才能证明新校验真的生效、不是橡皮图章
+2. **负向测试要在隔离副本里做**（`git worktree add --detach` + 事后 `remove`/`prune`）—— 在主工作区删代码再恢复，恢复失败就是灾难
+3. **Windows 上字节阈值必须二次确认口径**：本轮若只看 `wc -c SKILL.md` = 8235，会判定 R-05 破线，得出与事实完全相反的结论
+4. **"未勾选但 Status=complete"不一定是假 complete** —— 已有 2026-08-30 交付完整性审计（27 项三重对账，见 `docs/i4-delivery-completeness-audit.md` + 本文件 §2026-08-30）给出证据，Verifier 应查证据不查结论，不重复推翻已审计结论
