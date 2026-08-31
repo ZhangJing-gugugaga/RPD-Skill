@@ -1018,3 +1018,23 @@
 2. **负向测试要在隔离副本里做**（`git worktree add --detach` + 事后 `remove`/`prune`）—— 在主工作区删代码再恢复，恢复失败就是灾难
 3. **Windows 上字节阈值必须二次确认口径**：本轮若只看 `wc -c SKILL.md` = 8235，会判定 R-05 破线，得出与事实完全相反的结论
 4. **"未勾选但 Status=complete"不一定是假 complete** —— 已有 2026-08-30 交付完整性审计（27 项三重对账，见 `docs/i4-delivery-completeness-audit.md` + 本文件 §2026-08-30）给出证据，Verifier 应查证据不查结论，不重复推翻已审计结论
+
+---
+
+## 2026-08-31 21:3x（I4 Advancer · 到期前轮：修正 §7.1 rrule 事实错误 + 代执行 H4 到期前确认）
+
+- **闸门**：`git log -1 --format=%s` = `verify(I4-closeout): 7 项 0-trust 全过，R-05 SKILL.md 机检守卫…[verifier]`（HEAD `98d07bb`）→ 本轮属 Advancer ✅；分支 `automation/i4-l2` ✅；起始 worktree **clean**
+- **模块**：I4-0~I4-9 全 complete、pending=0；收官报告 2026-08-21 已落盘，重抄属空转 → 沿用近几轮约定，**兑现上一轮 Verifier 留档中与时间窗口强相关的项**：自动化 **今晚 23:59:59 到期**，§七 到期处置预案的 H4 仍停在 08-30 07:13 的陈旧基线
+- **🔴 本轮实际发现（非预想）**：`automation_update(mode="list")` 返回的两个 rrule **并不相同** —— Advancer `INTERVAL=1`、Verifier **`INTERVAL=12`**。而 §7.1 表把 Verifier 的 rrule 写成「同左」（即每 1 小时），**与配置不符**。补 `mode="view"` 逐个实查确认：`validUntil` 两者确为同一时刻（`2026-08-31T15:59:59.999Z`），故「同时停」的**结论成立**，但**运行频率不同**被漏记了
+- **为什么这个错值得修**：§7.2 原写「若有效期被延长 → 立即复活，恢复**每小时**空转」。按真实配置应为「Advancer 24 次/天 + Verifier 2 次/天」。张敬若据此估算延期成本，会**高估近一倍**。已改为标注实测频率
+- **教训（已写入文档）**：§7.1 表除 `validUntil` 外的字段此前多为「同左」**推定**而未逐个 `view` 实查 —— 这与本文档 §零 口径公约（凡数字须可复现）自相矛盾。凡写进本文档的配置值一律取自 `mode="view"` 返回，不靠对称性推断
+- **代执行 H4（新增 §7.5）**：H4 原列「需人工」，实为**纯只读核查**，agent 有权代跑。2026-08-31 **21:39:04**（+0800，`date` 实跑）七项一手值：`git status --porcelain` = **空**（无未落盘成果）；HEAD = **`98d07bb`**；`git rev-list --left-right --count origin/main...HEAD` = **0 behind / 52 ahead**；`git log -1 origin/main` = `1081696 2026-08-03 22:26:51` → **main 自 08-03 未动**，0 behind 属实；`python scripts/run-eval.py` = **19/19 PASS / exit 0**；`wc -l progress.md` = **1020 行**（08-30 09:16 为 738 行 → 12 天 **+282 行 / 12 commits**，印证 H2「持续增长」判断）
+- **结论**：到期前**无未落盘成果**。但 4 项里只解决了 1 项 —— **H1（显式 PAUSED）/ H2（授权压缩）/ H3（分支归宿）仍需张敬**，性质未变（agent 无权改自动化配置 / 禁历史改写 / 禁自动 merge main 与 push）
+- **🚨 唯一实质风险已点名**：**H3** —— 52 个提交只存在于**本地**分支 `automation/i4-l2`，远端仅 `refs/heads/main`、无副本；换机或清工作区即失。其余三项只是语义/整洁度问题
+- **🛡️ 自查：文档里的命令逐条复跑**（沿用前几轮方法，文档价值 = 其命令可执行）：`git status --porcelain` / `git rev-parse --short HEAD` / `git branch --show-current` / `git rev-list --left-right --count origin/main...HEAD` / `git log -1 --format='%h %ci' origin/main` / `wc -l < progress.md` **六条全部复跑，返回值与文档所载一致**
+- **自引用漂移已显式标注**：§7.5 第 1 行注明「clean」测于**本轮改动落盘前**，并写「commit 后复测同样为空」—— 该承诺已在 commit 后实跑兑现（见下）
+- **eval 真实数字**：**19/19 PASS，`REAL_EXIT=0`**（两次独立运行：改动前取基线、提交前取门禁，均为 19 / exit 0）
+- **改了哪些文件**：`docs/automation-governance-proposal.md`（**+35 −3**，单文件）；`progress.md`（仅本条日志）。**`scripts/` 零改动、`SKILL.md` 零改动、`task_plan.md` / `findings.md` 零改动**（`git diff --stat` 提交前 = `1 file changed`）
+- **红线复核**：未 push、未碰 main；无新增外部依赖；eval 全过才 commit；`git add` 仅两个具体文件，未用 `-A`/`.`
+- **遗留**：① **H1/H2/H3 仍待张敬拍板（H3 是唯一实质风险：52 commits 无远端副本）** ② D1/D2 + 22 项 checkbox 勾选权冲突待拍板 ③ SKILL.md 余量仍 **76 B**（压缩属独立决策）④ 自动化 **2026-08-31 23:59:59 到期，剩约 2 小时**
+- **方法沉淀**：**①「同左 / 同上 / 以此类推」是文档里最危险的两个字** —— 它看起来是复用，实为未经验证的推定；本表的 `validFrom` 恰好同值属于运气，`rrule` 就翻车了。**凡配置值，逐个 `view` 实查，对称性不算证据**。②**「需人工」这个标签要定期重估** —— H4 被标了 12 天无人做，实际只是纯只读核查，agent 本可代办；分类时应按「是否需要权限/是否不可逆」判，不按「是否有人提过」判。③**文档的数字错，危害取决于它驱动的决策** —— rrule 错本身无害，但它支撑的「延期成本估算」会翻倍；评估文档缺陷时问一句「谁会拿这个数字做什么决定」

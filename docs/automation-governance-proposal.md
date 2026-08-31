@@ -180,14 +180,18 @@
 | ID | `automation-1787109094822` | `automation-1787109023265` |
 | name | I4-推进（Advancer）：按计划实现下一模块 | I4-验证（Verifier）：0-trust 独立检验 |
 | status | ACTIVE | ACTIVE |
-| rrule | `FREQ=HOURLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU` | 同左 |
-| validFrom | 2026-08-18T16:00:00.000Z | 同左 |
+| rrule | `FREQ=HOURLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU`（每 **1** 小时） | `FREQ=HOURLY;INTERVAL=12;BYDAY=MO,TU,WE,TH,FR,SA,SU`（每 **12** 小时）⚠️ 与 Advancer **不同** |
+| validFrom | 2026-08-18T16:00:00.000Z | 2026-08-18T16:00:00.000Z（实测同值，非「同左」推定） |
 | **validUntil** | **2026-08-31T15:59:59.999Z** | **2026-08-31T15:59:59.999Z（同一时刻）** |
 | 折算本地 | 2026-08-31 23:59:59.999（Asia/Shanghai） | 同左 |
 
 **剩余窗口**：自 2026-08-30 07:13:28（Asia/Shanghai，`date` 实跑）起约 **40 小时 46 分钟**。
 
 **关键点**：两个自动化共用同一到期时刻，会**同时停**，不会出现「Advancer 停了、Verifier 空转」或反之的错配。
+
+> **⚠️ 2026-08-31 21:39 更正（Advancer 轮，一手实查）**：上表 rrule 行原本把 Verifier 写成「同左」（即每 1 小时），**与配置不符**。实际 `automation_update(mode="view")` 返回：Advancer `INTERVAL=1`、Verifier `INTERVAL=12`。
+> **结论未翻转，但成本口径要改**：两者 `validUntil` 确为同一时刻（均已实查），「同时停」的结论成立；但**运行频率不同** —— 若有效期被延长，复活后的实际空转是「Advancer 24 次/天 + Verifier 2 次/天」，而非 §7.2 下文原写的「每小时空转」。
+> **教训**：本表除 `validUntil` 外的字段此前多为「同左」推定而未逐个 `view` 实查；按 §零 口径公约，凡写进本文档的配置值都应取自 `mode="view"` 返回，不靠对称性推断。
 
 ### 7.2 不拍板的默认路径：等效 A，但语义不完整
 
@@ -197,7 +201,7 @@
 |---|---|---|
 | 是否停跑 | 是 | 是 |
 | status 字段 | `PAUSED` | 仍为 `ACTIVE` |
-| 若有效期被延长 | 保持停用 | **立即复活，恢复每小时空转** |
+| 若有效期被延长 | 保持停用 | **立即复活，恢复周期性空转**（实测频率：Advancer 1 次/小时 + Verifier 1 次/12 小时，见 §7.1 更正） |
 | 可读性 | 一眼看出是主动停的 | 需查 validUntil 才知道为什么没跑 |
 | 成本 | 一句话 | 零 |
 
@@ -223,6 +227,34 @@
 
 - **最省事**：什么都不做 → 2026-08-31 23:59 后自动停（A 生效，status 字段留含糊）
 - **推荐**：「H1 两个都 PAUSED + 授权 H2 压缩 + 授权 H3 开 PR 合并进 main」→ 我下一 tick 按序执行并 commit
+
+### 7.5 到期前最后一次自动化轮确认【2026-08-31 21:39 · Advancer 轮代执行 H4】
+
+> §7.3 的 H4 原本是「需人工」项，且基线停在 2026-08-30 07:13。到期前最后一个 Advancer tick 已把它**实跑代执行**，结果如下。
+> 口径：全部 `date` / `git` / `python` **一手实跑**，时刻 **2026-08-31 21:39:04（Asia/Shanghai）**；距到期 **约 2 小时 21 分**。
+
+| # | 项 | 实测值 | 判定 |
+|---|---|---|---|
+| 1 | 工作区是否干净 | `git status --porcelain` → **输出为空**（测于本轮改动落盘**前**；本轮 commit 后复测同样为空 —— 已复跑确认，见本节末注） | ✅ 无未落盘成果 |
+| 2 | 分支位置 | `git rev-parse --short HEAD` = **`98d07bb`**；`git branch --show-current` = `automation/i4-l2` | ✅ 在正确分支 |
+| 3 | 与 main 的差 | `git rev-list --left-right --count origin/main...HEAD` = **0 behind / 52 ahead** | ⚠️ 52 个提交仅本地存在 |
+| 4 | 远端副本 | §7.3 H3 已实测 `git ls-remote --heads origin` **仅 `refs/heads/main`**（该结论不随 commit 变化，未重跑） | ⚠️ 无远端备份 |
+| 5 | main 是否新增 | `git log -1 --format="%h %ci" origin/main` = `1081696 2026-08-03 22:26:51` → main 自 08-03 未动 | ✅ 0 behind 属实，无上游内容被落下 |
+| 6 | 测试基线 | `python scripts/run-eval.py` → **19/19 PASS**，exit **0** | ✅ 交付可合并状态 |
+| 7 | progress.md 体积 | `wc -l` = **1020 行**（08-30 09:16 为 738 行 → 12 天 **+282 行 / 12 commits**） | ⚠️ 持续增长，印证 H2 判断依据 |
+
+**H4 结论（本轮代执行）**：到期前**不存在未落盘成果** —— 所有产出均已 commit 在 `automation/i4-l2`（HEAD `98d07bb`），工作区干净，测试全绿。
+
+**但这只解决了 4 项里的 1 项**，其余三项的阻塞性质不变：
+
+| 项 | 是否仍需张敬 | 原因 |
+|---|---|---|
+| H4 到期前确认无未落盘成果 | **否（本轮已办）** | 纯只读核查，agent 有权 |
+| H1 两个自动化显式 PAUSED | **是** | agent 无权改自动化配置 |
+| H2 授权压缩 progress.md | **是** | 属历史改写 |
+| H3 分支归宿（合并 main / 保留归档） | **是** | agent 禁自动 merge main、禁 push |
+
+**到期后若你什么都不做会发生什么**：两个自动化于 **2026-08-31 23:59:59.999** 后停止触发，`status` 仍为 `ACTIVE`（语义含糊，见 §7.2）；52 个提交继续只存在于本地分支 `automation/i4-l2`，远端无副本。**唯一实质性风险是 H3** —— 本地分支换机/清工作区即失，其他三项都只是语义或整洁度问题。
 
 ---
 
