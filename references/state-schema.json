@@ -44,6 +44,14 @@
       "type": "integer",
       "minimum": 1,
       "description": "Monotonically increasing revision number for conflict detection"
+    },
+    "branch-affinity": {
+      "type": "string",
+      "description": "Git branch this state file is bound to; state-guard.py hard-blocks writes from other branches (cross-branch overwrite protection)"
+    },
+    "last-commit-sha": {
+      "type": "string",
+      "description": "Git HEAD sha at last sync; used to detect code drift vs state"
     }
   },
   "additionalProperties": false
