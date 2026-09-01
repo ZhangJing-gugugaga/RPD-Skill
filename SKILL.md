@@ -62,8 +62,7 @@ user-invocable: true
 快捷命令：`/rpd new | take | cont | status | scan`。
 
 ### Flow A: New Project / 新项目
-A-1 初始化 → A0 问题校验（6 项）→ A1 三视角诊断（用户/商业/技术/安全，每轮≤3 问；小白安全自动判）→ A2 概念版 PRD（≤200 字）→ A3 冻结确认 → A4 落地版（模板 `references/prd-template.md`）→ `prd-validator.py --ai-mode` → A5 状态文件（先 backup 再 validate）。
-诊断问题与话术详见 `references/brainstorming-flow.md`。
+A-1 初始化 → A0 问题校验（6 项）→ A1 三视角诊断（用户/商业/技术/安全，每轮≤3 问；小白安全自动判）→ A2 概念版 PRD（≤200 字）→ A3 冻结确认 → A4 落地版（模板 `references/prd-template.md`）→ `prd-validator.py --ai-mode` → A5 状态文件（先 backup 再 validate）；话术见 `references/brainstorming-flow.md`。
 
 ### Flow B: Takeover Half-Finished / 接手半成品
 B1 `security-scanner.py`（exit 2 阻断）→ B2 `project-scanner.py` → B3 推断确认 → B4 生成简化 PRD + 状态文件（代码完成度自动标 ✅/🔨/⏳）→ 校验。
