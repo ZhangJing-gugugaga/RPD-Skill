@@ -59,7 +59,7 @@ user-invocable: true
 | flow_b / flow_c | Flow B 接手 / Flow C 继续 |
 | ask_user | 不确定，主动问用户 |
 
-快捷命令：`/rpd new | take | cont | status | scan`。
+快捷命令：`/rpd new|take|cont|status|scan`。
 
 ### Flow A: New Project / 新项目
 A-1 初始化 → A0 问题校验（6 项）→ A1 三视角诊断（用户/商业/技术/安全，每轮≤3 问；小白安全自动判）→ A2 概念版 PRD（≤200 字）→ A3 冻结确认 → A4 落地版（模板 `references/prd-template.md`）→ `prd-validator.py --ai-mode` → A5 状态文件（先 backup 再 validate）；话术见 `references/brainstorming-flow.md`。
