@@ -1,0 +1,28 @@
+{
+  "description": "RPD-Skill: session auto-restore (SessionStart) and closeout state persistence guard (Stop). Prints nothing for non-RPD projects. Set RPD_HOOKS_DISABLED=1 to disable.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/rpd-hook-bridge.py\" session-start \"${CLAUDE_PROJECT_DIR}\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/rpd-hook-bridge.py\" stop \"${CLAUDE_PROJECT_DIR}\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
