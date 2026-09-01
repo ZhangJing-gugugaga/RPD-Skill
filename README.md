@@ -13,7 +13,7 @@
   <a href="#-architecture"><img src="https://img.shields.io/badge/Runtime-12__stdlib__Python-yellow" alt="12 stdlib Python" /></a>
   <a href="#-security-engine"><img src="https://img.shields.io/badge/Security-8__SEC__Rules-critical" alt="8 SEC Rules" /></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Fullstack-Next.js__Router__Ready-blue" alt="Next.js Ready" /></a>
-  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-19__Scenarios-brightgreen" alt="19 Eval Scenarios" /></a>
+  <a href="#-eval-matrix"><img src="https://img.shields.io/badge/Eval-21__Scenarios-brightgreen" alt="21 Eval Scenarios" /></a>
   <a href="#-multi-platform-installation"><img src="https://img.shields.io/badge/Platform-Agnostic-lightgrey" alt="Platform Agnostic" /></a>
 </p>
 
@@ -29,7 +29,7 @@
 
 **你用 AI 做 Vibe Coding，每次开新对话它就失忆了。两周后回来，忘了当初为什么选 SQLite。**
 
-RPD 是一个 **面向任意 AI 工具的 Agent Skill**（AI-Agent-Agnostic），通过 **12 个零依赖的纯标准库 Python 脚本**（7 个运行时 v1 + 4 个 v2 + 1 个 run-eval）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
+RPD 是一个 **面向任意 AI 工具的 Agent Skill**（AI-Agent-Agnostic），通过 **14 个纯标准库 Python 脚本**（无硬依赖；code-map 的 tree-sitter 为可选增强，未安装自动降级正则）构建硬核运行时阻断协议，将项目记忆、技术栈决策、业务安全护栏硬化为高确定性的本地控制流。告别概率型 Cloud Memory 的废话糊墙，拒绝每次新开对话后的"精神断层"。
 
 > **核心使命：硬化跨会话项目孪生状态，拦截决策 Spec 漂移，强行将具备概率不确定性的 AI 智能体死死锁在线性工程的高保真轨道上。**
 
@@ -201,7 +201,7 @@ grep '"version"' .claude-plugin/plugin.json
 ```bash
 cd .claude/skills/rpd
 git fetch --tags
-git checkout v1.5.0  # or any tag
+git checkout v3.0.0  # or any tag
 ```
 
 ---
@@ -240,17 +240,19 @@ Flow A          Flow B         Flow C
 | 脚本 | 确定性断言机制 | 调用时机 | 退出码 |
 |------|---------------|----------|--------|
 | `intent-router.py` | 正则关键词硬路由，成熟度分类 | 每次对话开始 | `0` 成功, `1` 错误 |
-| `security-scanner.py` | 8 条 SEC 规则 + 路径遍历 + 注入检测 + 流式分块 | Flow B/C 冷启动 | `0` 安全, `1` 错误, `2` 阻断 |
+| `security-scanner.py` | 8 条 SEC 规则 + 路径遍历 + 中英双语注入检测（默认扫 .rpd/*.md） | Flow B/C 冷启动 | `0` 安全/WARN, `1` 错误, `2` CRITICAL 阻断 |
 | `project-scanner.py` | 技术栈、组件、API 路由、TODO | Flow B 接手 | `0` 成功, `1` 错误 |
 | `gap-analyzer.py` | PRD vs 代码差距 + 决策漂移 + Next.js 路由检测 | Flow C 续传 | `0` 成功, `1` 错误, `2` 无状态, `3` 无功能 |
 | `state-guard.py` | 原子写入 + 备份(max 10) + Git 分支亲和度锁 | 状态文件变更前 | `0` 成功, `1` 错误, `2` 回滚, `3` 未找到, `4` 冲突 |
 | `state-validator.py` | YAML Frontmatter JSON Schema 校验 | 状态文件变更后 | `0` 有效, `1` 错误, `3` 无效 |
 | `prd-validator.py` | 语义缺口审计（异常处理、状态机、字段规范）+ `--ai-mode` 8 大区块 | 落地版 PRD 生成后 | `0` 完整, `1` 错误, `2` 有缺口 |
 | `rpd-cold-start.py` | v2 冷启动 7 步 + v1 兼容读取（显式告警）+ 迁移备份 | 新会话接手 v2 项目 | `0` 成功, `1` 错误 |
-| `code-map-generator.py` | v2 code-map 三件套（tree-sitter+正则双路径，预算守卫） | 功能完成 / 收尾 | `0` 成功, `1` 错误 |
-| `rpd-decisions.py` | decisions.md 决策日志（grill-me 前置） | 决策确认前 | `0` 成功, `1` 错误, `3` 未找到 |
+| `code-map-generator.py` | v2 code-map 三件套（9 语言注册表：tree-sitter 聚合包/正则兜底双路径） | 功能完成 / 收尾 | `0` 成功, `1` 错误 |
+| `rpd-decisions.py` | 决策日志 + 写时对账四算子（reconcile）+ 锚点机检（verify） | 决策确认前 / 写入前 | `0` 成功, `1` 错误, `2` 锚点失效, `3` 未找到 |
 | `rpd-metrics.py` | M1/M2/M3 主指标采集与聚合 | 会话观测 | `0` 成功, `1` 错误 |
-| `run-eval.py` | 19 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
+| `rpd-hook-bridge.py` | 宿主 hooks：SessionStart 自动恢复 / Stop 落盘机检 | hooks 自动触发 | `0` 成功/静默, `1` 用法错误 |
+| `code-map-enrich.py` | 语义层富化（LLM 提示词生成 / apply / validate） | code-map 生成后（可选） | `0` 成功, `1` 错误, `2` 语义失效剔除 |
+| `run-eval.py` | 21 个评估场景 | 开发 / CI | `0` 全部通过, `1` 部分失败 |
 
 > **你不需要手动运行这些脚本。** AI 助手会在对应的流程节点自动调用。
 
@@ -353,6 +355,9 @@ v2 兼容读取 v1 `.project-state.md`（保留原文件、不覆盖 v2 active-c
 | `rpd-decisions.py <root> propose/accept/...` | decisions.md 决策日志（grill-me 前置） |
 | `rpd-metrics.py <root> record/report` | M1/M2/M3 主指标采集与聚合 |
 
+| `code-map-enrich.py <root>` | 语义层：generate 提示词 → Agent 填写 → apply 落盘 → validate 指纹失效剔除 |
+| `rpd-hook-bridge.py <mode> <root>` | 宿主 hooks 入口（session-start 自动恢复 / stop 落盘机检），由 hooks.json 自动调用 |
+
 详细运行细节见 `docs/rpd-v2-usage.md`。
 
 ### 大仓库实测 / Large-Repo Benchmark
@@ -368,6 +373,27 @@ code-map 生成器在真实大仓库（Cangjie 运行时，454 源文件 / ~8.5 
 | 内存 | 无 OOM（安全扫描流式分块 + 符号表惰性构建） |
 
 > 数据点：大仓库下 router 因 `files` 清单挤占预算自动裁剪 top_symbols（保留高频/入口符号），预算守卫按设计工作。
+
+---
+
+## 🧠 v3 升级：记忆分层与宿主强制 / v3 Upgrade
+
+### 语言注册表：9 语言 code-map
+`PRIMARY_EXTENSIONS` 从硬编码 C/C++ 重构为 `LANG_REGISTRY`：**Python、JavaScript/TypeScript、Java、Go、Rust、C#**（C/C++ 保留）。tree-sitter 优先走 tree-sitter-language-pack 聚合包（按需惰性下载，`pip install tree-sitter-language-pack`），未安装自动降级为每语言零依赖正则兜底（缩进块/花括号块、方法归属、调用提取）。`code-map.meta.json` 记录分语言 parser 与未索引扩展名覆盖率报告。
+
+### 混合式语义层（结构确定性 + 语义 LLM）
+`code-map-enrich.py` 三模式：`generate` 产出提示词 → 宿主 Agent 填写模块摘要/架构分层 → `--apply` 落盘 `code-map.semantic.json`（逐模块绑定内容指纹 + 时间戳 + 模型名）→ `--validate` 指纹失配自动剔除 stale/dangling。结构层是唯一事实源，语义层纯派生缓存，不进 router 常驻预算。
+
+### hooks 强制层（SessionStart 自动恢复 + Stop 落盘机检）
+插件级 `hooks/hooks.json`（Claude Code / ZCode 双宿主）：
+- **SessionStart**（startup/resume/clear/compact）：探测状态文件自动注入恢复摘要——**新会话无需再说「继续开发」**；上下文压缩后全量重注入，长对话遗忘根治；非 RPD 项目静默。
+- **Stop**：指纹机检（代码改动未落盘）→ 温和提醒补写（不硬拦），会话内最多 3 次，`stop_hook_active` 防递归。
+- 开关：`RPD_HOOKS_DISABLED=1`。无 hook 宿主粘贴 `references/agents-bootstrap-snippet.md`。
+
+### 记忆分层（文件版 L1/L2）
+- **L2 场景层**：`active-context.md` 索引式加载；**L1 事实层**：`decisions.md` 写时对账（ADD/UPDATE/DELETE/NOOP 四算子）+ `commit+file:line` 可机检锚点 + 置信度自动降级（`verify`）+ 备份原子写。
+- **知识沉淀层**：`.rpd/knowledge.md`（≤200 行）——只沉淀代码读不出来的洞察（踩坑/跨文件因果/调参经验），冷启动节选加载，超限触发蒸馏告警。
+- **v1 收敛**：`--migrate` 备份后写冻结标记，v1 永远只读参考。
 
 ---
 
@@ -393,7 +419,7 @@ rpd/
 │   ├── code-map-generator.py    # v2 code-map 三件套（tree-sitter+正则双路径）
 │   ├── rpd-decisions.py         # decisions.md 决策日志（grill-me 前置）
 │   ├── rpd-metrics.py           # M1/M2/M3 主指标采集与聚合
-│   └── run-eval.py              # 19 个评估场景
+│   └── run-eval.py              # 21 个评估场景
 ├── references/
 │   ├── prd-template.md          # PRD 模板（概念版 + 落地版 + AI 增强 8 大区块）
 │   ├── state-file-spec.md       # 状态文件规范（5 列功能表 + 5 列决策表）
@@ -411,7 +437,7 @@ rpd/
 
 ## 🧪 评估矩阵 / Eval Matrix
 
-19 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
+21 evaluation scenarios covering all core functionality, run via `python scripts/run-eval.py`:
 
 | 场景 | 名称 | 测试内容 | 退出码 |
 |------|------|----------|--------|
@@ -432,8 +458,10 @@ rpd/
 | T | v2 决策日志 | decisions.md proposed→accepted + grill-me | `0` |
 | U | v2 code-map | 预算守卫 + calls confidence + 三段式 id | `0` |
 | V | v2 主指标 | M1/M2/M3 主指标 + net_tokens 次要 | `0` |
-| X | Agent 行为 | 冷启动全流程（三视角/冻结/grill-me）人工核验 | `0` |
 | W | v2 物理锁 | 并发状态更新串行化（R-18 兜底） | `0` |
+| X | Agent 行为 | 冷启动全流程（三视角/冻结/grill-me）人工核验 | `0` |
+| Y | v2.4 hooks | 恢复注入/去重/compact 重注入/落盘机检 3 次上限/防递归/开关 | `0` |
+| Z | v2.3 多语言+语义 | py/js/go 符号提取/分语言 parser/覆盖率报告/语义层指纹失效 | `0` |
 
 ---
 
@@ -490,7 +518,7 @@ entry-type: new-idea
 | 1 | Fork 仓库 |
 | 2 | 创建功能分支 (`git checkout -b feature/my-feature`) |
 | 3 | 运行评估测试 (`python scripts/run-eval.py`) |
-| 4 | 19 个场景必须全部通过 |
+| 4 | 21 个场景必须全部通过 |
 | 5 | 提交并发起 Pull Request |
 
 请先开 Issue 讨论重大变更。

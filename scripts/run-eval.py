@@ -202,7 +202,7 @@ def run_scenario_e():
                 f"'{text}': intent={output['intent']}, expected={expected_intent}"
             assert output["recommended_flow"] == expected_flow, \
                 f"'{text}': flow={output['recommended_flow']}, expected={expected_flow}"
-        print("  ✅ intent-router correctly classifies 7 test cases")
+        print("  ✅ intent-router correctly classifies 9 test cases")
         return True
     except (AssertionError, json.JSONDecodeError) as e:
         print(f"  ❌ FAILED: {e}")
@@ -599,6 +599,8 @@ def main():
         "V (v2 primary metrics)": run_scenario_v(),
         "W (v2 physical lock)": run_scenario_w(),
         "X (agent behavior flow)": run_scenario_x(),
+        "Y (hooks bridge)": run_scenario_y(),
+        "Z (multilang + semantic)": run_scenario_z(),
     }
 
     print("\n" + "=" * 40)
@@ -844,6 +846,169 @@ def run_scenario_x():
     print("      7. 未跳过任何 Hard Constraints")
     print("     ⚠️ 维护者须在流程/文档改动后手动跑一遍核验。")
     return True
+
+
+def run_scenario_y():
+    """RPD v2.4 hooks bridge: session auto-restore + closeout staleness guard."""
+    print("=== Scenario Y: v2.4 hooks bridge ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        root = Path(tmpdir)
+        (root / ".rpd").mkdir()
+        (root / ".rpd" / "active-context.md").write_text(
+            "# ctx\n## 当前进度\n- 登录功能 ✅\n", encoding="utf-8")
+        src = root / "src"
+        src.mkdir()
+        (src / "app.py").write_text("def main():\n    return run()\n", encoding="utf-8")
+        bridge = SCRIPTS_DIR / "rpd-hook-bridge.py"
+        env = dict(os.environ)
+        env.pop("RPD_HOOKS_DISABLED", None)
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        def bridge_run(mode, payload):
+            return subprocess.run(
+                [sys.executable, str(bridge), mode, str(root)],
+                input=json.dumps(payload), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", env=env)
+
+        def get_ctx(r):
+            out = r.stdout.strip()
+            if not out:
+                return None
+            d = json.loads(out)
+            return (d.get("hookSpecificOutput", {}).get("additionalContext")
+                    or d.get("additionalContext"))
+
+        # 1. non-RPD project: silent
+        empty = Path(tempfile.mkdtemp())
+        r = subprocess.run([sys.executable, str(bridge), "session-start", str(empty)],
+                           input="{}", capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", env=env)
+        assert r.returncode == 0 and r.stdout.strip() == "", "non-RPD must be silent"
+        shutil.rmtree(empty, ignore_errors=True)
+
+        # 2. session-start injects restore summary
+        r = bridge_run("session-start", {"session_id": "eval-y", "source": "startup"})
+        ctx = get_ctx(r)
+        assert ctx and "登录功能" in ctx and "RPD" in ctx, ctx
+        assert len(ctx) <= 1800, "additionalContext must stay <=1800 chars"
+
+        # 3. same session again -> light reminder (dedupe)
+        r = bridge_run("session-start", {"session_id": "eval-y", "source": "startup"})
+        ctx2 = get_ctx(r)
+        assert ctx2 and "已注入" in ctx2, ctx2
+
+        # 4. compact -> full re-inject (long-conversation fix)
+        r = bridge_run("session-start", {"session_id": "eval-y", "source": "compact"})
+        ctx3 = get_ctx(r)
+        assert ctx3 and "登录功能" in ctx3, ctx3
+
+        # 5. fresh state -> stop is silent
+        subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), str(root)],
+                       capture_output=True, text=True, encoding="utf-8")
+        r = bridge_run("stop", {"session_id": "eval-y"})
+        assert get_ctx(r) is None, "fresh state must not nudge"
+
+        # 6. dirty source -> nudge, capped at 3, stop_hook_active never recurses
+        (src / "app.py").write_text("def main():\n    return run2()\n", encoding="utf-8")
+        for i in range(1, 4):
+            r = bridge_run("stop", {"session_id": "eval-y"})
+            ctx = get_ctx(r)
+            assert ctx and f"{i}/3" in ctx, (i, ctx)
+        r = bridge_run("stop", {"session_id": "eval-y"})
+        assert get_ctx(r) is None, "nudge cap exceeded"
+        r = bridge_run("stop", {"session_id": "eval-z", "stop_hook_active": True})
+        assert get_ctx(r) is None, "stop_hook_active must suppress"
+
+        # 7. kill switch
+        env["RPD_HOOKS_DISABLED"] = "1"
+        r = bridge_run("session-start", {"session_id": "ks"})
+        env.pop("RPD_HOOKS_DISABLED")
+        assert get_ctx(r) is None, "kill switch failed"
+
+        print("  ✅ hooks bridge: restore injection + dedupe + compact re-inject + "
+              "staleness guard 3-cap + recursion guard + kill switch")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def run_scenario_z():
+    """RPD v2.3 multi-language code-map + semantic layer anti-staleness."""
+    print("=== Scenario Z: multi-language code-map + semantic layer ===")
+    tmpdir = tempfile.mkdtemp()
+    try:
+        root = Path(tmpdir)
+        src = root / "src"
+        src.mkdir()
+        (src / "app.py").write_text(
+            "class Greeter:\n    def greet(self, name):\n        return helper(name)\n\n"
+            "def helper(x):\n    return str(x)\n", encoding="utf-8")
+        (src / "util.js").write_text(
+            "export function add(a, b) {\n  return combine(a, b);\n}\n"
+            "export class Counter {\n  bump(n) {\n    return add(n, 1);\n  }\n}\n",
+            encoding="utf-8")
+        (src / "main.go").write_text(
+            "package main\n\ntype Store struct{ }\n\n"
+            "func (s *Store) Get(k string) string {\n    return lookup(k)\n}\n\n"
+            "func main() {\n    run()\n}\n", encoding="utf-8")
+        (root / "legacy.php").write_text("<?php function old() { return 1; }",
+                                          encoding="utf-8")
+
+        r = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"generator failed: {r.stderr}"
+        rpd = root / ".rpd"
+        cmap = json.loads((rpd / "code-map.json").read_text(encoding="utf-8"))
+        meta = json.loads((rpd / "code-map.meta.json").read_text(encoding="utf-8"))
+        names = " ".join(e["name"] for e in cmap["entries"].values())
+        for required in ("Greeter::greet", "helper", "add", "Counter::bump", "Store::Get", "main"):
+            assert required in names, f"symbol {required} missing: {names}"
+        assert meta.get("parsers", {}).get("python") in ("regex", "tree-sitter")
+        assert meta.get("unindexed_extensions", {}).get(".php") == 1, "coverage report missing"
+        assert meta.get("parser") in ("tree-sitter", "regex"), "parser summary broken"
+
+        # semantic layer: generate -> apply -> validate -> stale drop
+        enrich = SCRIPTS_DIR / "code-map-enrich.py"
+
+        def enrich_run(*args):
+            return subprocess.run([sys.executable, str(enrich), tmpdir] + list(args),
+                                  capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace")
+        r = enrich_run()
+        assert r.returncode == 0 and (rpd / "enrich-prompt.md").exists(), r.stderr
+        answers = {"model": "eval", "modules": [
+            {"module": "src", "purpose": "演示模块", "layer": "core", "insights": []},
+            {"module": "ghost", "purpose": "不存在", "layer": "api"},
+        ]}
+        ans_file = root / "answers.json"
+        ans_file.write_text(json.dumps(answers, ensure_ascii=False), encoding="utf-8")
+        r = enrich_run("--apply", str(ans_file), "--json")
+        assert r.returncode == 0, r.stderr
+        rep = json.loads(r.stdout)
+        assert rep["applied"] == 1 and len(rep["errors"]) == 1, rep
+        r = enrich_run("--validate", "--json")
+        assert r.returncode == 0, r.stdout
+        (src / "app.py").write_text("def changed():\n    return 2\n", encoding="utf-8")
+        subprocess.run([sys.executable, str(SCRIPTS_DIR / "code-map-generator.py"), tmpdir],
+                       capture_output=True, text=True, encoding="utf-8")
+        r = enrich_run("--validate", "--json")
+        assert r.returncode == 2, "stale semantic entries must be dropped (exit 2)"
+        v = json.loads(r.stdout)
+        assert v["dropped"] >= 1 and any(d["reason"] == "stale" for d in v["dropped_modules"]), v
+
+        print("  ✅ multi-language symbols (py/js/go) + per-language parser + "
+              "unindexed coverage + semantic apply/validate/stale-drop")
+        return True
+    except (AssertionError, json.JSONDecodeError) as e:
+        print(f"  ❌ FAILED: {e}")
+        return False
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 if __name__ == "__main__":

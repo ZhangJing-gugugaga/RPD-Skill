@@ -100,7 +100,7 @@ C1 查 `.rpd/active-context.md`（v2 首选）→ 无则查 `.project-state.md`�
 | `rpd-metrics.py` | M1/M2/M3 指标采集 |
 | `code-map-enrich.py` | 语义层富化/校验（可选） |
 | `rpd-hook-bridge.py` | 宿主 hooks 入口：自动恢复+落盘提醒 |
-| `run-eval.py` | eval 场景（19 个，开发/CI） |
+| `run-eval.py` | eval 场景（21 个，开发/CI） |
 
 ## Failure Modes / 故障处理
 脚本不可用→按降级表手动继续，绝不静默终止；状态损坏→修复或提示重新生成；概念版 PRD 改 >3 次→建议先用户调研；状态与代码严重不一致→提示用户确认。

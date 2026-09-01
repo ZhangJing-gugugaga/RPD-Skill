@@ -51,3 +51,4 @@ RPD（Rapid Product Document）是一个 Agent Skill，覆盖项目全生命周�
 | v2.0.0 | 2026-08-03 | 主指标重构（M1/M2/M3）+ code-map 两层导航 + 取消停建 Gate + decisions.md grill-me + v1 兼容读取降级 + SKILL.md ≤8KB |
 | v2.0.1 | 2026-08-03 | R-18 升级：state-guard 进程级物理锁防多 Agent 竞态覆写 |
 | v2.0.2 | 2026-08-03 | README 身份中性化（任意 AI 工具）+ 删除平台插件目录（只留 .claude-plugin）+ intent-router 量词修复 + 文档并为一层半 |
+| v3.0.0 | 2026-09-02 | 全面升级（docs/v3-upgrade-plan.md）：code-map 语言注册表 9 语言（py/js-ts/java/go/rust/cs+C/C++）+ 混合式语义层（code-map-enrich，指纹防腐）+ hooks 强制层（rpd-hook-bridge：SessionStart 自动恢复/Stop 落盘软拦截）+ security-scanner 分级阻断 + 状态 schema 补 branch-affinity（修复死代码）+ decisions 写时对账四算子/锚点置信度 + knowledge.md 知识层 + v1 迁移冻结标记 + SKILL.md MUST/SHOULD 触发词重写 |
