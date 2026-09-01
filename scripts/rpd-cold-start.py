@@ -33,6 +33,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Knowledge layer budgets (Letta lesson: unbounded memory blocks burn tokens)
+KNOWLEDGE_MAX_LINES = 200
+KNOWLEDGE_EXCERPT_CHARS = 1000
+
 
 def smart_read(file_path):
     """Read file with multiple encoding attempts."""
@@ -306,13 +310,38 @@ def cold_start(project_root, do_migrate=False):
 
     rpd.mkdir(exist_ok=True)
 
-    # --- Step 1: read active-context ---
+    # --- Step 1: read active-context (+ knowledge excerpt) ---
     ac_path = rpd / "active-context.md"
     ac_content = smart_read(str(ac_path)) if ac_path.exists() else None
     report["steps"]["01_active_context"] = {
         "found": ac_content is not None,
         "preview": (ac_content[:200] + "...") if ac_content and len(ac_content) > 200 else ac_content,
     }
+
+    # Knowledge layer (L2->L3 distillation, Tencent-style): cross-session
+    # understanding that is NOT derivable from code (pitfalls, cross-file
+    # causality, tuning lessons). Hard line cap enforces distillation; only a
+    # bounded excerpt is loaded (index-style, never full-file).
+    kn_path = rpd / "knowledge.md"
+    if kn_path.is_file():
+        try:
+            kn_lines = kn_path.read_text(encoding="utf-8", errors="replace").split("\n")
+            overflow = max(0, len(kn_lines) - KNOWLEDGE_MAX_LINES)
+            excerpt = "\n".join(kn_lines[:KNOWLEDGE_MAX_LINES])
+            if len(excerpt) > KNOWLEDGE_EXCERPT_CHARS:
+                excerpt = excerpt[:KNOWLEDGE_EXCERPT_CHARS] + "…"
+            report["steps"]["01_active_context"]["knowledge"] = {
+                "found": True,
+                "lines": len(kn_lines),
+                "over_limit": overflow,
+                "excerpt": excerpt,
+            }
+            if overflow:
+                report["warnings"].append(
+                    f"knowledge.md 超出 {KNOWLEDGE_MAX_LINES} 行上限 {overflow} 行："
+                    "请先蒸馏合并（只保留代码读不出来的洞察），再继续。")
+        except Exception:
+            pass
 
     # v1 convergence check (P1-1): a migration marker means v1 is frozen —
     # reads for reference only, writes must never go back to the old file.
