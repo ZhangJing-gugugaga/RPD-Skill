@@ -256,7 +256,12 @@ def parse_v1_state(project_root):
 
 
 def backup_v1_state(project_root):
-    """Backup v1 .project-state.md to .rpd-backup-<timestamp>/ (keeps original)."""
+    """Backup v1 .project-state.md to .rpd-backup-<timestamp>/ and write the
+    v1-migrated freeze marker (the original file is preserved, never deleted).
+
+    The marker (".rpd/v1-migrated.json") is the convergence signal: all v2
+    tooling treats v1 as read-only reference from this point on (P1-1).
+    """
     state_path = project_root / ".project-state.md"
     if not state_path.exists():
         return None
@@ -265,6 +270,13 @@ def backup_v1_state(project_root):
     backup_dir.mkdir(exist_ok=True)
     dest = backup_dir / ".project-state.md"
     shutil.copy2(state_path, dest)
+    marker = project_root / ".rpd" / "v1-migrated.json"
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text(json.dumps({
+        "migrated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "backup_dir": str(backup_dir),
+        "policy": "v1 frozen: read-only reference, never update .project-state.md again",
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     return backup_dir
 
 
@@ -301,6 +313,15 @@ def cold_start(project_root, do_migrate=False):
         "found": ac_content is not None,
         "preview": (ac_content[:200] + "...") if ac_content and len(ac_content) > 200 else ac_content,
     }
+
+    # v1 convergence check (P1-1): a migration marker means v1 is frozen —
+    # reads for reference only, writes must never go back to the old file.
+    if (rpd / "v1-migrated.json").is_file():
+        report["v1_frozen"] = True
+        if ac_content is None:
+            report["warnings"].append(
+                "v1 已迁移冻结（存在 v1-migrated 标记）但 .rpd/active-context.md 缺失："
+                "请先完成 v2 状态文件生成，不要再更新 .project-state.md")
 
     # --- Step 2: red-line machine check ---
     meta = read_meta(root)

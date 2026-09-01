@@ -186,6 +186,66 @@ def load_keyword_map(project_dir=None):
     return _keyword_map_cache
 
 
+def parse_active_context(state_path):
+    """Parse .rpd/active-context.md (v2) to extract features and blockers.
+
+    v2 active-context is a free-form markdown product file; feature rows are
+    any table rows carrying a status marker (✅/🔨/⏳/已完成/进行中). Blockers
+    come from checkbox items or a 阻塞 section.
+    """
+    content = Path(state_path).read_text(encoding="utf-8")
+    features = []
+    for line in content.split("\n"):
+        if "|" not in line or "---" in line:
+            continue
+        if "功能" in line and "状态" in line:  # header row
+            continue
+        # keep empty cells' positions: trailing empty col (e.g. "| X | 状态 | |")
+        # must not shift the status column out of detection
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        status_idx = next((i for i, c in enumerate(cells)
+                           if c and ("✅" in c or "🔨" in c or "⏳" in c
+                                     or "已完成" in c or "进行中" in c
+                                     or "待开始" in c)), None)
+        if status_idx is None or status_idx == 0:
+            continue
+        name = cells[0]
+        if not name:
+            continue
+        status_text = cells[status_idx]
+        if "✅" in status_text or "已完成" in status_text:
+            status = "completed"
+        elif "🔨" in status_text or "进行中" in status_text:
+            status = "in_progress"
+        else:
+            status = "not_started"
+        features.append({
+            "name": name,
+            "subtask": None,
+            "priority": "",
+            "status": status,
+            "status_text": status_text,
+        })
+
+    blockers = []
+    blocker_pattern = re.compile(r'- \[ \]\s*(.+)')
+    in_blockers = False
+    for line in content.split("\n"):
+        if "阻塞" in line and line.startswith("#"):
+            in_blockers = True
+            continue
+        if in_blockers:
+            if line.startswith("#"):
+                break
+            m = blocker_pattern.match(line)
+            if m:
+                blockers.append(m.group(1).strip())
+            elif line.strip().startswith("- ") and "阻塞" not in line:
+                blockers.append(line.strip().lstrip("- ").strip())
+    return {"features": features, "blockers": blockers, "source": "v2",
+            "prd_summary": ""}
+
+
 def parse_state_file(state_path):
     """Parse .project-state.md to extract features and blockers."""
     content = Path(state_path).read_text(encoding="utf-8")
@@ -963,9 +1023,13 @@ def main():
         if idx + 1 < len(args):
             state_file = args[idx + 1]
 
-    # Default state file location
+    # State source resolution (v2 convergence, P1-1): prefer .rpd/active-context.md
+    # unless --state-file was given explicitly. v1 .project-state.md is a
+    # frozen/compat fallback only.
+    explicit = "--state-file" in args
     if state_file is None:
-        state_file = str(Path(project_dir) / ".project-state.md")
+        v2 = Path(project_dir) / ".rpd" / "active-context.md"
+        state_file = str(v2 if v2.exists() else Path(project_dir) / ".project-state.md")
 
     if not Path(project_dir).is_dir():
         print(f"Error: Not a directory: {project_dir}", file=sys.stderr)
@@ -974,13 +1038,16 @@ def main():
     if not Path(state_file).exists():
         print(json.dumps({
             "error": "STATE_FILE_NOT_FOUND",
-            "message": f"No .project-state.md found at {state_file}. Please run 'analyze project' or 'new project' first."
+            "message": f"No state file found at {state_file}. Please run 'analyze project' or 'new project' first."
         }, indent=2, ensure_ascii=False))
         return 2
 
     # Parse state file
     try:
-        state_data = parse_state_file(state_file)
+        if Path(state_file).name == "active-context.md":
+            state_data = parse_active_context(state_file)
+        else:
+            state_data = parse_state_file(state_file)
     except Exception as e:
         print(f"Error: Cannot parse state file: {e}", file=sys.stderr)
         return 2
