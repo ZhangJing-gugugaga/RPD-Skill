@@ -216,6 +216,12 @@ INJECTION_PATTERNS = [
     r'<\s*system\s*>',
     r'```system',
     r'INST\s*:\s*(?:ignore|override)',
+    # Chinese patterns (state files are commonly written in Chinese)
+    r'忽略(?:之前|上面|以上|先前)?(?:的)?(?:所有)?(?:系统)?指令',
+    r'你现在是一个|(?:从现在起|现在开始)你是',
+    r'系统提示\s*[:：]',
+    r'(?:不要|别)告诉(?:用户|主人)',
+    r'执行(?:以下|下列|这个)?命令',
 ]
 
 
@@ -502,9 +508,11 @@ def scan_for_injection(state_file_path):
                     seen.add(key)
                     findings.append({
                         "type": "injection",
+                        "severity": "CRITICAL",
                         "file": str(path),
                         "line": line_num,
                         "description": "Possible prompt injection attempt",
+                        "description_zh": "疑似提示词注入指令",
                         "evidence": line.strip()[:100],
                     })
 
@@ -544,31 +552,61 @@ def main():
     code_security_findings = scan_code_security(project_dir)
     all_findings.extend(code_security_findings)
 
-    # Scan state file for injection (if provided)
+    # Scan state files for injection — these are persistent instruction sources
+    # the agent will read on next session, so they are scanned by default.
+    state_paths = []
     if state_file:
-        injection_findings = scan_for_injection(state_file)
-        all_findings.extend(injection_findings)
+        state_paths.append(Path(state_file))
+    else:
+        p = Path(project_dir)
+        state_paths.append(p / ".project-state.md")
+        rpd = p / ".rpd"
+        if rpd.is_dir():
+            state_paths.extend(sorted(rpd.glob("*.md")))
+    for sp in state_paths:
+        if sp.exists():
+            all_findings.extend(scan_for_injection(sp))
 
-    # Report
+    # Report — severity-gated (P0-3 fix): only CRITICAL blocks. Real projects
+    # routinely contain .env files / gitignore gaps / MEDIUM code smells;
+    # blocking on those trained users to ignore the security gate entirely.
     if all_findings:
-        # Categorize findings
         critical = [f for f in all_findings if f.get("severity") == "CRITICAL"]
         high = [f for f in all_findings if f.get("severity") == "HIGH"]
         medium = [f for f in all_findings if f.get("severity") == "MEDIUM"]
-        other = [f for f in all_findings if f.get("severity") not in ("CRITICAL", "HIGH", "MEDIUM")]
+        low = [f for f in all_findings if f.get("severity") == "LOW"]
+        other = [f for f in all_findings
+                 if f.get("severity") not in ("CRITICAL", "HIGH", "MEDIUM", "LOW")]
+
+        if critical:
+            print(json.dumps({
+                "status": "BLOCKED",
+                "total_findings": len(all_findings),
+                "summary": {
+                    "critical": len(critical),
+                    "high": len(high),
+                    "medium": len(medium),
+                    "low": len(low),
+                    "other": len(other),
+                },
+                "findings": all_findings,
+            }, indent=2, ensure_ascii=False))
+            return 2
 
         print(json.dumps({
-            "status": "BLOCKED",
+            "status": "WARN",
+            "note": "无 CRITICAL 发现，不阻断；请复核以下 HIGH/MEDIUM/LOW 项",
             "total_findings": len(all_findings),
             "summary": {
-                "critical": len(critical),
+                "critical": 0,
                 "high": len(high),
                 "medium": len(medium),
+                "low": len(low),
                 "other": len(other),
             },
             "findings": all_findings,
         }, indent=2, ensure_ascii=False))
-        return 2
+        return 0
 
     print(json.dumps({"status": "CLEAR", "total_findings": 0}, indent=2))
     return 0
