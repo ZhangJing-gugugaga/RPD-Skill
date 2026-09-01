@@ -6,7 +6,9 @@ Produces in <project-root>/.rpd/:
   - code-map.json          Layer 2, full key-value symbol table (read per-entry only)
   - code-map.meta.json     metadata: commit, fingerprints, budget, trust (red-line source)
 
-Parsing: tree-sitter (C/C++) with regex fallback (dual-path). Calls edges are
+Parsing: tree-sitter (9 languages via language pack / official packages) with
+per-language regex fallback (dual-path). Calls edges are labeled candidate-only
+with confidence heuristic|resolved — never "exact call graph".
 labeled candidate-only with confidence heuristic|resolved — never "exact call graph".
 
 Usage:
@@ -18,6 +20,7 @@ Exit codes:
 """
 
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -48,11 +51,31 @@ ROUTER_PCT_LIMIT = 15              # hard: <=15% of codebase
 AVG_TOKENS_PER_LINE = 10           # codebase token estimate: lines * 10
 ENTRY_MAX_TOKENS = 300             # single entry <=300 token
 SCHEMA_VERSION = "2.0.0"
-GENERATOR_VERSION = "2.1.0"
+GENERATOR_VERSION = "2.2.0"
 
-# --- Source file extensions (primary: C/C++; others treated as unindexed) ---
-C_EXTENSIONS = {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"}
-PRIMARY_EXTENSIONS = set(C_EXTENSIONS)
+# --- Language registry (v2.2: multi-language code map) ---
+# Each language: indexed extensions, optional tree-sitter backend, regex rules.
+# tree-sitter backends, in priority order:
+#   1. tree-sitter-language-pack (aggregated, lazy per-language download;
+#      pre-compiled at ABI 14, backwards compatible with tree_sitter 0.21-0.26)
+#   2. official per-language packages (LANGS[lang]["ts"] module)
+#   3. per-language regex fallback (zero dependency, always available)
+# NOTE: csharp grammar is generated at ABI 15 — pack/official both handle it,
+# but a parse failure (ABI mismatch) must fall back to regex, never crash.
+
+LANGS = {
+    "c":          {"exts": (".c",), "ts": "tree_sitter_c"},
+    "cpp":        {"exts": (".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"), "ts": "tree_sitter_cpp"},
+    "python":     {"exts": (".py", ".pyw"), "ts": "tree_sitter_python"},
+    "javascript": {"exts": (".js", ".jsx", ".mjs", ".cjs"), "ts": "tree_sitter_javascript"},
+    "typescript": {"exts": (".ts", ".tsx", ".mts", ".cts"), "ts": "tree_sitter_typescript"},
+    "java":       {"exts": (".java",), "ts": "tree_sitter_java"},
+    "go":         {"exts": (".go",), "ts": "tree_sitter_go"},
+    "rust":       {"exts": (".rs",), "ts": "tree_sitter_rust"},
+    "csharp":     {"exts": (".cs",), "ts": "tree_sitter_csharp"},
+}
+EXT_TO_LANG = {ext: lang for lang, cfg in LANGS.items() for ext in cfg["exts"]}
+PRIMARY_EXTENSIONS = set(EXT_TO_LANG)
 
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
@@ -132,64 +155,133 @@ def file_loc(path):
         return 0
 
 
-# --- Parsing: tree-sitter dual-path ---
+# --- Parsing: tree-sitter multi-language + per-language regex fallback ---
 
-_ts_cpp = None
+_ts_parsers = {}   # lang -> (parser, ok) cache; (None, False) = regex fallback
+_ts_warned = False
 
 
-def get_tree_sitter_parser():
-    """Load tree-sitter C++ parser lazily; return (parser, cpp_lang) or (None, None)."""
-    global _ts_cpp
-    if _ts_cpp is not None:
-        return _ts_cpp
+def get_tree_sitter_parser(lang):
+    """Lazily load a parser for one language. Returns (parser, ok) or (None, False).
+
+    Priority: tree-sitter-language-pack (aggregated) > official per-language
+    package. Any failure (missing package, ABI mismatch) degrades to regex.
+    """
+    global _ts_warned
+    if lang in _ts_parsers:
+        return _ts_parsers[lang]
+    result = (None, False)
     try:
-        from tree_sitter import Language, Parser
-        import tree_sitter_cpp
-        cpp = Language(tree_sitter_cpp.language())
-        parser = Parser(cpp)
-        _ts_cpp = (parser, True)
+        try:
+            from tree_sitter_language_pack import get_parser
+            result = (get_parser(lang), True)
+        except ImportError:
+            from tree_sitter import Language, Parser
+            mod = importlib.import_module(LANGS[lang]["ts"])
+            lang_fn = getattr(mod, "language", None)
+            if lang_fn is None:
+                raise ImportError(f"{LANGS[lang]['ts']} exposes no language()")
+            result = (Parser(Language(lang_fn())), True)
     except Exception as e:
-        _ts_cpp = (None, False)
-        print(f"[code-map] tree-sitter 不可用，降级为正则解析: {e}", file=sys.stderr)
-    return _ts_cpp
+        result = (None, False)
+        if not _ts_warned:
+            _ts_warned = True
+            print(f"[code-map] tree-sitter {lang} 不可用，该语言降级为正则解析: {e}",
+                  file=sys.stderr)
+    _ts_parsers[lang] = result
+    return result
 
 
-def _ts_node_name(node):
-    """Extract symbol name from a function/class node."""
+# tree-sitter node type -> symbol kind, per language
+LANG_TS_NODES = {
+    "c": {"function_definition": "function", "class_specifier": "class",
+          "struct_specifier": "struct", "enum_specifier": "enum"},
+    "cpp": {"function_definition": "function", "class_specifier": "class",
+            "struct_specifier": "struct", "enum_specifier": "enum"},
+    "python": {"function_definition": "function", "class_definition": "class"},
+    "javascript": {"function_declaration": "function", "method_definition": "method",
+                   "generator_function_declaration": "function",
+                   "class_declaration": "class"},
+    "typescript": {"function_declaration": "function", "method_definition": "method",
+                   "generator_function_declaration": "function",
+                   "class_declaration": "class"},
+    "java": {"method_declaration": "method", "constructor_declaration": "method",
+             "class_declaration": "class", "interface_declaration": "class",
+             "enum_declaration": "enum", "record_declaration": "class"},
+    "go": {"function_declaration": "function", "method_declaration": "method"},
+    "rust": {"function_item": "function", "struct_item": "struct",
+             "enum_item": "enum", "trait_item": "class"},
+    "csharp": {"method_declaration": "method", "constructor_declaration": "method",
+               "class_declaration": "class", "interface_declaration": "class",
+               "struct_declaration": "struct", "enum_declaration": "enum",
+               "record_declaration": "class"},
+}
+
+# call-node type per language (java uses method_invocation)
+LANG_TS_CALL_NODE = {"java": "method_invocation"}
+_CALL_NODE_DEFAULT = "call_expression"
+
+
+def _ts_node_name(node, lang):
+    """Extract symbol name from a definition node (per-language quirks)."""
     try:
-        if node.type in ("class_specifier", "struct_specifier", "enum_specifier"):
-            n = node.child_by_field_name("name")
-            return n.text.decode("utf-8", "replace") if n else ""
-        # function_definition
-        decl = node.child_by_field_name("declarator")
-        if decl is None:
-            return ""
-        sub = decl.child_by_field_name("declarator")
-        if sub is None:
-            sub = decl
-        return sub.text.decode("utf-8", "replace")
+        if lang == "go" and node.type == "method_declaration":
+            recv = node.child_by_field_name("receiver")
+            name = node.child_by_field_name("name")
+            if name is None:
+                return ""
+            method = name.text.decode("utf-8", "replace")
+            if recv is not None:
+                m = re.search(r"(\w+)\s*\)?\s*$", recv.text.decode("utf-8", "replace"))
+                if m:
+                    return f"{m.group(1)}::{method}"
+            return method
+        if lang == "go" and node.type == "type_declaration":
+            # names live on child type_spec nodes
+            names = []
+            for c in node.children:
+                if c.type == "type_spec":
+                    n = c.child_by_field_name("name")
+                    if n is not None:
+                        names.append(n.text.decode("utf-8", "replace"))
+            return names[0] if names else ""
+        if lang in ("c", "cpp"):
+            if node.type in ("class_specifier", "struct_specifier", "enum_specifier"):
+                n = node.child_by_field_name("name")
+                return n.text.decode("utf-8", "replace") if n else ""
+            decl = node.child_by_field_name("declarator")
+            if decl is None:
+                return ""
+            sub = decl.child_by_field_name("declarator")
+            if sub is None:
+                sub = decl
+            return sub.text.decode("utf-8", "replace")
+        n = node.child_by_field_name("name")
+        return n.text.decode("utf-8", "replace") if n else ""
     except Exception:
         return ""
 
 
-def _ts_node_signature(node):
+def _ts_node_signature(node, lang):
     """Human-readable signature: first 120 chars of the node, normalized."""
     try:
-        txt = node.text.decode("utf-8", "replace").split("{")[0].strip()
-        return re.sub(r"\s+", " ", txt)[:120]
+        txt = node.text.decode("utf-8", "replace")
+        cut = txt.split("{")[0] if lang != "python" else txt.split(":")[0]
+        return re.sub(r"\s+", " ", cut.strip())[:120]
     except Exception:
         return ""
 
 
-def _ts_extract_calls(node, content):
-    """Collect call_expression callee names within a node."""
+def _ts_extract_calls(node, lang):
+    """Collect call-target names within a node subtree."""
+    call_type = LANG_TS_CALL_NODE.get(lang, _CALL_NODE_DEFAULT)
     calls = []
     stack = [node]
     while stack:
         n = stack.pop()
         for c in n.children:
-            if c.type == "call_expression":
-                fn = c.child_by_field_name("function")
+            if c.type == call_type:
+                fn = c.child_by_field_name("function") or c.child_by_field_name("name")
                 if fn is not None:
                     calls.append(fn.text.decode("utf-8", "replace"))
                 else:
@@ -199,12 +291,12 @@ def _ts_extract_calls(node, content):
     return calls
 
 
-def parse_with_tree_sitter(path, content):
-    """Parse a C/C++ file with tree-sitter. Returns list of raw symbol dicts.
+def parse_with_tree_sitter(path, content, lang):
+    """Parse one file with tree-sitter. Returns list of raw symbol dicts or None.
 
     Each raw symbol: {name, kind, line, signature, doc, calls[], in_class}
     """
-    parser, ok = get_tree_sitter_parser()
+    parser, ok = get_tree_sitter_parser(lang)
     if not ok:
         return None
     try:
@@ -212,47 +304,64 @@ def parse_with_tree_sitter(path, content):
     except Exception:
         return None
     root = tree.root_node
+    node_map = LANG_TS_NODES[lang]
     symbols = []
 
-    def walk(node, in_class=None, class_name=""):
+    def walk(node, in_class=False, class_name=""):
         t = node.type
-        if t in ("function_definition",):
-            name = _ts_node_name(node)
-            if not name:
-                for c in node.children:
-                    walk(c, in_class, class_name)
-                return
-            sig = _ts_node_signature(node)
-            line = node.start_point[0] + 1
-            calls = _ts_extract_calls(node, content)
-            full = f"{class_name}::{name}" if in_class and name and "::" not in name else name
-            kind = "method" if in_class else "function"
-            symbols.append({
-                "name": full, "kind": kind, "line": line,
-                "signature": sig, "doc": _extract_doc_before(content, node.start_point[0]),
-                "calls": calls, "in_class": class_name,
-            })
-        elif t in ("class_specifier", "struct_specifier"):
-            cname = _ts_node_name(node)
-            line = node.start_point[0] + 1
-            symbols.append({
-                "name": cname, "kind": "struct" if t == "struct_specifier" else "class",
-                "line": line, "signature": f"{t}: {cname}",
-                "doc": _extract_doc_before(content, node.start_point[0]),
-                "calls": [], "in_class": "",
-            })
+        if lang == "rust" and t == "impl_item":
+            # methods live inside impl blocks; use the impl target as class
+            try:
+                ty = node.child_by_field_name("type")
+                impl_name = ""
+                if ty is not None:
+                    m = re.search(r"(\w+)\s*$", ty.text.decode("utf-8", "replace"))
+                    impl_name = m.group(1) if m else ""
+            except Exception:
+                impl_name = ""
             for c in node.children:
-                walk(c, True, cname)
+                walk(c, bool(impl_name), impl_name)
             return
-        else:
-            for c in node.children:
-                walk(c, in_class, class_name)
+        kind = node_map.get(t)
+        if kind:
+            name = _ts_node_name(node, lang)
+            if lang == "go" and t == "type_declaration":
+                # one node may declare several types; take them all
+                for c in node.children:
+                    if c.type == "type_spec":
+                        n = c.child_by_field_name("name")
+                        if n is not None:
+                            symbols.append({
+                                "name": n.text.decode("utf-8", "replace"),
+                                "kind": "struct", "line": c.start_point[0] + 1,
+                                "signature": f"type: {n.text.decode('utf-8', 'replace')}",
+                                "doc": "", "calls": [], "in_class": "",
+                            })
+                return
+            if name:
+                line = node.start_point[0] + 1
+                final_kind = "method" if (kind == "function" and in_class) else kind
+                full = (f"{class_name}::{name}" if in_class and name and "::" not in name
+                        else name)
+                symbols.append({
+                    "name": full, "kind": final_kind, "line": line,
+                    "signature": _ts_node_signature(node, lang),
+                    "doc": _extract_doc_before(content, node.start_point[0], lang),
+                    "calls": _ts_extract_calls(node, lang),
+                    "in_class": class_name,
+                })
+                if kind in ("class", "struct", "enum") and t not in ("enum_specifier",):
+                    for c in node.children:
+                        walk(c, True, name)
+                return
+        for c in node.children:
+            walk(c, in_class, class_name)
 
     walk(root)
     return symbols
 
 
-def _extract_doc_before(content, line_idx):
+def _extract_doc_before(content, line_idx, lang=None):
     """Extract single-line doc from comments immediately above the symbol."""
     lines = content.split("\n")
     doc = ""
@@ -261,48 +370,184 @@ def _extract_doc_before(content, line_idx):
         if line.startswith("//"):
             doc = line.lstrip("/").strip()
             break
+        if lang == "python" and line.startswith("#") and not line.startswith("#!"):
+            doc = line.lstrip("#").strip()
+            break
         if line.startswith("*") or line.startswith("/*") or line.startswith("/**"):
             doc = line.lstrip("*/ ").strip()
             break
     return doc[:80]
 
 
-# --- Regular-expression fallback parser (heuristic) ---
+# --- Regular-expression fallback parsers (per-language rules) ---
 
-_RE_FUNC = re.compile(
+def _R(pattern):
+    return re.compile(pattern, re.MULTILINE)
+
+
+_C_FUNC = _R(
     r'^\s*(?:static\s+|inline\s+|const\s+|virtual\s+|extern\s+|explicit\s+)*'
-    r'(?:[\w:]+\s+)+([\w~]+)\s*\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:->\s*[\w:<>,\s]+)?\s*\{',
-    re.MULTILINE
+    r'(?:[\w:]+\s+)+([\w~]+)\s*\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:->\s*[\w:<>,\s]+)?\s*\{'
 )
-_RE_METHOD = re.compile(
-    r'^\s*(?:[\w:]+\s+)+([\w~]+)\s*\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?\s*;\s*$',
-    re.MULTILINE
-)
-_RE_CLASS = re.compile(r'^\s*(?:class|struct)\s+(\w+)', re.MULTILINE)
+_C_CLS = _R(r'^\s*(?:class|struct)\s+(\w+)')
+
+JS_FUNC = _R(r'^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(')
+JS_ARROW = _R(r'^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*'
+              r'(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|\w+\s*=>)')
+JS_METHOD = _R(r'^\s+(?:(?:public|private|protected|static|readonly|async|abstract|override|get|set|\*)\s+)*'
+               r'(?!if\b|for\b|while\b|switch\b|catch\b|return\b|function\b|new\b|delete\b|typeof\b)'
+               r'(\w+)\s*\([^;{}]*\)\s*(?::\s*[^{;=]+)?\s*\{')
+JS_CLS = _R(r'^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(?:class|interface)\s+(\w+)')
+
+JAVA_FUNC = _R(r'^\s*(?:(?:public|private|protected|static|final|abstract|synchronized|native|default)\s+)*'
+               r'(?:<[^>]+>\s*)?(?:[\w<>\[\],.?]+\s+)+(\w+)\s*\([^;]*\)\s*(?:throws\s+[\w.,\s]+)?\{')
+JAVA_CLS = _R(r'^\s*(?:(?:public|private|protected|static|final|abstract|sealed|strictfp)\s+)*'
+              r'(?:class|interface|enum|record)\s+(\w+)')
+
+GO_FUNC = _R(r'^func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(')
+GO_METHOD = _R(r'^func\s+\(\w+\s+\*?(\w+)\)\s*(\w+)\s*\(')
+GO_CLS = _R(r'^type\s+(\w+)\s+(?:struct|interface)\b')
+
+RUST_FUNC = _R(r'^\s*(?:pub(?:\([^)]*\))?\s+)?(?:const\s+)?(?:async\s+)?(?:unsafe\s+)?'
+               r'(?:extern\s+"[^"]*"\s+)?fn\s+(\w+)')
+RUST_CLS = _R(r'^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|trait)\s+(\w+)')
+
+CS_FUNC = _R(r'^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|sealed|async|partial|extern|new|unsafe)\s+)*'
+             r'(?:[\w<>\[\],.?]+\s+)+(\w+)\s*\([^;]*\)\s*(?:where\s+[\w<>,\s:]+)?\{')
+CS_CLS = _R(r'^\s*(?:(?:public|internal|private|protected|abstract|sealed|static|partial)\s+)*'
+            r'(?:class|interface|struct|record|enum)\s+(\w+)')
+
+_LANG_RE = {
+    "c": {"func": [_C_FUNC], "cls": _C_CLS, "brace": True},
+    "cpp": {"func": [_C_FUNC], "cls": _C_CLS, "brace": True},
+    "python": {"func": [_R(r'^(\s*)(?:async\s+)?def\s+(\w+)')],
+               "cls": _R(r'^(\s*)class\s+(\w+)'), "brace": False},
+    "javascript": {"func": [JS_FUNC, JS_ARROW, JS_METHOD], "cls": JS_CLS, "brace": True},
+    "typescript": {"func": [JS_FUNC, JS_ARROW, JS_METHOD], "cls": JS_CLS, "brace": True},
+    "java": {"func": [JAVA_FUNC], "cls": JAVA_CLS, "brace": True},
+    "go": {"func": [GO_METHOD, GO_FUNC], "cls": GO_CLS, "brace": True},
+    "rust": {"func": [RUST_FUNC], "cls": RUST_CLS, "brace": True},
+    "csharp": {"func": [CS_FUNC], "cls": CS_CLS, "brace": True},
+}
 
 
-def parse_with_regex(path, content):
-    """Heuristic regex parse (fallback path). Returns raw symbol dicts."""
-    symbols = []
+def _brace_body(lines, start_idx, cap=600):
+    """Lines of a brace-delimited body starting at start_idx (balanced)."""
+    depth = 0
+    started = False
+    buf = []
+    for i in range(start_idx, min(len(lines), start_idx + cap)):
+        for ch in lines[i]:
+            if ch == "{":
+                depth += 1
+                started = True
+            elif ch == "}":
+                depth -= 1
+        buf.append(lines[i])
+        if started and depth <= 0:
+            break
+    return "\n".join(buf)
+
+
+def _indent_body(lines, start_idx, base_indent, cap=600):
+    """Lines of an indentation-delimited body (Python style), def line included."""
+    buf = [lines[start_idx]]
+    for i in range(start_idx + 1, min(len(lines), start_idx + 1 + cap)):
+        line = lines[i]
+        if line.strip() and (len(line) - len(line.lstrip())) <= base_indent:
+            break
+        buf.append(line)
+    return "\n".join(buf)
+
+
+def parse_with_regex(path, content, lang):
+    """Heuristic per-language regex parse. Returns raw symbol dicts."""
+    rules = _LANG_RE[lang]
+    brace = rules["brace"]
     lines = content.split("\n")
-    for m in _RE_FUNC.finditer(content):
+    symbols = []
+    classes = []  # (line_no, name) in file order, for in_class attribution
+
+    for m in rules["cls"].finditer(content):
         line_no = content[:m.start()].count("\n") + 1
-        name = m.group(1)
-        sig = re.sub(r"\s+", " ", m.group(0).split("{")[0].strip())[:120]
+        if lang == "python":
+            indent, name = m.group(1), m.group(2)
+        else:
+            indent, name = "", m.group(1)
+        classes.append((line_no, name))
         symbols.append({
-            "name": name, "kind": "function", "line": line_no,
-            "signature": sig, "doc": _extract_doc_before(content, line_no - 1),
-            "calls": _extract_calls_regex(content[max(0, m.start()):m.end()]),
-            "in_class": "",
+            "name": name, "kind": "class", "line": line_no,
+            "signature": f"class: {name}",
+            "doc": _extract_doc_before(content, line_no - 1, lang),
+            "calls": [], "in_class": "",
         })
-    for m in _RE_CLASS.finditer(content):
-        line_no = content[:m.start()].count("\n") + 1
-        symbols.append({
-            "name": m.group(1), "kind": "class", "line": line_no,
-            "signature": f"class: {m.group(1)}",
-            "doc": _extract_doc_before(content, line_no - 1), "calls": [], "in_class": "",
-        })
+
+    for m in _iter_func_matches(rules["func"], content):
+        if lang == "python":
+            # the match may start on a preceding blank line (\s* swallows the
+            # newline); anchor line/indent/signature to the line where it ends
+            line_no = content[:m.end()].count("\n") + 1
+            base_indent = len(lines[line_no - 1]) - len(lines[line_no - 1].lstrip())
+            name = m.group(2)
+            in_class_name = ""
+            for cls_line, cls_name in reversed(classes):
+                if cls_line < line_no:
+                    cls_indent = len(lines[cls_line - 1]) - len(lines[cls_line - 1].lstrip())
+                    if base_indent > cls_indent:
+                        in_class_name = cls_name
+                    break
+            body = _indent_body(lines, line_no - 1, base_indent)
+            full = f"{in_class_name}::{name}" if in_class_name else name
+            symbols.append({
+                "name": full, "kind": "method" if in_class_name else "function",
+                "line": line_no,
+                "signature": re.sub(r"\s+", " ", lines[line_no - 1].strip())[:120],
+                "doc": _extract_doc_before(content, line_no - 1, lang),
+                "calls": _extract_calls_regex(body), "in_class": in_class_name,
+            })
+        else:
+            line_no = content[:m.start()].count("\n") + 1
+            # go method pattern carries the receiver type in group(1)
+            if lang == "go" and m.re is GO_METHOD and m.lastindex == 2:
+                recv, name = m.group(1), m.group(2)
+                full = f"{recv}::{name}"
+            else:
+                name = m.group(m.lastindex)
+                full = name
+            # attribute to the enclosing class only for indented definitions
+            line = lines[line_no - 1]
+            if (len(line) - len(line.lstrip())) > 0:
+                for cls_line, cls_name in reversed(classes):
+                    if cls_line < line_no:
+                        in_class_name = cls_name
+                        break
+            else:
+                in_class_name = ""
+            if in_class_name and "::" not in full:
+                full = f"{in_class_name}::{full}"
+            body = _brace_body(lines, line_no - 1)
+            symbols.append({
+                "name": full, "kind": "method" if in_class_name else "function",
+                "line": line_no,
+                "signature": re.sub(r"\s+", " ", m.group(0).split("{")[0].strip())[:120],
+                "doc": _extract_doc_before(content, line_no - 1, lang),
+                "calls": _extract_calls_regex(body), "in_class": in_class_name,
+            })
+    symbols.sort(key=lambda s: s["line"])
     return symbols
+
+
+def _iter_func_matches(patterns, content):
+    """Yield function matches across a language's pattern list, deduped by position."""
+    seen = set()
+    combined = []
+    for pat in patterns:
+        for m in pat.finditer(content):
+            if m.start() not in seen:
+                seen.add(m.start())
+                combined.append(m)
+    combined.sort(key=lambda m: m.start())
+    return combined
 
 
 def _extract_calls_regex(body):
@@ -322,15 +567,19 @@ def kind_prefix(kind):
 def build_entries(source_files, project_root):
     """Build full symbol table entries + per-file raw data.
 
-    Returns (entries, per_file, parser_used).
+    Returns (entries, per_file, parser_stats).
     entries: dict id -> entry
-    per_file: dict rel_path -> {loc, fingerprint, raw_symbols}
+    per_file: dict rel_path -> {loc, fingerprint, lang, raw_symbols}
+    parser_stats: dict lang -> "tree-sitter" | "regex" (per language, actual path)
     """
     entries = {}
     per_file = {}
-    parser_used = "tree-sitter" if get_tree_sitter_parser()[1] else "regex"
+    parser_stats = {}
 
     for path in source_files:
+        lang = EXT_TO_LANG.get(path.suffix.lower())
+        if lang is None:
+            continue
         rel = str(path.relative_to(project_root)).replace("\\", "/")
         content = smart_read(str(path))
         if not content:
@@ -339,14 +588,16 @@ def build_entries(source_files, project_root):
         per_file[rel] = {
             "loc": loc,
             "fingerprint": "sha256:" + (sha256_of_file(path) or ""),
+            "lang": lang,
         }
 
-        if parser_used == "tree-sitter":
-            raws = parse_with_tree_sitter(path, content)
-            if raws is None:
-                raws = parse_with_regex(path, content)
+        raws = parse_with_tree_sitter(path, content, lang)
+        if raws is None:
+            parser_stats.setdefault(lang, "regex")
+            raws = parse_with_regex(path, content, lang)
         else:
-            raws = parse_with_regex(path, content)
+            if lang not in parser_stats:
+                parser_stats[lang] = "tree-sitter"
 
         # Build entry ids
         raw_by_name = {}
@@ -402,7 +653,7 @@ def build_entries(source_files, project_root):
             if estimate_tokens(entry) > ENTRY_MAX_TOKENS and len(entry.get("signature", "")) > 60:
                 entry["signature"] = entry.get("signature", "")[:60]
 
-    return entries, per_file, parser_used
+    return entries, per_file, parser_stats
 
 
 def build_inverted_index(entries):
@@ -579,7 +830,8 @@ def build_router(project, entries, per_file, codebase_tokens, head_commit):
     return router, trimmed_symbols
 
 
-def build_meta(project_root, entries, per_file, router, parser_used, head_commit, understand_any):
+def build_meta(project_root, entries, per_file, router, parser_stats, head_commit,
+               understand_any, unindexed_exts=None):
     """Build code-map.meta.json."""
     files = {}
     for rel, info in per_file.items():
@@ -587,7 +839,9 @@ def build_meta(project_root, entries, per_file, router, parser_used, head_commit
             "fingerprint": info["fingerprint"],
             "entry_count": sum(1 for e in entries.values() if e["file"] == rel),
             "lines": info["loc"],
+            "lang": info.get("lang", ""),
         }
+    parser_summary = "tree-sitter" if any(v == "tree-sitter" for v in parser_stats.values()) else "regex"
     meta = {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "RPD Code-Map Metadata",
@@ -597,7 +851,8 @@ def build_meta(project_root, entries, per_file, router, parser_used, head_commit
         "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "head_commit": head_commit or "unknown",
         "map_commit": head_commit or "unknown",
-        "parser": parser_used,
+        "parser": parser_summary,
+        "parsers": parser_stats,
         "files": files,
         "budget": {
             "router_estimated_read_tokens": router["budget"]["estimated_read_tokens"],
@@ -612,6 +867,10 @@ def build_meta(project_root, entries, per_file, router, parser_used, head_commit
         },
         "understand_anything": understand_any,
     }
+    if unindexed_exts:
+        meta["unindexed_extensions"] = unindexed_exts
+        meta["coverage_note"] = ("以下扩展名暂不在语言注册表内，未被索引；"
+                                 "可通过扩展 LANGS 注册表或 .rpd/keyword-map.json 反馈")
     return meta
 
 
@@ -656,23 +915,52 @@ def discover_documents(project_root):
 def project_summary(project_root, source_files, head_commit):
     """Detect project name/language from root dir name + source extensions."""
     name = project_root.name.strip() or "project"
-    langs = []
     ext_count = {}
     for f in source_files:
         e = f.suffix.lower()
         ext_count[e] = ext_count.get(e, 0) + 1
-    if ext_count:
-        top_ext = max(ext_count, key=ext_count.get)
-        langs = {"cpp": "cpp", "h": "cpp", "hpp": "cpp", "hxx": "cpp",
-                 "c": "c"}.get(top_ext.lstrip("."), top_ext.lstrip("."))
+    lang_count = {}
+    for ext, count in ext_count.items():
+        lang = EXT_TO_LANG.get(ext)
+        if lang:
+            lang_count[lang] = lang_count.get(lang, 0) + count
+    langs = [l for l, _ in sorted(lang_count.items(), key=lambda kv: -kv[1])]
     total_lines = sum(file_loc(f) for f in source_files)
     return {
         "name": name,
-        "language": [langs] if isinstance(langs, str) else langs,
+        "language": langs,
         "file_count": len(source_files),
         "line_count": total_lines,
         "documents": discover_documents(project_root),
     }
+
+
+def count_unindexed_extensions(project_root):
+    """Coverage report: extensions of non-indexed text files (top 10 by count).
+
+    Makes "unsupported language" visible in meta instead of silently dropping.
+    """
+    counts = {}
+    for p in project_root.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(project_root)
+        if set(rel.parts) & SKIP_DIRS:
+            continue
+        skip_dirs = {part.lower() for part in rel.parts[:-1]}
+        if skip_dirs & SKIP_PATH_PARTS:
+            continue
+        ext = p.suffix.lower()
+        if not ext or ext in PRIMARY_EXTENSIONS:
+            continue
+        if ext in (".md", ".txt", ".json", ".yml", ".yaml", ".toml", ".cfg",
+                   ".ini", ".lock", ".xml", ".html", ".css", ".scss", ".vue",
+                   ".svelte", ".astro", ".sql", ".sh", ".bat", ".ps1", ".proto",
+                   ".graphql", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+                   ".pdf", ".woff", ".woff2", ".ttf"):
+            continue  # config/docs/assets are not "missed languages"
+        counts[ext] = counts.get(ext, 0) + 1
+    return dict(sorted(counts.items(), key=lambda kv: -kv[1])[:10])
 
 
 def generate_map(project_root, incremental=False):
@@ -704,7 +992,7 @@ def generate_map(project_root, incremental=False):
         except Exception:
             pass  # fall back to full re-parse
 
-    entries, per_file, parser_used = build_entries(source_files, root)
+    entries, per_file, parser_stats = build_entries(source_files, root)
     inverted = build_inverted_index(entries)
     code_map = {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -723,7 +1011,8 @@ def generate_map(project_root, incremental=False):
     write_atomic(root, "code-map.router.json", router)
 
     ua = detect_understand_any(root)
-    meta = build_meta(root, entries, per_file, router, parser_used, head, ua)
+    unindexed = count_unindexed_extensions(root)
+    meta = build_meta(root, entries, per_file, router, parser_stats, head, ua, unindexed)
     ts = router["budget"].get("trimmed_symbols", 0)
     tf = router["budget"].get("trimmed_files", 0)
     if ts or tf:
@@ -738,7 +1027,10 @@ def generate_map(project_root, incremental=False):
         "project_root": str(root.resolve()),
         "source_files": len(source_files),
         "symbols": len(entries),
-        "parser": parser_used,
+        "parser": ("tree-sitter" if any(v == "tree-sitter" for v in parser_stats.values())
+                   else "regex"),
+        "parsers": parser_stats,
+        "unindexed_extensions": unindexed,
         "router_tokens": router["budget"]["estimated_read_tokens"],
         "router_token_limit": ROUTER_TOKEN_LIMIT,
         "router_pct": router["budget"]["pct_of_codebase"],
@@ -767,6 +1059,10 @@ def main():
     else:
         print("Code-map 生成完成:")
         print(f"  源文件: {report['source_files']} | 符号: {report['symbols']} | parser: {report['parser']}")
+        if report.get("parsers"):
+            print(f"  分语言: {report['parsers']}")
+        if report.get("unindexed_extensions"):
+            print(f"  未索引扩展名: {report['unindexed_extensions']}")
         print(f"  router: {report['router_tokens']} token ({report['router_pct']}% of codebase) "
               f"限 {report['router_token_limit']} token / {report['router_pct_limit']}% "
               f"{'[已裁剪 top_symbols]' if report['trimmed'] else ''}")
