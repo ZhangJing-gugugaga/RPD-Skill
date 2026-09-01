@@ -14,6 +14,7 @@ Exit codes:
 import json
 import re
 import sys
+from pathlib import Path
 
 def smart_read(file_path):
     """Read file with multiple encoding attempts."""
@@ -189,20 +190,46 @@ def determine_confidence(intent, maturity, vague_count, clear_count):
     return "low"
 
 
-def route(text):
+def has_state_file(project_root):
+    """Whether an RPD state file exists (v2 active-context or v1 state)."""
+    root = Path(project_root)
+    if (root / ".rpd" / "active-context.md").is_file():
+        return True
+    return (root / ".project-state.md").is_file()
+
+
+def route(text, project_root=None):
     """Route user input to intent, maturity, and recommended flow.
+
+    When project_root is given, a "continue" signal is only honoured if an RPD
+    state file actually exists — otherwise "继续/下一步" in an unrelated
+    conversation would misroute to flow_c (P1-2). It falls back to ask_user
+    with an explanatory note.
 
     Args:
         text: User input string.
+        project_root: Optional project root to verify state existence.
 
     Returns:
         Dict with keys: intent, maturity, recommended_flow, confidence,
-        matched_triggers.
+        matched_triggers, note.
     """
     intent, matched_triggers = classify_intent(text)
     maturity, vague_count, clear_count = classify_maturity(text)
     flow = determine_flow(intent, maturity)
     confidence = determine_confidence(intent, maturity, vague_count, clear_count)
+    note = ""
+
+    if project_root and intent == "continue" and flow == "flow_c":
+        try:
+            if not has_state_file(project_root):
+                flow = "ask_user"
+                confidence = "low"
+                note = ("continue 信号命中但项目无 RPD 状态文件"
+                        "（.rpd/active-context.md 与 .project-state.md 均不存在），"
+                        "降级为 ask_user：与用户确认是继续本对话还是恢复历史项目")
+        except OSError:
+            pass
 
     return {
         "intent": intent,
@@ -210,12 +237,14 @@ def route(text):
         "recommended_flow": flow,
         "confidence": confidence,
         "matched_triggers": matched_triggers,
+        "note": note,
     }
 
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
-        print("Usage: python intent-router.py \"<user-input-text>\"", file=sys.stderr)
+        print('Usage: python intent-router.py "<user-input-text>" [project-root]',
+              file=sys.stderr)
         return 1
 
     text = sys.argv[1].strip()
@@ -223,7 +252,8 @@ def main():
         print("Error: Empty input text", file=sys.stderr)
         return 1
 
-    result = route(text)
+    project_root = sys.argv[2] if len(sys.argv) > 2 else None
+    result = route(text, project_root)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 

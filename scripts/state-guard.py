@@ -228,16 +228,30 @@ def check_git_concurrency(state_file_path: Path) -> None:
         status = subprocess.check_output(
             ["git", "status", "--porcelain", str(state_file_path)],
             text=True, encoding="utf-8", errors="replace"
-        ).strip()
+        )
 
-        if status:
-            if "UU" in status:
-                print(f"【并发硬熔断】Git 冲突未解决：{state_file_path.name}！", file=sys.stderr)
-                print("请先运行 git mergetool 解决冲突。", file=sys.stderr)
-                sys.exit(4)
-            elif "M" in status:
-                print(f"WARNING: {state_file_path.name} has uncommitted changes.", file=sys.stderr)
-                print("Consider committing before updating.", file=sys.stderr)
+        # Parse porcelain v1 per-field: XY (two status columns) + space + path.
+        # Substring matching ("UU" in output) misfires when the path itself
+        # contains "UU" or "M" (P1-5).
+        unmerged = False
+        modified = False
+        for line in status.splitlines():
+            if len(line) < 3:
+                continue
+            x, y = line[0], line[1]
+            if "U" in (x, y) or line[:2] in ("AA", "DD"):  # any unmerged state
+                unmerged = True
+            if not (x == " " and y == " "):
+                modified = True
+        if unmerged:
+            print(f"【并发硬熔断】Git 冲突未解决：{state_file_path.name}！", file=sys.stderr)
+            print("请先运行 git mergetool 解决冲突。", file=sys.stderr)
+            sys.exit(4)
+        elif modified:
+            print(f"WARNING: {state_file_path.name} has uncommitted changes.", file=sys.stderr)
+            print("Consider committing before updating.", file=sys.stderr)
+    except SystemExit:
+        raise
     except Exception:
         pass
 
@@ -277,7 +291,23 @@ def atomic_update(state_file_path: Path, content_file: Path) -> None:
 
     # Step 1-4: Physical lock around the whole backup->write->validate transaction
     # (R-18 hardening: prevent race conditions from concurrent agent processes)
-    with ProjectStateMutex(state_file_path):
+    try:
+        _mutex_ctx = ProjectStateMutex(state_file_path)
+        _mutex_ctx.__enter__()
+    except TimeoutError as e:
+        # Lock timeout = concurrency conflict, not a usage error. Exit with the
+        # documented conflict code (4) instead of an uncaught traceback (exit 1),
+        # and clean up the fd the __enter__ path left open (P1-5).
+        try:
+            if getattr(_mutex_ctx, "_fd", None) is not None:
+                _mutex_ctx._fd.close()
+                _mutex_ctx._fd = None
+        except Exception:
+            pass
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(4)
+
+    with _mutex_ctx:
         # Step 1: Physical backup (before update)
         create_backup(state_file_path)
 

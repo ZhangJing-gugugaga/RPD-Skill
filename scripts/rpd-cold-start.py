@@ -95,6 +95,17 @@ def current_head(project_root):
         return None
 
 
+def git_status(project_root):
+    """`git status --porcelain` output, or None if git unavailable."""
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(project_root), "status", "--porcelain"],
+            text=True, encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        return None
+
+
 def redline_check(project_root, meta):
     """Red-line machine check: fingerprint compare against meta.
 
@@ -109,6 +120,17 @@ def redline_check(project_root, meta):
     result["git_ok"] = git_ok
     head = current_head(project_root)
     map_commit = meta.get("map_commit") or meta.get("head_commit")
+
+    # Fast path (P1-3): map_commit == HEAD and the worktree is clean means the
+    # map was generated exactly at the current commit — trust it and skip the
+    # full-repo re-hash (454 files ≈ seconds on every cold start otherwise).
+    # Uncommitted (dirty) worktree still gets a full fingerprint check.
+    if git_ok and map_commit and head and map_commit == head:
+        status = git_status(project_root)
+        if status is not None and not status.strip():
+            result["verified"] = list(files_meta.keys())
+            result["fast_path"] = True
+            return result
 
     check_paths = list(files_meta.keys())
 
