@@ -88,18 +88,18 @@ C1 查 `.rpd/active-context.md`（v2 首选）→ 无则查 `.project-state.md`�
 ## Script Toolbox / 脚本工具箱
 | Script | Purpose / 用途 |
 |--------|---------|
-| `intent-router.py` | 确定性意图路由（每次对话开始） |
-| `security-scanner.py` | 8 SEC + 注入 + 流式扫描（Flow B/C 开始） |
+| `intent-router.py` | 意图路由（每次对话开始） |
+| `security-scanner.py` | 8 SEC + 注入扫描（Flow B/C 开始） |
 | `project-scanner.py` | 技术栈/组件/路由（Flow B） |
 | `gap-analyzer.py` | PRD vs 代码 + 决策漂移（Flow C） |
-| `state-validator.py` | 状态文件 Schema 校验（状态变更后） |
+| `state-validator.py` | 状态文件 Schema 校验 |
 | `state-guard.py` | 备份 + 原子写 + 分支锁（状态更新前） |
-| `prd-validator.py` | PRD 完整性 + `--ai-mode`（PRD 生成后） |
-| `rpd-cold-start.py` | v2 冷启动 7 步 + v1 兼容（新会话接手） |
-| `code-map-generator.py` | v2 code-map 三件套（功能完成/收尾） |
-| `rpd-decisions.py` | decisions.md 决策日志（决策确认前） |
-| `rpd-metrics.py` | M1/M2/M3 指标采集（会话观测） |
-| `code-map-enrich.py` | 语义层富化/校验（结构层之上，可选） |
+| `prd-validator.py` | PRD 完整性 + `--ai-mode` |
+| `rpd-cold-start.py` | v2 冷启动 7 步（新会话接手） |
+| `code-map-generator.py` | code-map 三件套（功能完成/收尾） |
+| `rpd-decisions.py` | decisions.md 决策日志 |
+| `rpd-metrics.py` | M1/M2/M3 指标采集 |
+| `code-map-enrich.py` | 语义层富化/校验（可选） |
 | `rpd-hook-bridge.py` | 宿主 hooks 入口：自动恢复+落盘提醒 |
 | `run-eval.py` | eval 场景（19 个，开发/CI） |
 
